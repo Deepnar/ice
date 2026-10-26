@@ -171,13 +171,54 @@ against, so Z2 families are development material for FINAL purposes.
 |---|---|
 | Ledger/question writers (two families) | DeepSeek V4.1 Flash; MiMo V2.5/V2.6 Flash |
 | Ledger verifier / tie-break | the non-writing family of the two, then LongCat-2.0 |
-| Answerer | GPT 6 Luna (frozen profile `opencode-luna6`) |
+| Answerer | ~~GPT 6 Luna (`opencode-luna6`)~~ → **local `qwen3.8:27b`** (D6c, 2026-10-26) |
 | Answer judge, background-content judge | Muse Spark 1.3 Contributor (`opencode-muse13`) |
 | Second-opinion sample (background audit) | DeepSeek V4.1 Flash on 20% of judged items |
 | Second answer judge | **FINAL only**, untuned, reported beside Muse |
 
 Writers never answer or judge. If a profile becomes unavailable, the replacement
 is recorded before use; no silent substitution.
+
+**D6c — Local answerer; every cloud call at the end (maintainer, 2026-10-26).** The
+opencode plan's limits are spend-based: each response reports an `allowance` cost, and the
+per-model request table assumes a typical request. Z2 answers send a median ~25k input
+tokens, so one Luna answer cost ≈ $0.0137 of allowance, ~5× a typical request; the
+5-hour window (≈ $12) filled after 973 answers in 49 minutes and the monthly limit
+(≈ $60, already 78% used by S1–S8) was reached after 1,493 of B's 4,864 distinct prompts.
+Decision:
+- **Answerer = `qwen3.8:27b`, Ollama (Q4_K_M GGUF, 17 GB), thinking ON, temperature 0,
+  `num_ctx` 49,152, output cap = what the window leaves after the prompt, up to 16,000
+  and never below 8,000 tokens (thinking + answer), `keep_alive` held for the stage and
+  released after.** Every Z2 answer (S10 B/C, S12) uses it; the 1,493 Luna
+  answers are moved aside (`s10-B.luna-answers/`), never mixed with local answers.
+- **Fit, measured:** the largest of all 6,830 distinct B/C prompts is 37,539 tokens
+  (ICE's context budget caps it; C ≤ 19,749), the largest oracle evidence set 22,228.
+  The largest prompt answered at 19.0 GB peak VRAM. A prompt that cannot fit
+  `num_ctx` with the output cap is recorded `too_long` — never truncated.
+- **Speed, measured (laptop RTX 5090, 24 GB):** 25k-token prompt, thinking off 39 s;
+  37.5k-token prompt, thinking off 58 s, thinking on ~100 s (~2,200 thinking tokens).
+  Estimate for all ~8,800 Z2 answers with thinking on: ~7–9 days of GPU (≈ 4 days
+  with it off), plus the ~2-day S12 replay — inside the ~13 days before the plan's
+  monthly reset.
+- **Why not vLLM/SGLang:** Qwen's official builds are BF16 (~54 GB) and FP8 (~28 GB);
+  the 4-bit vLLM builds (NVIDIA NVFP4, AWQ-INT4) are ~21–22 GB because the 248k-vocab
+  embedding/output layers stay full precision — with a 41k-token cache they exceed
+  the 23.5 GB ceiling. vLLM's main gain (batching concurrent requests) needs cache
+  room this card does not have.
+- **Why thinking on:** Luna answered with reasoning (~1,000–2,000 reasoning tokens);
+  turning Qwen's off would make the answerer change twice. It costs GPU days only,
+  and the cloud calls wait for the reset either way.
+- **Order:** every local stage runs first (S10 B, S10 C, S12 replay + reads, S12
+  answers); every cloud stage (S11 B, S11 C, S12 grading) runs last, on one renewed
+  plan period. D7's 4,000 cap was Luna's (reasoning included). Qwen thinks longest
+  where memory is thinnest (a recent-only read: 2.2k-token prompt, 6.3k thinking-and-
+  answer tokens), so a fixed 8,000 cap would turn exactly those failures into
+  `incomplete` (ungraded, D11) and flatter the weakest conditions; the window-sized cap
+  avoids that, and the report states the incomplete rate per condition.
+- **What this changes:** Z2's answers measure ICE with a local 27B answerer, which is
+  the configuration ICE itself runs (local-first). Within-study comparisons hold —
+  every condition shares the answerer. Absolute scores are not comparable with any
+  Luna-answered number.
 
 **Data-use terms (read 2026-10-17, opencode.ai/docs/go).** MiMo, DeepSeek and LongCat on
 Go: no training, 0-day retention (DeepSeek's zero-retention agreement is renewed monthly;
@@ -454,9 +495,9 @@ hash-bound to its inputs; private content stays under `logs/`):
 | S7 replay B and C on the declared clock | checkpoint stores, event log | local |
 | S8 background-content audit | `bg-audit.json` | Muse + sample |
 | S9 read passes (controls, ablations, decay overlays) | per-condition contexts | local |
-| S10 answers | per-condition answers | Luna |
-| S11 grading and retrieval diagnostics | grades, semantic credits, report | Muse |
-| S12 LME oracle | per-instance contexts, answers, grades | local + Luna + Muse |
+| S10 answers | per-condition answers | local `qwen3.8:27b` (D6c) |
+| S11 grading and retrieval diagnostics | grades, semantic credits, report | Muse — runs last (D6c) |
+| S12 LME oracle | per-instance contexts, answers, grades | local (answers too, D6c) + Muse last |
 
 **Ledger entry:** `{id, history, kind (fact|preference|decision|plan|advice|procedure|event), subject, value, speaker, asserted|suggested|hypothetical, citations[], valid_from_turn, superseded_by?, writers[], verified}`.
 
@@ -479,6 +520,8 @@ judges as answering it.
 and 10,000 grades across conditions (identical prompts deduplicated); S12 about
 2,000 answers and grades. Writers and Muse have five-digit limits; Luna (4,230 per
 5 hours) is the pacing limit, so answering runs in resumable batches.
+*(Superseded 2026-10-26 by D6c: the limits are spend-based, Luna reached the monthly
+limit at 1,493 answers, and answering moved to the local model.)*
 
 **Compute** (from the 5.5 h, 251-pair development replay, before speed fixes):
 replay B + C ≈ 26 h; LME oracle replay ≈ 4 days (≈ 11,000 messages); read passes
