@@ -6,6 +6,7 @@ The free Zen variants are refused to API clients (D6b, 2026-10-17), so none
 appear here. Every call records the profile's public metadata.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -26,6 +27,14 @@ Z2_PROFILES = {
     "longcat": PROFILES["opencode-longcat20"],
     "luna": PROFILES["opencode-luna6"],
     "muse": PROFILES["opencode-muse13"],
+    # FINAL's second, untuned judge (Z3 D7): a fifth family — not the answerer (Qwen), the
+    # writers (DeepSeek, MiMo) or Muse (Meta). OpenCode Go serves it on the Anthropic Messages
+    # endpoint; PROBE_ANTHROPIC_BASE_URL defaults to the documented
+    # https://opencode.ai/inference/go/anthropic (confirm on the first call; D6a qualifies it).
+    "haiku": ProviderProfile(name="opencode-haiku55", endpoint="anthropic_messages", model="claude-haiku-5-5",
+                             base_url=os.environ.get("PROBE_ANTHROPIC_BASE_URL",
+                                                     "https://opencode.ai/inference/go/anthropic"),
+                             api_key_env="PROBE_API_KEY"),
 }
 
 # D6: the two ledger/question writer families; each verifies the other. Muse 1.3
