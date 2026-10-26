@@ -45,6 +45,17 @@ sys.path.insert(0, str(ROOT))
 POLICY = "ice-z2-lme-oracle-1"
 DATA = ROOT / "experiments/lme/data/longmemeval_oracle"
 MANIFEST = ROOT / "experiments/lme/data/MANIFEST.json"
+# FINAL (Z3 D3) runs the same machinery on LongMemEval-S's pinned 100-instance slice.
+DATASETS = {"oracle": ("longmemeval_oracle", "ice-z2-lme-oracle-1"),
+            "s": ("longmemeval_s", "ice-final-lme-s-1")}
+DATASET = "oracle"
+
+
+def select_dataset(name):
+    """Point the module at one pinned LongMemEval file (and its policy tag)."""
+    global DATA, POLICY, DATASET
+    key, POLICY = DATASETS[name]
+    DATA, DATASET = ROOT / "experiments/lme/data" / key, name
 TURN_GAP = timedelta(minutes=2)
 CONDITIONS = ("full", "warm_vector", "recent_only", "bare_vector", "all_evidence")
 ARMS = {"full": "full", "warm_vector": "vector_only", "recent_only": "recent_only"}
@@ -52,12 +63,13 @@ ARMS = {"full": "full", "warm_vector": "vector_only", "recent_only": "recent_onl
 
 # ── the dataset ─────────────────────────────────────────────────────────────
 
-def load_instances(path=DATA, manifest=MANIFEST):
-    """The pinned oracle file, refused if its bytes are not the manifest's."""
-    expected = json.loads(Path(manifest).read_text())["files"]["longmemeval_oracle"]["sha256"]
+def load_instances(path=None, manifest=MANIFEST):
+    """The pinned LongMemEval file, refused if its bytes are not the manifest's."""
+    path, key = path or DATA, DATASETS[DATASET][0]
+    expected = json.loads(Path(manifest).read_text())["files"][key]["sha256"]
     raw = Path(path).read_bytes()
     if hashlib.sha256(raw).hexdigest() != expected:
-        raise ValueError("oracle file differs from its pinned sha256")
+        raise ValueError(f"{key} differs from its pinned sha256")
     data = json.loads(raw)
     if len(data) != 500:
         raise ValueError(f"expected 500 instances, found {len(data)}")
@@ -95,7 +107,7 @@ def pairs(session):
 
 def layout(inst):
     """Sessions sorted by date as seed_v3 conversations, plus the question time."""
-    sessions = []
+    sessions, answer_sessions = [], set(inst.get("answer_session_ids") or [])
     for index, messages in enumerate(inst["haystack_sessions"]):
         sessions.append(dict(index=index, session_id=inst["haystack_session_ids"][index],
                              start=parse_date(inst["haystack_dates"][index]), pairs=pairs(messages)))
@@ -114,7 +126,8 @@ def layout(inst):
         previous_end = rows[-1]["timestamp"] if rows else previous_end
     asked = parse_date(inst["question_date"])
     return dict(conversations=conversations, evidence=evidence, question_time=asked,
-                sessions=[dict(slug=f"lme{k:02d}", session_id=s["session_id"], start=s["start"].isoformat())
+                sessions=[dict(slug=f"lme{k:02d}", session_id=s["session_id"], start=s["start"].isoformat(),
+                               evidence=s["session_id"] in answer_sessions)
                           for k, s in enumerate(sessions)],
                 eligible=previous_end is None or asked > previous_end)
 
@@ -181,10 +194,11 @@ def evidence_state(db, plan):
 
 
 def all_evidence_messages(recent_stage, plan):
-    """recent_only's envelope with every supplied session as the evidence pair."""
+    """recent_only's envelope with the evidence sessions as the evidence pair (in the
+    oracle file every session is evidence; in LongMemEval-S only answer_session_ids)."""
     from experiments.z2.read_passes import CONTEXT_ACK, CONTEXT_HEADER
     parts = []
-    for s in plan["sessions"]:
+    for s in [s for s in plan["sessions"] if s.get("evidence", True)]:
         lines = [f"[Session {s['session_id']}, {s['start'][:16]}]"]
         for row in plan["conversations"][s["slug"]]:
             lines.append(f"User: {row['prompt']}\nAssistant: {row['response']}")
@@ -378,11 +392,17 @@ def main() -> int:
     r.add_argument("--out", type=Path, required=True)
     r.add_argument("--limit", type=int)
     r.add_argument("--only", nargs="*")
+    r.add_argument("--dataset", choices=sorted(DATASETS), default="oracle")
+    r.add_argument("--slice", type=Path, help="a pinned slice (experiments/lme/final_slice.json): its question_ids")
     g = sub.add_parser("grade")
+    g.add_argument("--dataset", choices=sorted(DATASETS), default="oracle")
     g.add_argument("--units", type=Path, required=True)
     g.add_argument("--answers", type=Path, required=True)
     g.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
+    select_dataset(args.dataset)
+    if getattr(args, "slice", None):
+        args.only = json.loads(args.slice.read_text())["question_ids"]
     out = args.out.resolve()
     if not out.is_relative_to(ROOT / "logs"):
         raise ValueError("oracle outputs are private: keep them under logs/")

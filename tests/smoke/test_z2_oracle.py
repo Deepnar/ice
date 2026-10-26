@@ -39,3 +39,18 @@ def test_layout_sorts_sessions_and_keeps_every_turn():
 def test_upstream_verdict_parses_the_first_yes_or_no():
     assert O._yes("Yes.") is True and O._yes("no, it misses the date") is False
     assert O._yes("The response is correct: yes") is True and O._yes("unclear") is None
+
+
+def test_longmemeval_s_slice_loads_and_keeps_only_evidence_sessions_for_the_control():
+    import json
+    O.select_dataset("s")
+    try:
+        data = {i["question_id"]: i for i in O.load_instances()}
+        ids = json.loads((O.ROOT / "experiments/lme/final_slice.json").read_text())["question_ids"]
+        inst = data[ids[0]]
+        plan = O.layout(inst)
+        flagged = [s for s in plan["sessions"] if s["evidence"]]
+        assert flagged and len(flagged) == len(set(inst["answer_session_ids"]) & set(inst["haystack_session_ids"]))
+        assert len(flagged) < len(plan["sessions"])
+    finally:
+        O.select_dataset("oracle")
