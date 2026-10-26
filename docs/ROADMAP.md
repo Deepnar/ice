@@ -145,8 +145,11 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   shows questions failing that the codex would have answered.
 - ✅⏳ `dffb68f` **B7** classifier input-norm / init variants — train + compare later with
   `logs/fix-pass/b7_variants.py` (F1 + style flip rate on Z2's 35 base/messy pairs).
-- ☐ **Z3** decision sheet for FINAL (roster, synthetic set, LongMemEval-S slice, ablations,
-  baselines, answerer) — maintainer decides.
+- ✅ **Z3** decision sheet drafted: [specs/Z3_DECISIONS.md](specs/Z3_DECISIONS.md) — picks: sealed
+  B/C + the four untouched private groups; 6 synthetic conversations; LongMemEval-S
+  100-instance slice with the oracle evidence as a read-time control; + a long-context
+  baseline; leave-one-out only; local answerer; Haiku 5.5 as second judge. **⚑ Maintainer
+  decides D1–D5, D7.**
 - ☐ FINAL prep after Z3: synthetic seeds, dataset adapters, runner parameters (Z2 D13).
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
   non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
