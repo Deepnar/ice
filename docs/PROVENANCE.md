@@ -1,3 +1,41 @@
+## 2026-10-26 — v3 Z2 run: S7–S9 complete; S10 answerer moved to local Qwen (D6c)
+
+All v3; private outputs under `logs/z2-run-main/` (gitignored). Runner `run_z2.py`, run
+`main`, started 2026-10-19 23:21 by the maintainer, stopped and resumed several times.
+
+- **S7 replay:** B 1,119 / C 325 turns, one checkpoint per session (B 45, C 13), every
+  maintenance job complete, no `recent_rows_not_excluded`. Active hours from the runner
+  log: B 10.7 h, C 14.4 h. **Known gap: 0 batch-summary rows in both stores** — every
+  batch raised `TypeError` (`batch_summarizer._batch_llm` has no `schema` parameter;
+  26 failed batches in B, 1 in C, caught and logged). Ablation group 5 therefore
+  measures the conversation fold only (B 205, C 154 notes). Fix after Z2: roadmap G79.
+- **S8 background audit:** B 1,065 / C 908 judgments; Muse–DeepSeek agreement B 0.823,
+  C 0.787. Codex facts faithful 99/100 in both; fact supersession valid B 1/6, C 45/93;
+  session summaries faithful B 8/44; turn summaries faithful B 95%, C 85%.
+- **S9 read passes:** B 6,847 / C 2,900 contexts (B 12.6 h, C 13.6 h; C ~16 s/context vs
+  B ~4 s — longer messages). S9 C once ran out of GPU memory in the bare-vector control
+  (whole-message chunks, batch 8: a 3.9 GiB attention buffer); `encode_backing_off`
+  halves an out-of-memory batch down to one text (`1179a84`), vectors identical up to
+  float rounding. Distinct prompts: B 4,864, C 1,966; largest 37,539 (B) / 19,749 (C)
+  Qwen3 tokens — ICE's context budget caps them.
+- **S10 with GPT 6 Luna stopped at 1,493 of B's 4,864 prompts** (1,474 complete, 19
+  incomplete, 0 errors): the opencode Go plan's limits are spend-based (per-response
+  `allowance`); a Z2 answer averaged $0.0137 (median 25k input tokens, ~0 cache reads),
+  ~5× the typical request the per-model table assumes. 5-hour window ≈ $12 (973
+  answers in 49 min), weekly ≈ $29, monthly ≈ $60 — reached. Those answers are moved to
+  `s10-B.luna-answers/` and are not used.
+- **Answerer switched (spec D6c):** local `qwen3.8:27b` (Ollama, Q4_K_M, digest
+  `22130167…`), thinking on, temperature 0, seed 0, `num_ctx` 49,152, output cap = what
+  the window leaves, 8,000–16,000. Measured: the largest prompt at 19.0 GB peak VRAM;
+  58 s thinking off, ~100 s on; a real 3-context trial 84 / 59 / 119 s, all complete;
+  the recent-only read (2.2k-token prompt) used 6,346 output tokens, identical on a
+  rerun (deterministic). vLLM/SGLang ruled out: 4-bit builds of the model are 21–22 GB
+  (full-precision 248k-vocab layers), no room for a 41k cache in 23.5 GB.
+- **Order changed:** every local stage first (S10 B/C, S12 replay + reads, S12
+  answers), every cloud judging stage last (S11 B/C, S12 grading) on one renewed plan
+  period. The meter's S10 count no longer re-reads S9's ~7 GB of units per redraw
+  (`72cce0c`; a redraw had taken over a minute).
+
 ## 2026-10-19 — v3 Z2 question set: S3-S6 complete, FINAL families sealed
 
 All v3; private material under `logs/z2-questions-final/` (gitignored). Ledgers:

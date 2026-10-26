@@ -2923,3 +2923,15 @@ asking what must be true of each item ("still pending? closed later?", TRAPS 136
 open items from 70% to 91%. When a check guards a write, name what it guards — truth,
 fit, currency — and measure the ones it does not.
 
+### 148. A per-model request table is a spending cap in disguise
+
+The opencode Go plan lists limits as requests per model (Luna: 4,230 per 5 hours,
+21,130 per month). The real limit is spend: every response carries an `allowance`
+cost, and the table divides the cap by a *typical* request. Z2's answers sent ~25k
+input tokens each, ~5× typical, so the monthly limit arrived after 1,493 answers — a
+plan built on "4,230 per 5 hours" had paced to a number that never applied. **Before
+sizing a cloud stage, read the per-response cost of a few real calls and divide the
+cap by that**, not by the table. Large prompts are written to the provider's cache
+and almost never read back when every prompt differs, so caching adds cost rather
+than saving it. (2026-10-26, Z2 S10; PROVENANCE same date.)
+
