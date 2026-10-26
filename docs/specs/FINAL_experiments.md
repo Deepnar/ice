@@ -355,6 +355,25 @@ the user gets access — seam only, no dependency); **better ground truth is man
 
 ### 2.1 Datasets
 
+**⚑ FINAL private LSREP corpus — decided by the maintainer, 2026-10-26 (supersedes the
+private rows of the 2026-10-15 roster below; synthetic and public data are decided next).**
+A few private histories, each replayed as one conversation into its own store (no
+cross-chat replay), alongside a larger synthetic set. Ids and sizes:
+`docs/PRIVATE_CONTEXT.md` [PRIVATE:final-private-roster]; histories are registered in
+`experiments/z2/histories.py`.
+
+| History | What | Reused from Z2 | New work |
+|---|---|---|---|
+| **B** (v2 Dataset B, long-form world-building, 1,119 pairs) | the FINAL-sealed 40% of B's question families | ledger, sealed families, answer keys | **replay again** on the fixed system (~11 h): Z2's B stores were built by the pre-fix code |
+| **ICE project, stitched** (six chats stitched into one dialogue, 1,737 user turns, ~5.9M tokens; its first 325 pairs are Z2's C) | replaces C; C's sealed families stay valid as-of their checkpoints | C's ledger and sealed families for the first segment | ledger + questions for the later segments (~4.8M tokens — FINAL's largest prep job); replay ~2–3 days (long pasted documents ran ~160 s/turn in Z2) |
+| **Hardware/laptop decision**, two chats | each chat its own history (not cross-chat) | — | ledger + questions; replay < 1 day |
+| **Linux setup**, three chats | each chat its own history (not cross-chat) | — | ledger + questions; replay < 1 day |
+
+Open in this block: v2 Dataset **A** (fan fiction, 290 pairs — untouched by tuning and
+Z2), v2 Dataset **D** (academic planning, 251 pairs — Z2's development/tuning history),
+the software-project chat (128 pairs). Releasing any private history is a later paper's
+work and needs heavy redaction.
+
 **Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the
 record).** Reported in separate tables, never pooled. *Native* = the dataset's own
 questions and protocol; *LSREP* = ordered replay with checkpoints, cutoff-local

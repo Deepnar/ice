@@ -20,6 +20,11 @@ Each decision: options, the pick, and what it costs. **⚑ = needs the maintaine
 
 ## D1 ⚑ Private conversations
 
+**Decided 2026-10-26 (maintainer):** B (sealed families, re-replayed on the fixed system), the
+stitched ICE project chat in place of C, the hardware-decision chats and the Linux-setup chats,
+each chat replayed separately. Written into FINAL_experiments.md §2.1. Still open: A, D,
+the software-project chat. The text below is the original proposal.
+
 Candidates (sizes in FINAL_experiments.md §2.1; ids in `docs/PRIVATE_CONTEXT.md`
 [PRIVATE:final-private-roster]):
 
