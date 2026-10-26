@@ -42,3 +42,20 @@ HISTORIES = {
                  changes="logs/z2-questions-final/C/changes.json",
                  asks="logs/z2-questions-final/C/z2-asks.json"),
 }
+
+# FINAL private histories (FINAL_experiments.md §2.1, 2026-10-26). Originals from
+# experiments/final/private_originals.py; ledger, changes and asks are produced by Z2's
+# S1-S6 chain into logs/final-questions/<key>/ (all of each history's families are FINAL's:
+# no 60/40 split). Targets follow B's ~0.45 occurrences per pair; short histories ask
+# 1.5 times per family, as C did.
+FINAL_INPUTS = "logs/final-private-inputs"
+FINAL_PRIVATE = {
+    key: History(key, prefix, f"{FINAL_INPUTS}/final-originals-{key}.json", pairs, True,
+                 round(pairs * 0.45), 1.5, round(pairs * 0.45 / 1.5),
+                 ledger=f"logs/final-questions/{key}/ledger.json",
+                 changes=f"logs/final-questions/{key}/changes.json",
+                 asks=f"logs/final-questions/{key}/asks.json")
+    for key, prefix, pairs in (("A", "633e26f8", 290), ("D", "ecc64aab", 251), ("SW", "bd94e64b", 128),
+                               ("LAP", "942699a4", 101))
+}
+HISTORIES.update(FINAL_PRIVATE)

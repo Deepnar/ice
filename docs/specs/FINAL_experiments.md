@@ -366,7 +366,7 @@ synthetic set (designed next). Each history is one conversation replayed into it
 | **B** — v2 Dataset B, long-form world-building | 1,119 (45) | ledger, FINAL-sealed 40% of families, answer keys | **replay again** on the fixed system (~11 h); labelled a development history (Z2 fixes were made on B evidence) |
 | **A** — v2 Dataset A, fan-fiction continuation | 290 (12) | — | ledger + questions; untouched by tuning and Z2 — the cleanest private test |
 | **D** — v2 Dataset D, academic/personal planning | 251 (10) | — | ledger + questions; **labelled development** (v3 tuning history) |
-| **Laptop decision** — the long thread (two months) | 157 (7) | — | ledger + questions; replayed alone, not stitched with the earlier laptop chats |
+| **Laptop decision** — the hardware/laptop decision chat (101 pairs, March–April; history `LAP`). Approved by the maintainer 2026-10-26 in place of the long DeepSeek thread first chosen, which opens as the excluded personal conversation (same first message; reserved validation history) and is **never used** | 101 (5) | — | ledger + questions; replayed alone |
 | **Software project** — ERP timetable work project | 128 (5) | — | ledger + questions; a technical domain that is not ICE |
 
 **Dropped, with reasons:** the **stitched ICE project chat** (maintainer, 2026-10-26) — BEAM's

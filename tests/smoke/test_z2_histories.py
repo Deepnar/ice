@@ -13,6 +13,14 @@ def test_registry_holds_the_values_z2_ran_with():
 
 
 def test_tools_derive_from_the_registry():
-    assert R.HISTORY_SLUG == {"B": "bb558b5f", "C": "a77c15cf"}
-    assert R.EXTRA_HISTORIES == {"C": (H.HISTORIES["C"].originals, 325)}
-    assert Q.TARGET_OCCURRENCES == {"B": 500, "C": 200} and Q.ASKS_PER_FAMILY == {"B": 2.3, "C": 1.5}
+    assert {k: R.HISTORY_SLUG[k] for k in "BC"} == {"B": "bb558b5f", "C": "a77c15cf"}
+    assert R.EXTRA_HISTORIES["C"] == (H.HISTORIES["C"].originals, 325) and "B" not in R.EXTRA_HISTORIES
+    assert {k: Q.TARGET_OCCURRENCES[k] for k in "BC"} == {"B": 500, "C": 200}
+    assert {k: Q.ASKS_PER_FAMILY[k] for k in "BC"} == {"B": 2.3, "C": 1.5}
+
+
+def test_final_private_histories_are_registered_for_import_replay():
+    for key, pairs in (("A", 290), ("D", 251), ("SW", 128), ("LAP", 101)):
+        h = H.HISTORIES[key]
+        assert h.import_rows and h.turns == pairs and h.asks_per_family == 1.5
+        assert R.EXTRA_HISTORIES[key] == (h.originals, pairs)
