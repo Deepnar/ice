@@ -511,6 +511,8 @@ class Grading(Stage):
                    "--questions", str(INPUTS["asks"][self.history].parent.parent.relative_to(ROOT)),
                    "--ledger", str(INPUTS["ledger"][self.history].relative_to(ROOT)),
                    "--changes", str(INPUTS["changes"][self.history].relative_to(ROOT)),
+                   "--audit", str((ctx.dir / f"s8-{self.history}" / "bg-audit.json").relative_to(ROOT)),
+                   "--replay", str((ctx.dir / f"s7-{self.history}" / "progress.jsonl").relative_to(ROOT)),
                    "--out", str(self.out(ctx).relative_to(ROOT))]
             rc = ctx.run_child(cmd, log_path)
             return rc, _tail(log_path)

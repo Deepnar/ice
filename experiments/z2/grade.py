@@ -320,7 +320,7 @@ conversation turns that hold the answer. For each required item, list the fragme
 (meaning, not wording). Also list fragment ids that state something wrong about it (a contradicted or
 stale value).
 Return only JSON: {"carried": {"<item index>": ["F1", ...]}, "wrong": ["F2", ...]}"""
-SEMANTIC_CONDITIONS = ("full_default", "full", "warm_vector")
+SEMANTIC_CONDITIONS = ("full_default", "full", "warm_vector", "bare_vector")   # bare_vector: precision, D6e
 
 
 def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
@@ -335,8 +335,10 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
         gold = {c.get("turn") for c in occ["reference"].get("citations", [])}
         cited = [f for f in unit["stage"].get("selected") or [] if gold & set(f.get("source_turns") or [])]
         key = f"{unit['condition']}|{unit['ask']['id']}"
+        total = len(unit["stage"].get("selected") or [])
         if not cited:
-            result[key] = dict(gold_fragments=0, carried={}, wrong=0, items=len(occ["reference"].get("required", [])))
+            result[key] = dict(gold_fragments=0, carried={}, wrong=0, items=len(occ["reference"].get("required", [])),
+                               fragments_total=total, fragments_carrying=0)
             continue
         alias = {f"F{n}": f for n, f in enumerate(cited, 1)}
         body = dict(QUESTION=unit["ask"]["question"], REQUIRED=occ["reference"].get("required", []),
@@ -344,22 +346,23 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
         if errors.given_up(_sha(body)):
             result[key] = dict(status="unjudged")
         else:
-            todo.append((key, body, alias, occ))
-    for (key, body, alias, occ), value, exc in _parallel(todo, lambda job: ask(SEMANTIC_SYSTEM,
+            todo.append((key, body, alias, occ, total))
+    for (key, body, alias, occ, total), value, exc in _parallel(todo, lambda job: ask(SEMANTIC_SYSTEM,
                                                                                json.dumps(job[1], ensure_ascii=False))):
         if exc is not None:
             errors.failed(_sha(body), exc)
             pending += 1
             continue
-        carried = {str(i): [alias[a].get("leg") or alias[a].get("type") for a in ids if a in alias]
-                   for i, ids in ((value or {}).get("carried") or {}).items()}
+        carried_ids = {str(i): [a for a in ids if a in alias] for i, ids in ((value or {}).get("carried") or {}).items()}
+        carried = {i: [alias[a].get("leg") or alias[a].get("type") for a in ids] for i, ids in carried_ids.items()}
         result[key] = dict(gold_fragments=len(alias), items=len(occ["reference"].get("required", [])),
                            items_carried=sum(1 for v in carried.values() if v), carried_by_kind=carried,
-                           wrong=len([a for a in (value or {}).get("wrong") or [] if a in alias]))
+                           wrong=len([a for a in (value or {}).get("wrong") or [] if a in alias]),
+                           fragments_total=total, fragments_carrying=len({a for ids in carried_ids.values() for a in ids}))
     return result, pending
 
 
-def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None):
+def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None, audit=None, replay=None):
     from experiments.z2 import bg_audit
     from experiments.z2.ledger import load_history
     from experiments.z2.questions import originals_index
@@ -381,7 +384,8 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     if not pending:
         from experiments.z2 import report
         grades = json.loads((out / "grades.json").read_text())
-        (out / "report.json").write_text(json.dumps(report.build(history, report.unit_index(units), grades),
+        extras = report.scoring_inputs(history, questions, answers, audit=audit, replay=replay)
+        (out / "report.json").write_text(json.dumps(report.build(history, report.unit_index(units), grades, extras),
                                                     indent=1, ensure_ascii=False) + "\n")
     (out / "status.json").write_text(json.dumps(dict(pending_errors=pending, finished=not pending)) + "\n")
     return pending
@@ -402,6 +406,8 @@ def main() -> int:
     parser.add_argument("--questions", type=Path, required=True)
     parser.add_argument("--ledger", type=Path, required=True)
     parser.add_argument("--changes", type=Path)
+    parser.add_argument("--audit", type=Path, help="S8's bg-audit.json (fidelity audit)")
+    parser.add_argument("--replay", type=Path, help="S7's progress.jsonl (write cost per turn)")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
@@ -413,7 +419,7 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     ask = judge_caller(M.Calls(args.out / "grade-raw.jsonl"), generator(JUDGE).generate, metadata(JUDGE), args.history)
     pending = run(args.history, args.units, args.answers, args.questions, args.ledger, args.out, ask=ask,
-                  changes=args.changes)
+                  changes=args.changes, audit=args.audit, replay=args.replay)
     print(json.dumps(dict(pending_errors=pending)))
     return 3 if pending else 0
 
