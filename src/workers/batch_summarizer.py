@@ -17,7 +17,7 @@ from src.memory.summary_snapshot import (
 )
 from src.memory.support import verify_support
 from src.memory.summary_support import note_messages
-from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name
+from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
 from src.workers.completion_text import IncompleteCompletion, complete_text
 from src.workers.conversation_summary import (
     _original_groups, _readable_parts, _source_note, _summary_embedding,
@@ -71,7 +71,11 @@ def _token_batches(turns, budget):
         yield start, batch
 
 
-def _batch_llm(prompt, max_tokens):
+def _batch_llm(prompt, max_tokens, *, schema=None):
+    """The note writer's model call for batch notes. Same contract as
+    conversation_summary._default_llm: the claim step passes *schema* (G79 — without
+    it every batch raised TypeError and no batch summary was ever written)."""
+    import json
     messages = note_messages(prompt)
     from src.model_registry.registry import get_model_context_window
     from src.model_registry.runtime_probe import serving_window
@@ -81,14 +85,17 @@ def _batch_llm(prompt, max_tokens):
         observed = serving_window(model, get_model_context_window(model))
         if observed:
             window = min(window, int(observed)) if window > 0 else int(observed)
-    required = tokens.with_margin(tokens.count_messages(messages),
+    capacity_messages = messages + ([{"role": "system", "content": json.dumps(schema, sort_keys=True)}]
+                                    if schema is not None else [])
+    required = tokens.with_margin(tokens.count_messages(capacity_messages),
                                   settings.token_count_safety_margin) + max_tokens
     if window <= 0 or required > window:
         logger.warning("batch_summary_input_over_budget", required=required, window=window)
         raise IncompleteCompletion("complete batch-summary input exceeds known capacity")
     return complete_text(bg_client.chat.completions.create(
         model=model, messages=messages, temperature=0.0, max_tokens=max_tokens,
-        timeout=max(60.0, bg_timeout(max_tokens))))
+        timeout=max(60.0, bg_timeout(max_tokens)),
+        **({"response_format": json_schema("source_note_assertions", schema)} if schema is not None else {})))
 
 
 def _repair_stale_caches(db):
