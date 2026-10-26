@@ -11,7 +11,8 @@ def test_stage_list_is_consistent():
     for s in stages:
         assert all(n in keys for n in s.needs), (s.key, s.needs)
     reads = {s.history: s for s in stages if isinstance(s, F.FinalRead)}
-    assert reads["B"].preset == reads["S9"].preset == "final_main+final_ablation"
+    assert reads["B"].preset == "final_main+final_ablation"
+    assert reads["S9"].preset == "final_main+final_ablation+final_buildup"           # Z3 D10
     assert reads["S1"].preset == "final_main" and set(reads) >= {"A", "D", "SW", "LAP", "S8"}
     groups = {s.key: s for s in stages if isinstance(s, F.Group)}
     assert groups["local-read-BEAM1M"].needs == ("local-replay-BEAM1M",) and len(groups["local-read-BEAM1M"].members) == 10
