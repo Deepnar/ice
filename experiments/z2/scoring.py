@@ -12,6 +12,7 @@ chain confirms each unsupported claim against the ledger and the originals (grad
   are not in the replay trace, and the report says so).
 
 **Distance** is the history's tokens between the farthest cited evidence turn and the question
+(citations marked `current: false` — a superseded value's turn — are not evidence for the answer)
 (`ledger.pair_tokens`, the counter the long-context condition packs with). **Out of window**
 means the evidence lies before what `long_context`'s prompt held: exactly, from its packed
 turns, where that condition was read; otherwise distance > LONG_CONTEXT_WINDOW. The split is
@@ -226,7 +227,7 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
     prefix: turn_prefix of the originals; semantic: grade.py's semantic credit; prompts:
     answers index {"cond|ask": prompt sha}; audit: S8's bg-audit.json; replay_walls: the
     replay's per-turn wall times; targets: {ask: component} where questions were planned
-    per component (FINAL's S9)."""
+    per component (FINAL's S9; read from the occurrences' `ask.component` when not given)."""
     outcomes, conditions, asks = {}, set(), set()
     for key, g in graded.items():
         cond, ask = key.split("|", 1)
@@ -237,6 +238,9 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
         asks.add(ask)
         outcomes[(cond, ask)] = outcome(g, occ.get("type"))
     asks = sorted(asks)
+    if targets is None:
+        targets = {a: (occurrences[a].get("ask") or {}).get("component") for a in asks}
+        targets = {a: c for a, c in targets.items() if c} or None
 
     # per question: distance, window side, whether its answer changed
     lc_from = {}
@@ -247,7 +251,7 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
     facts = {}
     for ask in asks:
         occ = occurrences[ask]
-        cited = [c.get("turn") for c in occ["reference"].get("citations", [])]
+        cited = [c.get("turn") for c in occ["reference"].get("citations", []) if c.get("current", True)]
         d = distance(cited, occ["checkpoint_turn"], prefix)
         turns = [t for t in cited if isinstance(t, int) and t < occ["checkpoint_turn"]]
         if not turns:
@@ -370,3 +374,62 @@ def fidelity(outcomes, asks, conditions, units, prompts, audit, primary="full", 
                          prompts_changed_when_off=changed, questions="planned for it" if targets else "all",
                          m2_full_minus_off=effect, state=state)
     return out
+
+
+# ── the cross-family judge check (Z3 D13) ────────────────────────────────────
+
+def kappa(pairs):
+    """Cohen's kappa of two yes/no raters."""
+    n = len(pairs)
+    if not n:
+        return None
+    agree = sum(a == b for a, b in pairs) / n
+    pa, pb = sum(a for a, _ in pairs) / n, sum(b for _, b in pairs) / n
+    expected = pa * pb + (1 - pa) * (1 - pb)
+    return round((agree - expected) / (1 - expected), 4) if expected < 1 else None
+
+
+def judge_family_check(muse_on_main, other_on_main, muse_on_subset, other_on_subset,
+                       resamples=RESAMPLES, seed=SEED):
+    """Does the Muse judge favour answers written by its own family? Each argument maps
+    "cond|ask" to grade.py's verdict. Leniency = Muse's M1 minus the other judge's M1 on the
+    same answers; the family effect = leniency on Muse 1.2's answers minus leniency on the
+    non-Meta answerer's, with a 95% interval over question families."""
+    def scored(muse, other):
+        out = {}
+        for key in set(muse) & set(other):
+            a, b = outcome(muse[key]), outcome(other[key])
+            if a is not None and b is not None:
+                out[key] = (a["m1"], b["m1"])
+        return out
+
+    main, sub = scored(muse_on_main, other_on_main), scored(muse_on_subset, other_on_subset)
+
+    def side(pairs):
+        return dict(answers=len(pairs), muse_m1=rate([dict(x=a) for a, _ in pairs.values()], "x"),
+                    other_m1=rate([dict(x=b) for _, b in pairs.values()], "x"),
+                    agreement=round(sum(a == b for a, b in pairs.values()) / len(pairs), 4) if pairs else None,
+                    kappa=kappa(list(pairs.values())))
+
+    families = collections.defaultdict(lambda: ([], []))
+    for i, pairs in enumerate((main, sub)):
+        for key, (a, b) in pairs.items():
+            families[family_of(key.split("|", 1)[1])][i].append(int(a) - int(b))
+    names = sorted(families)
+
+    def effect(chosen):
+        m = [v for f in chosen for v in families[f][0]]
+        s = [v for f in chosen for v in families[f][1]]
+        return statistics.fmean(m) - statistics.fmean(s) if m and s else None
+
+    point = effect(names)
+    interval = None
+    if point is not None and len(names) >= 2:
+        rng = random.Random(seed)
+        draws = sorted(e for e in (effect(rng.choices(names, k=len(names))) for _ in range(resamples)) if e is not None)
+        if draws:
+            interval = [round(draws[int(0.025 * len(draws))], 4), round(draws[int(0.975 * len(draws)) - 1], 4)]
+    return dict(on_muse_answers=side(main), on_other_family_answers=side(sub),
+                family_effect=round(point, 4) if point is not None else None, ci95=interval,
+                reading="Muse grades its own family's answers more leniently than the other judge does"
+                if interval and interval[0] > 0 else "no detectable family leniency" if interval else "too few answers")

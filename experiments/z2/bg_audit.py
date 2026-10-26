@@ -647,10 +647,10 @@ def load_ledger(path, changes=None):
     return M.chain(entries)
 
 
-def run(history, database, replay, ledger_path, out, *, changes=None, models=None, per_kind=PER_KIND):
-    """Resumable: the inventory is frozen to items.json on the first run, so later
-    attempts judge exactly the same items even if the store has moved on.
-    Returns (judged_or_settled, total_units, pending_errors)."""
+def freeze(history, database, out, per_kind=PER_KIND):
+    """Freeze the store's inventory to items.json (once). FINAL runs this locally right after
+    the replay (`--inventory-only`): its read passes then restore checkpoints into the same
+    database, so a later inventory would see a checkpoint, not the final store."""
     out.mkdir(parents=True, exist_ok=True)
     frozen = out / "items.json"
     if not frozen.exists():
@@ -666,6 +666,14 @@ def run(history, database, replay, ledger_path, out, *, changes=None, models=Non
                                        counts=counts, store=store, per_kind=per_kind),
                                   default=str, ensure_ascii=False))
         tmp.replace(frozen)
+    return frozen
+
+
+def run(history, database, replay, ledger_path, out, *, changes=None, models=None, per_kind=PER_KIND):
+    """Resumable: the inventory is frozen to items.json on the first run, so later
+    attempts judge exactly the same items even if the store has moved on.
+    Returns (judged_or_settled, total_units, pending_errors)."""
+    frozen = freeze(history, database, out, per_kind)
     data = json.loads(frozen.read_text())
     items, counts, store = data["items"], data["counts"], data["store"]
     per_kind = data.get("per_kind", PER_KIND)          # frozen with the inventory
@@ -735,9 +743,14 @@ def main() -> int:
     parser.add_argument("--changes", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--per-kind", type=int, default=PER_KIND, help="sample size per kind (a trial run)")
+    parser.add_argument("--inventory-only", action="store_true",
+                        help="freeze the final store's inventory and stop (local; no model calls)")
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("audit output is private: keep it under logs/")
+    if args.inventory_only:
+        print(json.dumps(dict(frozen=str(freeze(args.history, args.database, args.out, args.per_kind)))))
+        return 0
     from experiments.lme.cloud_provider import load_selected_env
     from experiments.z2.profiles import generator, metadata
     load_selected_env()

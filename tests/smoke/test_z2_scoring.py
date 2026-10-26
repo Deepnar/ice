@@ -98,3 +98,18 @@ def test_bare_vector_units_are_seen(tmp_path):
     units = report.unit_index(tmp_path, count_messages=lambda m: 42)
     assert units["bare_vector|f@9#0"]["source_turns"] == [7] and units["bare_vector|f@9#0"]["prompt_tokens"] == 42
     assert units["bare_vector|f@9#0"]["recent_tokens"] == 900
+
+
+def test_judge_family_check_finds_leniency_only_on_its_own_family():
+    def grades(correct):
+        return {f"full|B:f{i}@50#0": verdict("correct" if c else "incorrect") for i, c in enumerate(correct)}
+    n = 40
+    muse_main = grades([True] * n)                       # Muse passes every Muse-written answer
+    other_main = grades([i % 2 == 0 for i in range(n)])  # the other judge passes half
+    muse_sub = grades([i % 2 == 0 for i in range(n)])    # on non-Meta answers they agree
+    other_sub = grades([i % 2 == 0 for i in range(n)])
+    out = S.judge_family_check(muse_main, other_main, muse_sub, other_sub, resamples=2000)
+    assert out["family_effect"] == 0.5 and out["ci95"][0] > 0 and out["reading"].startswith("Muse grades")
+    assert out["on_other_family_answers"]["agreement"] == 1.0 and out["on_other_family_answers"]["kappa"] == 1.0
+    same = S.judge_family_check(muse_sub, other_sub, muse_sub, other_sub, resamples=2000)
+    assert same["family_effect"] == 0 and same["reading"] == "no detectable family leniency"

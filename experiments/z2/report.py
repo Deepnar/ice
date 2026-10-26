@@ -78,13 +78,14 @@ def unit_index(units_dir, count_messages=None):
     return out
 
 
-def scoring_inputs(history, questions, answers, *, audit=None, replay=None, originals=None):
+def scoring_inputs(history, questions, answers, *, audit=None, replay=None, originals=None, occurrences=None):
     """What scoring.score needs beyond the grades: occurrences, the originals' token prefix,
     the answers' prompt hashes, S8's audit and S7's per-turn wall times (both optional)."""
     from experiments.z2 import scoring
     from experiments.z2.ledger import load_history
+    source = Path(occurrences) if occurrences else Path(questions) / history / "occurrences.json"
     occurrences = {f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}": o
-                   for o in json.loads((Path(questions) / history / "occurrences.json").read_text())}
+                   for o in json.loads(source.read_text())}
     index = Path(answers) / "index.json"
     walls = [json.loads(line)["wall"] for line in Path(replay).read_text().splitlines() if line.strip()] \
         if replay and Path(replay).exists() else None

@@ -364,18 +364,26 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
 
 
 def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None, occurrences=None, audit=None,
-        replay=None):
+        replay=None, ranking=True, verdicts_only=False):
+    """Grade one history's answers. FINAL passes ranking=False (pre-registration r2 §4 drops the
+    multi-answer ranking); the cross-family judge passes verdicts_only=True (the judge's verdict
+    per answer, nothing else)."""
     from experiments.z2 import bg_audit
     from experiments.z2.ledger import load_history
     from experiments.z2.questions import originals_index
     out.mkdir(parents=True, exist_ok=True)
     contexts = load(units, answers, questions, history, occurrences)
     graded, p1 = grade_answers(contexts, out, ask)
+    if verdicts_only:
+        (out / "grades.json").write_text(json.dumps(dict(policy=POLICY, history=history, graded=graded,
+                                                         verdicts_only=True), ensure_ascii=False, indent=1) + "\n")
+        (out / "status.json").write_text(json.dumps(dict(pending_errors=p1, finished=not p1)) + "\n")
+        return p1
     ledger = bg_audit.load_ledger(ledger_path, changes)
     originals = load_history(history)
     verdicts, p2 = check_claims(graded, contexts, ledger, originals,
                                 originals_index(originals, cache=out / "originals-index.npz"), ask, out)
-    ranks, p3 = rank(contexts, ask, out)
+    ranks, p3 = rank(contexts, ask, out) if ranking else ({}, 0)
     ctl, p4 = controls(contexts, ask, out)
     semantic, p5 = semantic_credit(contexts, ask, out)
     pending = p1 + p2 + p3 + p4 + p5
@@ -386,7 +394,7 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     if not pending:
         from experiments.z2 import report
         grades = json.loads((out / "grades.json").read_text())
-        extras = report.scoring_inputs(history, questions, answers, audit=audit, replay=replay)
+        extras = report.scoring_inputs(history, questions, answers, audit=audit, replay=replay, occurrences=occurrences)
         (out / "report.json").write_text(json.dumps(report.build(history, report.unit_index(units), grades, extras),
                                                     indent=1, ensure_ascii=False) + "\n")
     (out / "status.json").write_text(json.dumps(dict(pending_errors=pending, finished=not pending)) + "\n")
@@ -413,6 +421,8 @@ def main() -> int:
     parser.add_argument("--changes", type=Path)
     parser.add_argument("--audit", type=Path, help="S8's bg-audit.json (fidelity audit)")
     parser.add_argument("--replay", type=Path, help="S7's progress.jsonl (write cost per turn)")
+    parser.add_argument("--no-ranking", action="store_true", help="FINAL: no multi-answer ranking (r2 §4)")
+    parser.add_argument("--verdicts-only", action="store_true", help="the cross-family judge: verdicts only")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
@@ -428,7 +438,8 @@ def main() -> int:
                        args.history, role=args.judge)
     pending = run(args.history, args.units, args.answers, args.questions, args.ledger, args.out, ask=ask,
                   changes=args.changes, occurrences=args.occurrences,
-                  audit=args.audit, replay=args.replay)
+                  audit=args.audit, replay=args.replay, ranking=not args.no_ranking,
+                  verdicts_only=args.verdicts_only)
     print(json.dumps(dict(pending_errors=pending)))
     return 3 if pending else 0
 
