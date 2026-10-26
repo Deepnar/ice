@@ -168,7 +168,8 @@ def _verdicts(calls, role, meta, generate, newer, earlier, session):
 def detect_changes(history, ledger_root, out, *, models, asker="deepseek", checker="mimo",
                    tie_breaker="muse"):
     """Changes = pairs both families call 'replaces' (or the tie-breaker does when they
-    disagree). An older entry never replaces a newer one: pairs are older-first."""
+    disagree; with tie_breaker None — FINAL, Z3 D13 — a disagreement is not a change). An older
+    entry never replaces a newer one: pairs are older-first."""
     import uuid
     directory = out / history
     found = json.loads((directory / "threads.json").read_text())
@@ -198,9 +199,10 @@ def detect_changes(history, ledger_root, out, *, models, asker="deepseek", check
     for (older_id, newer_id), v in zip(flagged, checks):
         (confirmed if v == "replaces" else disputed).append(dict(older=older_id, newer=newer_id,
                                                                 checker=v))
-    ties = pool.map(lambda d: _verdicts(calls, tie_breaker, models[tie_breaker][1], models[tie_breaker][0],
-                                        entries[d["newer"]], {"E1": entries[d["older"]]},
-                                        session(tie_breaker)).get("E1"), disputed)
+    ties = [None] * len(disputed) if tie_breaker is None else \
+        pool.map(lambda d: _verdicts(calls, tie_breaker, models[tie_breaker][1], models[tie_breaker][0],
+                                     entries[d["newer"]], {"E1": entries[d["older"]]},
+                                     session(tie_breaker)).get("E1"), disputed)
     for d, v in zip(disputed, ties):
         d["tie_break"] = v
         if v == "replaces":
@@ -953,6 +955,7 @@ def main() -> int:
     c.add_argument("--history", required=True)
     c.add_argument("--ledger", type=Path, required=True)
     c.add_argument("--out", type=Path, required=True)
+    c.add_argument("--tie-breaker", default="muse", help="a role, or none (FINAL: disagreements are not changes)")
     oc = sub.add_parser("occurrences", help="S4: every (family, checkpoint) with its computed reference")
     oc.add_argument("--history", required=True)
     oc.add_argument("--ledger", type=Path, required=True)
@@ -1035,8 +1038,9 @@ def main() -> int:
         from experiments.lme.cloud_provider import load_selected_env
         from experiments.z2.profiles import generator, metadata
         load_selected_env()
-        models = {r: (generator(r).generate, metadata(r)) for r in ("deepseek", "mimo", "muse")}
-        detect_changes(args.history, args.ledger, args.out, models=models)
+        tie_breaker = None if args.tie_breaker == "none" else args.tie_breaker
+        models = {r: (generator(r).generate, metadata(r)) for r in ("deepseek", "mimo") + ((tie_breaker,) if tie_breaker else ())}
+        detect_changes(args.history, args.ledger, args.out, models=models, tie_breaker=tie_breaker)
     return 0
 
 

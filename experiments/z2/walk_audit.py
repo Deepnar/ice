@@ -78,7 +78,7 @@ def candidates(index, query_vector, start, end, top_k=TOP_K):
     return sorted((rows[keep[i]] for i in order), key=lambda r: (r[0], r[1]))
 
 
-def audit(history, families, occurrences, entries_by_id, originals, index, out, *, models):
+def audit(history, families, occurrences, entries_by_id, originals, index, out, *, models, verifier=VERIFIER):
     calls = M.Calls(out / history / "walk-raw.jsonl")
     session = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{POLICY}|{history}"))
     by_family = {f["id"]: f for f in families}
@@ -105,7 +105,7 @@ def audit(history, families, occurrences, entries_by_id, originals, index, out, 
                                  NEW_TURNS=[dict(turn=t, role=r, text=text) for t, r, text in shown]),
                             ensure_ascii=False)
         try:
-            reply = Q.ask_object(calls, VERIFIER, models[VERIFIER][1], models[VERIFIER][0], WALK_SYSTEM, prompt,
+            reply = Q.ask_object(calls, verifier, models[verifier][1], models[verifier][0], WALK_SYSTEM, prompt,
                                  session, max_output_tokens=8000) or {}
         except Exception as exc:                   # this occurrence only; rerun resumes
             results.append(dict(occurrence=o, walk=None, ledger=led, error=f"{type(exc).__name__}: {exc}"[:300]))
@@ -141,6 +141,7 @@ def main() -> int:
     parser.add_argument("--ledger", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--name", default="families")
+    parser.add_argument("--verifier", default=VERIFIER, help="FINAL: mimo (Muse writes no ground truth, Z3 D13)")
     args = parser.parse_args()
     for path in (args.ledger, args.out):
         if not path.resolve().is_relative_to(ROOT / "logs"):
@@ -156,10 +157,10 @@ def main() -> int:
     if changes.exists():
         entries = Q.with_changes(entries, json.loads(changes.read_text()))
     originals = L.load_history(args.history)
-    models = {VERIFIER: (generator(VERIFIER).generate, metadata(VERIFIER))}
+    models = {args.verifier: (generator(args.verifier).generate, metadata(args.verifier))}
     summary, queue = audit(args.history, families, occurrences, {e["id"]: e for e in entries}, originals,
                            Q.originals_index(originals, cache=directory / "originals-index.npz"), args.out,
-                           models=models)
+                           models=models, verifier=args.verifier)
     print(json.dumps(dict(summary, queue=len(queue))))
     return 0
 

@@ -42,11 +42,12 @@ def extract(history, directory):
         return dict(pool.map(one, WRITERS))
 
 
-def merge(history, directory):
-    roles = set(WRITERS) | {TIE_BREAK}
+def merge(history, directory, tie_breaker=TIE_BREAK):
+    """*tie_breaker* None: disputes stay unconfirmed and go to review (FINAL, Z3 D13)."""
+    roles = set(WRITERS) | ({tie_breaker} if tie_breaker else set())
     models = {role: (generator(role).generate, metadata(role)) for role in roles}
     result, queue = ledger_merge.merge(history, directory, directory, writers=WRITERS,
-                                       tie_breaker=TIE_BREAK, models=models)
+                                       tie_breaker=tie_breaker, models=models)
     return result["stats"], len(queue)
 
 
@@ -66,7 +67,9 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True, help="private run root under logs/")
     parser.add_argument("--history", nargs="+", required=True, help="B, C or dev-<slug>")
     parser.add_argument("--extract-only", action="store_true")
+    parser.add_argument("--tie-breaker", default=TIE_BREAK, help="a role, or none (FINAL: no Muse in the ground truth)")
     args = parser.parse_args()
+    tie_breaker = None if args.tie_breaker == "none" else args.tie_breaker
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("ledger data is private: put it under logs/")
     load_tokenizer()
@@ -78,7 +81,7 @@ def main() -> int:
             seconds = extract(history, directory)
             print(f"[{history}] extraction complete: {seconds}", flush=True)
             if not args.extract_only:
-                stats, queued = merge(history, directory)
+                stats, queued = merge(history, directory, tie_breaker)
                 print(f"[{history}] merge complete: {json.dumps(stats)} queue {queued}", flush=True)
         except Exception:                               # noqa: BLE001 — report, go on
             failed.append(history)

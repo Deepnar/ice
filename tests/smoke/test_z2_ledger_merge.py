@@ -260,3 +260,15 @@ def test_first_change_wins_when_two_replace_the_same_entry():
     a, b = _e("a", 40, ["r2"], supersedes=["r1"]), _e("b", 20, ["r3"], supersedes=["r1"])
     chained = {e["id"]: e for e in ledger_merge.chain([old, a, b])}
     assert chained["X:old"]["valid_until_turn"] == 20 and chained["X:old"]["superseded_by"] == "X:b"
+
+
+def test_without_a_tie_breaker_a_dispute_is_unconfirmed_and_reviewed(setup):
+    """FINAL (Z3 D13): Muse writes no ground truth — a dispute is never settled by a third model."""
+    directory, models, ds, mm, (deepseek, mimo, tie) = setup
+    tie.answers[ds[1]["id"]] = seen(ds[1])               # would keep it, if it were asked
+    result, queue = ledger_merge.merge("X", directory, directory / "merged-none", writers=("deepseek", "mimo"),
+                                       tie_breaker=None, models={k: v for k, v in models.items() if k != "tie"})
+    disputed = next(e for e in result["entries"] if e["members"] == [ds[1]["id"]])
+    assert disputed["status"] == "unconfirmed" and not disputed["usable_for_questions"]
+    assert any(q["kind"] == "disputed" and q["entry"]["id"] == ds[1]["id"] for q in queue)
+    assert tie.calls == 0

@@ -133,7 +133,12 @@ def run(history, ledger_dir, out, *, models, writers=("deepseek", "mimo"), tie_b
                 stats["verified"] += 1
             else:
                 disputed.append((e, reason))
-        if disputed:
+        if disputed and tie_breaker is None:            # FINAL (Z3 D13): disputes are not settled by a third model
+            for e, reason in disputed:
+                added.append(dict(e, status="unconfirmed", verified=False, usable_for_questions=False,
+                                  unconfirmed_reason="disputed"))
+                stats["unconfirmed"] += 1
+        elif disputed:
             asked = M.aliases([e for e, _ in disputed], "D")
             decided, _ = M.ask_covering(calls, tie_breaker, models[tie_breaker][1], models[tie_breaker][0],
                                         M.TIE_SYSTEM, lambda sub: M.tie_prompt(originals, record, sub),
@@ -162,15 +167,17 @@ def main() -> int:
     parser.add_argument("--ledger", type=Path, required=True, help="directory holding ledger.json")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--tie-breaker", default="muse", help="a role, or none (FINAL: disputes unconfirmed)")
     args = parser.parse_args()
+    tie_breaker = None if args.tie_breaker == "none" else args.tie_breaker
     for path in (args.ledger, args.out):
         if not path.resolve().is_relative_to(ROOT / "logs"):
             raise ValueError("ledger data is private: keep it under logs/")
     from experiments.lme.cloud_provider import load_selected_env
     from experiments.z2.profiles import generator, metadata
     load_selected_env()
-    models = {r: (generator(r).generate, metadata(r)) for r in ("deepseek", "mimo", "muse")}
-    run(args.history, args.ledger, args.out, models=models, limit=args.limit)
+    models = {r: (generator(r).generate, metadata(r)) for r in ("deepseek", "mimo") + ((tie_breaker,) if tie_breaker else ())}
+    run(args.history, args.ledger, args.out, models=models, limit=args.limit, tie_breaker=tie_breaker)
     return 0
 
 

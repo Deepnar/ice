@@ -12,6 +12,9 @@ detail of the sentence the turns contradict. Code compares those with the entry:
 - observation matches -> verified: two families agree it is in the source;
 - otherwise -> a third-family tie-break makes the same observation; a kept entry
   is NOT verified (basis "tie_break") and both outcomes go to the review queue.
+  With no tie-breaker (FINAL, Z3 D13: Muse writes no ground truth) a disputed entry
+  is unconfirmed ("disputed") — kept on record, never used for questions — and goes
+  to the review queue.
 
 Matched entries collapse into one (union of citations, both writers). The
 tie-breaker is a parameter so candidates can be compared on the same disputes.
@@ -245,7 +248,13 @@ def merge(history, raw_dir, out, *, writers, tie_breaker, models):
                         match_pairs.append((e["id"], match))
                 else:
                     disputed.append(e)
-        if disputed:
+        if disputed and tie_breaker is None:
+            stats["disputed"] += len(disputed)
+            for e in disputed:
+                checks[e["id"]].update(status="unconfirmed", unconfirmed_reason="disputed")
+                queue.append(dict(kind="disputed", entry=e, checker=checks[e["id"]]["checker"],
+                                  checker_reason=checks[e["id"]]["reason"]))
+        elif disputed:
             stats["disputed"] += len(disputed)
             generate, meta = models[tie_breaker]
             asked = aliases(disputed, "D")
@@ -351,14 +360,15 @@ def main() -> int:
     parser.add_argument("--history", required=True)
     parser.add_argument("--raw", type=Path, required=True, help="directory with both ledger-raw files")
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--tie-breaker", default="muse")
+    parser.add_argument("--tie-breaker", default="muse", help="a role, or none (FINAL: disputes unconfirmed)")
     parser.add_argument("--offline", action="store_true",
                         help="re-merge from saved calls only; any call that is not saved fails")
     args = parser.parse_args()
     for path in (args.raw, args.out):
         if not path.resolve().is_relative_to(ROOT / "logs"):
             raise ValueError("ledger data is private: keep it under logs/")
-    roles = {"deepseek", "mimo", args.tie_breaker}
+    tie_breaker = None if args.tie_breaker == "none" else args.tie_breaker
+    roles = {"deepseek", "mimo"} | ({tie_breaker} if tie_breaker else set())
     if args.offline:
         def refuse(*_args, **_kwargs):
             raise RuntimeError("--offline: this merge needs a model call that is not saved")
@@ -366,7 +376,7 @@ def main() -> int:
     else:
         models = {role: (generator(role).generate, metadata(role)) for role in roles}
     result, queue = merge(args.history, args.raw, args.out, writers=("deepseek", "mimo"),
-                          tie_breaker=args.tie_breaker, models=models)
+                          tie_breaker=tie_breaker, models=models)
     print(json.dumps(result["stats"]), f"queue {len(queue)}")
     return 0
 
