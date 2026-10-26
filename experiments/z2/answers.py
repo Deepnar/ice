@@ -69,11 +69,14 @@ def prompt_sha(messages):
 
 
 def load_units(units_dir):
-    """[(condition, ask_id, messages)] for every S9 unit."""
+    """[(condition, ask_id, messages, cache session or None)] for every S9 unit. A unit may name
+    a `cache_session` (FINAL's full-history prompts share one per conversation, so the provider
+    can reuse the cached transcript); otherwise each prompt has its own session."""
     out = []
     for path in sorted(Path(units_dir).glob("units/*/*.json")):
         unit = json.loads(path.read_text())
-        out.append((unit["condition"], unit["ask"]["id"], unit["stage"]["prompt_messages"]))
+        out.append((unit["condition"], unit["ask"]["id"], unit["stage"]["prompt_messages"],
+                    unit["stage"].get("cache_session")))
     return out
 
 
@@ -225,14 +228,14 @@ class Answerer:
 
 
 def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_env=None,
-               output_tokens=OUTPUT_TOKENS["local"]):
+               output_tokens=OUTPUT_TOKENS["local"], session=None):
     """One answer row; waits through auth and quota failures, returns on anything final."""
     from experiments.lme.cloud_provider import CloudCompletionError, ProviderAccessError
     while True:
         started = time.time()
         try:
             result = generate(messages, temperature=0, max_output_tokens=output_tokens,
-                              session_id=f"ice-z2-answer-{sha[:24]}")
+                              session_id=session or f"ice-z2-answer-{sha[:24]}")
             return dict(prompt_sha256=sha, finish="complete", text=result.text, usage=result.usage,
                         seconds=round(time.time() - started, 2), wall=round(time.time(), 3))
         except (CloudCompletionError, Incomplete) as exc:
@@ -268,8 +271,9 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
         raise MixedAnswerers(f"{out / 'answers.jsonl'} holds answers from {sorted(map(str, saved))}; "
                              f"this run answers with {meta.get('model')} — move the old file aside first")
     units = load_units(units_dir)
-    index = {f"{c}|{a}": prompt_sha(m) for c, a, m in units}
-    prompts = {prompt_sha(m): m for _, _, m in units}
+    index = {f"{c}|{a}": prompt_sha(m) for c, a, m, _ in units}
+    prompts = {prompt_sha(m): m for _, _, m, _ in units}
+    sessions = {prompt_sha(m): s for _, _, m, s in units if s}
     todo = [s for s in prompts if not store.settled(s)]
     pacer = Pacer([r["wall"] for r in store.rows.values() if r.get("wall")]) if pace else None
     say(f"{len(units)} contexts, {len(prompts)} distinct prompts, {len(todo)} to answer")
@@ -279,7 +283,7 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
             if pacer:
                 pacer.take(say)
             row = answer_one(generate, prompts[sha], sha, say=say, reload_env=reload_env,
-                             output_tokens=output_tokens)
+                             output_tokens=output_tokens, session=sessions.get(sha))
             store.add(dict(row, policy=POLICY, answerer=meta))
         except Exception as exc:                  # this prompt only; retried next attempt
             store.failed(sha, exc)
@@ -307,7 +311,7 @@ def prompt_set(units_dir):
     key = (len(paths), max((p.stat().st_mtime for p in paths), default=0))
     cached = _PROMPTS.get(str(units_dir))
     if cached is None or cached[0] != key:
-        cached = _PROMPTS[str(units_dir)] = (key, {prompt_sha(m) for _, _, m in load_units(units_dir)})
+        cached = _PROMPTS[str(units_dir)] = (key, {prompt_sha(m) for _, _, m, _ in load_units(units_dir)})
     return cached[1]
 
 

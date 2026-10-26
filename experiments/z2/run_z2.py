@@ -413,11 +413,11 @@ class Answers(Stage):
     distinct prompt (experiments/z2/answers.py)."""
 
     def __init__(self, history, *, key=None, title=None, units_key=None, needs=None, planned=None,
-                 estimate=10.0):
+                 estimate=10.0, answerer=None):
         # Muse 1.2, four workers: a planning guess until the stage measures its own rate.
         super().__init__(key=key or f"s10-{history}", title=title or f"S10 answers {history}",
                          needs=needs or (f"s9-{history}",), unit="answers", estimate=estimate)
-        self.history = history
+        self.history, self.answerer = history, answerer or ANSWERER
         self.units_key = units_key or f"s9-{history}"
         self.planned = planned
 
@@ -455,7 +455,7 @@ class Answers(Stage):
         def attempt():
             (self.out(ctx) / "status.json").unlink(missing_ok=True)
             cmd = [sys.executable, "experiments/z2/answers.py", "--units", str(self.units(ctx).relative_to(ROOT)),
-                   "--out", str(self.out(ctx).relative_to(ROOT)), "--answerer", ANSWERER]
+                   "--out", str(self.out(ctx).relative_to(ROOT)), "--answerer", self.answerer]
             rc = ctx.run_child(cmd, log_path)
             return rc, _tail(log_path)
 
