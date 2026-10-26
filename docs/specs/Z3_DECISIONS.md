@@ -236,3 +236,10 @@ entity graph; Zep's paper reports 71.2% on LongMemEval with GPT-4o) and Mem0 (th
 its open-source SDK, not its managed platform). Both must run entirely in our setup: same
 LongMemEval-S slice, same local answerer, same judge. Cost: their ingestion makes several model
 calls per session — on the 100-instance slice roughly 2–4 GPU days each with a local model.
+
+**Requirements (maintainer, 2026-10-26):** run entirely locally with our own adapter code, on the
+same models as ICE (answerer qwen3.8:27b, background gemma4:e4b, embedder Qwen3-Embedding-0.6B,
+the same reranker), so only the memory system differs. Choose by three tests together: it runs
+locally; it has its own LongMemEval score at a good level; and users regard its real-world
+output as good (a high score alone is not enough). Candidates under discussion: Graphiti (Zep),
+Mem0 (open-source SDK), Hindsight (Vectorize, MIT). Not decided.
