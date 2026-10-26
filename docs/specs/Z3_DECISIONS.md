@@ -324,6 +324,7 @@ local phase (≈ 23–27 GPU days once answering is on the cloud) takes ≈ 7–
 pre-registered drop-order cuts; the cloud block ≈ 1–2 plan periods of allowance, sized from
 real calls by `experiments/z2/allowance.py` (TRAPS 148).
 
-**⚑ Data use, needs the maintainer's acceptance before FINAL's cloud block:** Muse Contributor
-models may train on prompts and are not zero-retention (Z2 spec, Data-use terms); the
-answerer sees every full memory prompt of the private histories A, D, SW, LAP.
+**Data use — accepted by the maintainer, 2026-10-27 (Z2 D6d):** Muse Contributor models may
+train on prompts and are not zero-retention (Z2 spec, Data-use terms); Muse 1.2 Contributor is
+accepted as the answerer on those terms, for every full memory prompt of the private
+histories A, D, SW, LAP.

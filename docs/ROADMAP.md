@@ -199,8 +199,7 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ⚑ `main` has `d561cb5` + `95df259` (Z2 answerer → Muse 1.2, local-first order, D6d) — the
     branch must take them at merge (conflicts expected in `experiments/z2/answers.py`).
   - ☐ D13 code: `run_final.py` answers move into the cloud block; ledger chain without the Muse
-    tie-break (disputes dropped / to review); `muse12` answerer on the branch; the maintainer's data-use
-    acceptance for Muse 1.2 Contributor on FINAL's private prompts; paper-1 measures (prereg §4) in
+    tie-break (disputes dropped / to review); `muse12` answerer on the branch (data-use terms accepted 2026-10-27); paper-1 measures (prereg §4) in
     grade/report — update accuracy, context precision, TUR, fidelity audit.
   - ☐ r2 machinery (FINAL_experiments.md §2.1 items 14–17): scoring r2 in grade/report, A-Mem
     adapter, LoCoMo adapter (download needs OK), full-history upper-bound runner.
