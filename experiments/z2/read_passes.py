@@ -164,6 +164,41 @@ def build_asks(split_dir, occurrences_path, controls_path=None):
     return asks
 
 
+def build_final_asks(split_dir, occurrences_path):
+    """FINAL's asks of a Z2 history: occurrences of the sealed FINAL families only (opened
+    through split.load_final, which checks the seal) plus the same no-memory controls."""
+    from experiments.z2.split import load_final, load_z2
+    keep = {f["id"] for f in load_final(split_dir)["families"]}
+    asks = [dict(id=f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}", checkpoint_turn=o["checkpoint_turn"],
+                 question=o["question"], kind="question", type=o["type"])
+            for o in json.loads(Path(occurrences_path).read_text()) if o["family"] in keep]
+    for c in load_z2(Path(split_dir) / "z2-families.json").get("controls", []):
+        asks.append(dict(id=c["id"], checkpoint_turn=c["checkpoint_turn"], question=c.get("question") or c["prompt"],
+                         kind="control", type=c.get("kind")))
+    return asks
+
+
+# FINAL condition sets (FINAL_experiments.md §2.1; Z3 D4, D5, D10). "z2" = everything Z2 read.
+PRESETS = {
+    "final_main": ["full_default", "full", "warm_vector", "recent_only", "bare_vector", "long_context"],
+    "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER],
+    "final_buildup": ["full", "recent_only"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))],
+}
+
+
+def select_conditions(spec):
+    """'z2', a preset name, presets joined with '+', or comma-separated condition names."""
+    if not spec or spec == "z2":
+        return dict(CONDITIONS)
+    names = []
+    for part in spec.split("+"):
+        names += PRESETS[part] if part in PRESETS else part.split(",")
+    unknown = [n for n in names if n not in CONDITIONS]
+    if unknown:
+        raise ValueError(f"unknown conditions {unknown}")
+    return {n: CONDITIONS[n] for n in dict.fromkeys(names)}
+
+
 def pending(asks, out, conditions=CONDITIONS):
     """{checkpoint: [ask, ...]} with at least one applicable condition unit still missing."""
     guard, todo = guard_sample(asks), {}
@@ -551,6 +586,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit-checkpoints", type=int)
     parser.add_argument("--switch-report", action="store_true", help="print §5 item 6 and exit")
+    parser.add_argument("--conditions", default="z2", help="z2 | final_main | final_ablation | final_buildup | a+b | names")
     args = parser.parse_args()
     if args.switch_report:
         print(json.dumps(switch_report(args.out, json.loads(args.asks.read_text())), indent=1))
@@ -564,7 +600,8 @@ def main() -> int:
         os.execve(sys.executable, [sys.executable, *sys.argv],
                   dict(os.environ, DATABASE_URL=url, ICE_TEST_DATABASE=args.database))
     asks = json.loads(args.asks.read_text())
-    failures = run(args.history, args.replay, asks, args.out, limit_checkpoints=args.limit_checkpoints)
+    failures = run(args.history, args.replay, asks, args.out, conditions=select_conditions(args.conditions),
+                   limit_checkpoints=args.limit_checkpoints)
     print(json.dumps(dict(failures=len(failures))))
     return 3 if failures else 0
 

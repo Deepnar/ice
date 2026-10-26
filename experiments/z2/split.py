@@ -63,6 +63,18 @@ def load_z2(path):
     return data
 
 
+def load_final(directory):
+    """FINAL only — the one reader of the sealed families. Refuses unless the sealed file is
+    byte-identical to its recorded hash (FINAL_experiments.md §2.1: B's FINAL asks)."""
+    directory = Path(directory)
+    if not verify_seal(directory):
+        raise ValueError(f"{directory / SEALED_NAME} does not match its seal")
+    data = json.loads((directory / SEALED_NAME).read_text())
+    if any(goes_to_z2(f) for f in data.get("families", [])):
+        raise ValueError("a Z2 family is present in the sealed FINAL file")
+    return data
+
+
 def verify_seal(directory):
     """True when the sealed file is byte-identical to its recorded hash. Hashing
     reads bytes, never parses or shows the families."""

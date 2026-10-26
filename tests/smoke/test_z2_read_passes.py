@@ -95,3 +95,18 @@ def test_long_context_packs_the_newest_messages_into_the_budget():
     chosen, used = R.long_context_chunks(chunks, 4, lambda text: 1)
     assert [(c.turn, c.role) for c, _ in chosen] == [(4, "user"), (4, "assistant"), (5, "user"), (5, "assistant")]
     assert used == 4 and R.phase_of(R.CONDITIONS["long_context"]) == "bare"
+
+
+def test_final_presets_and_sealed_asks(tmp_path):
+    main = R.select_conditions("final_main")
+    assert list(main) == R.PRESETS["final_main"] and "long_context" in main
+    both = R.select_conditions("final_main+final_ablation")
+    assert {"loo_codex", "bare_vector"} <= set(both) and len(both) == len(set(both))
+    families = [dict(id=f"B:fam{i:03d}", type="fact_recall") for i in range(40)]
+    S.write_split(tmp_path, "B", families)
+    occ = [dict(family=f["id"], type="fact_recall", checkpoint_turn=25, repeat_index=0, question=f"q{i}")
+           for i, f in enumerate(families)]
+    (tmp_path / "occ.json").write_text(json.dumps(occ))
+    final = {a["id"].split("@")[0] for a in R.build_final_asks(tmp_path, tmp_path / "occ.json")}
+    z2 = {a["id"].split("@")[0] for a in R.build_asks(tmp_path, tmp_path / "occ.json")}
+    assert final and z2 and not final & z2 and len(final | z2) == 40
