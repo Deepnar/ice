@@ -114,3 +114,18 @@ def test_a_style_twin_asks_exactly_its_sources_questions():
     a = [(o["family"].split(":")[1], o["checkpoint_turn"], o["reference"]["required"]) for o in K.occurrences(src)]
     b = [(o["family"].split(":")[1], o["checkpoint_turn"], o["reference"]["required"]) for o in K.occurrences(twin)]
     assert a == b
+
+
+def test_phrasing_check_catches_missing_leaking_and_said_negatives():
+    from experiments.synth import keys as K, phrase as Q
+    p = plan()
+    occ = K.occurrences(p)
+    good = {"questions": {Q.key(o): "what's the latest on that thing we talked about" for o in occ},
+            "negatives": [{"question": f"did i ever mention my boat {i}", "about": f"boat {i}"} for i in range(8)]}
+    assert Q.check(p, occ, good) == []
+    leak = dict(good, questions={k: "is it still 2,500 euros?" for k in good["questions"]})
+    assert any("contains its answer" in x for x in Q.check(p, occ, leak))
+    said = dict(good, negatives=good["negatives"][:7] + [{"question": "the budget?", "about": "moving budget"}])
+    assert any("does say" in x for x in Q.check(p, occ, said))
+    asks = Q.asks(p, occ, good)
+    assert sum(a["type"] == "negative" for a in asks) == 8 and all(a["expected_abstention"] for a in asks if a["type"] == "negative")
