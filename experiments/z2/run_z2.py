@@ -295,11 +295,9 @@ class Replay(Stage):
 
 # Inputs fixed once the question chain has run on the final ledgers (S3/S4). A stage
 # whose inputs are missing waits as "needs input", it is not attempted.
-INPUTS = {
-    "ledger": {h: ROOT / f"logs/z2-ledger-detail-2026-10-18-r2/{h}/ledger.json" for h in ("B", "C")},
-    "changes": {h: ROOT / f"logs/z2-questions-final/{h}/changes.json" for h in ("B", "C")},
-    "asks": {h: ROOT / f"logs/z2-questions-final/{h}/z2-asks.json" for h in ("B", "C")},
-}
+from experiments.z2.histories import HISTORIES  # noqa: E402
+INPUTS = {field: {k: h.path(field) for k, h in HISTORIES.items()} for field in ("ledger", "changes", "asks")}
+PLANNED_ASKS = {k: h.planned_asks for k, h in HISTORIES.items()}
 
 
 class Audit(Stage):
@@ -373,7 +371,7 @@ class ReadPasses(Stage):
         from experiments.z2 import read_passes
         # Planning number until the asks exist: ~300/~120 Z2 occurrences plus one
         # control per checkpoint (45/13), times the conditions.
-        planned = {"B": 345, "C": 133}[self.history] * len(read_passes.CONDITIONS)
+        planned = PLANNED_ASKS[self.history] * len(read_passes.CONDITIONS)
         return read_passes.progress(self.out(ctx), INPUTS["asks"][self.history])[1] or planned
 
     def done(self, ctx):
@@ -428,7 +426,7 @@ class Answers(Stage):
     def total(self, ctx):
         from experiments.z2 import answers
         # ~35 read conditions per question; identical prompts collapse to ~20 distinct
-        planned = self.planned or {"B": 345, "C": 133}[self.history] * 20
+        planned = self.planned or PLANNED_ASKS[self.history] * 20
         return answers.progress(self.units(ctx), self.out(ctx))[1] or planned
 
     def done(self, ctx):
@@ -473,7 +471,7 @@ class Grading(Stage):
 
     def total(self, ctx):
         answers = ctx.dir / f"s10-{self.history}" / "status.json"
-        n = json.loads(answers.read_text()).get("contexts") if answers.exists() else {"B": 345, "C": 133}[self.history] * 6
+        n = json.loads(answers.read_text()).get("contexts") if answers.exists() else PLANNED_ASKS[self.history] * 6
         return int(n * 1.4)                       # grades + ranking (2 orders) + claim checks, roughly
 
     def done(self, ctx):

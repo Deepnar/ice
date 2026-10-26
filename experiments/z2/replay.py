@@ -36,10 +36,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 POLICY = "ice-z2-replay-1"
-HISTORY_SLUG = {"B": "bb558b5f", "C": "a77c15cf"}
+from experiments.z2.histories import HISTORIES
+
+HISTORY_SLUG = {k: h.slug for k, h in HISTORIES.items()}
 # C is not in seed_v3's corpus (only B and the development histories); the wrapper
 # supplies it from the frozen input plan without editing the pinned seed_v3.
-EXTRA_HISTORIES = {"C": ("logs/v3-offline-input-plan-2026-10-10-r4/final-originals-C.json", 325)}
+EXTRA_HISTORIES = {k: (h.originals, h.turns) for k, h in HISTORIES.items() if h.import_rows}
 DECAY_TABLES = {
     "decay_episodic": ("episodic_memory", "decay_score"),
     "decay_codex": ("codex_facts", "usage"),

@@ -235,10 +235,10 @@ QUOTAS = {"fact_recall": .15, "update": .15, "temporal": .12, "cumulative": .10,
           "aggregation": .08, "procedure_advice": .10, "negative": .10, "preference": .05,
           "multi_hop": .05, "messy_variant": .10}
 RECENT_TURNS, REPEAT_GAP = 40, 150
-TARGET_OCCURRENCES = {"B": 500, "C": 200}      # before the 60/40 split -> ~300 / ~120 in Z2
-# Asks per family (first ask + repeats): C's short history (325 turns, 13 checkpoints)
-# gave 110 asks from 73 families = 1.5 (2026-10-19); B keeps the planned 2.3.
-ASKS_PER_FAMILY = {"B": 2.3, "C": 1.5}
+# Per-history targets live in experiments/z2/histories.py (Z2 D13).
+from experiments.z2.histories import HISTORIES  # noqa: E402
+TARGET_OCCURRENCES = {k: h.target_occurrences for k, h in HISTORIES.items()}
+ASKS_PER_FAMILY = {k: h.asks_per_family for k, h in HISTORIES.items()}
 MEGA_SPAN, CLUSTER_FLOOR, CLUSTER_MAX = 100, 0.84, 25
 TEMPORAL_MAX = 300
 MULTI_HOP_MAX = 0.90        # two entries this similar are one fact, not two hops

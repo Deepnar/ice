@@ -175,8 +175,9 @@ Return only JSON: {"entries": [ ... ]}. Return {"entries": []} if nothing durabl
 
 def load_history(history):
     """Originals for B, C or a development history (dev-<slug>), in turn order."""
-    if history in ("B", "C"):
-        return json.loads((INPUTS / f"final-originals-{history}.json").read_text())
+    from experiments.z2.histories import HISTORIES
+    if history in HISTORIES:
+        return json.loads(HISTORIES[history].path("originals").read_text())
     if history.startswith("dev-"):
         groups = json.loads((INPUTS / "development-originals.json").read_text())
         return groups[history.removeprefix("dev-")]

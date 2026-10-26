@@ -82,12 +82,14 @@ def table(history: str, rows: list) -> dict:
 
 
 def load_history(history: str) -> list:
-    return json.loads((INPUTS / f"final-originals-{history}.json").read_text())
+    from experiments.z2.histories import HISTORIES
+    return json.loads(HISTORIES[history].path("originals").read_text())
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--history", choices=("B", "C"), required=True)
+    from experiments.z2.histories import HISTORIES
+    parser.add_argument("--history", choices=sorted(HISTORIES), required=True)
     parser.add_argument("--out", type=Path, help="write the table (refuses to overwrite)")
     args = parser.parse_args()
     result = table(args.history, load_history(args.history))
