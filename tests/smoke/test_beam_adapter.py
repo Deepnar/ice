@@ -30,3 +30,32 @@ def test_originals_asks_and_scoring():
     s = A.score(order, "b then a", judge)
     assert s["nugget_mean"] == 0.75 and s["kendall_tau_b"] == -1.0
     assert A.kendall_tau_b([1, 2, 3]) == 1.0
+
+
+def test_beam_grading_scores_resumes_and_leaves_incomplete_ungraded(tmp_path):
+    from experiments.beam import grade as G
+    from experiments.z2 import read_passes as R
+    originals, ids = A.to_originals(row())
+    asks = A.to_asks(row(), ids, 3)
+    (tmp_path / "asks.json").write_text(json.dumps(asks))
+    units, ans = tmp_path / "units", tmp_path / "ans"
+    ans.mkdir()
+    index, lines = {}, []
+    for i, (cond, finish) in enumerate((("full", "complete"), ("recent_only", "incomplete"))):
+        for a in asks:
+            R.write_unit(R.unit_path(units, cond, a["id"]), dict(condition=cond, ask=dict(id=a["id"])))
+            sha = f"{cond}{a['id']}"
+            index[f"{cond}|{a['id']}"] = sha
+            lines.append(json.dumps(dict(prompt_sha256=sha, finish=finish, text="250ms; a then b")))
+    (ans / "index.json").write_text(json.dumps(dict(index=index)))
+    (ans / "answers.jsonl").write_text("\n".join(lines) + "\n")
+    calls = []
+    def judge(system, prompt):
+        calls.append(system)
+        return {"scores": [1] * len(json.loads(prompt)["NUGGETS"])} if system is A.NUGGET_SYSTEM else {"positions": [1, 2]}
+    report = G.run(units, ans, tmp_path / "asks.json", tmp_path / "out", judge)
+    assert report["full"]["knowledge_update"]["mean_nugget"] == 1.0
+    assert report["recent_only"]["knowledge_update"]["graded"] == 0
+    before = len(calls)
+    G.run(units, ans, tmp_path / "asks.json", tmp_path / "out", judge)
+    assert len(calls) == before                                          # resumed
