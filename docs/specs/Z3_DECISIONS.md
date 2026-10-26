@@ -128,7 +128,8 @@ show whether the conclusions depend on the answerer.
 
 ## D7 ⚑ Judges
 
-**Benched 2026-10-26 (maintainer):** no second judge is fixed yet — no cheap model at hand
+**Benched 2026-10-26 (maintainer; confirmed the same day — benched until a cheap model is available
+at the time):** no second judge is fixed yet — no cheap model at hand
 (Claude Haiku on OpenCode costs about as much as Luna; no Anthropic API key). The machinery is
 ready (`grade.py --judge`, `qualify.py --judge`). The "writers never judge" rule may be relaxed
 for the second judge if that is what the limits allow — e.g. DeepSeek, which co-wrote the

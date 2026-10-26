@@ -1,6 +1,6 @@
-# FINAL — pre-registration (DRAFT, 2026-10-26, for the maintainer's approval)
+# FINAL — pre-registration (APPROVED by the maintainer, 2026-10-26)
 
-**Status: draft.** Fixed before FINAL runs; nothing here changes after the first FINAL answer is
+**Status: approved 2026-10-26.** Fixed before FINAL runs; nothing here changes after the first FINAL answer is
 graded. A change after that is a new revision, reported beside the first (Z3 D11 item 3).
 Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DECISIONS.md](Z3_DECISIONS.md).
 
@@ -59,5 +59,6 @@ margin 2 percentage points (the upper interval bound of ICE minus baseline below
   LongMemEval-S 100 → 50; the S9 build-up; BEAM conditions 6 → 4. Never dropped: the primary
   comparisons, the hallucination measures, the private and synthetic main runs.
 
-## 6. Open before approval
-- Second judge (D7, benched); which memory system (D11, decided at the time).
+## 6. Left open by design (approved as such)
+- Second judge: benched until a cheap model exists at the time (D7); which memory system (D11),
+  decided at the time. Either, once chosen, is recorded here before FINAL's grading.
