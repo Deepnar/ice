@@ -1,13 +1,19 @@
-"""FINAL long-run driver (FINAL_experiments.md §2.1): every FINAL history behind one
+"""FINAL long-run driver (FINAL_experiments.md §2.1; Z3 D13): every FINAL history behind one
 resumable command, on Z2's runner (meter, retries, lock, clean stop, resume).
 
-Phases, in order — each stage key starts with its phase:
-  prep-*   B's FINAL asks from the sealed families, BEAM export (local); synthetic
-           generation (cloud); the private histories' question chain (Z2's S1-S6, run by
-           the maintainer with the review; this runner waits for its asks file)
-  local-*  per history: replay, read passes (condition preset per dataset), local answers;
-           plus the LongMemEval-S slice
-  grade-*  cloud judging — not built yet (listed, so the meter shows what is left)
+ALL LOCAL FIRST, THEN ALL CLOUD (Z3 D13) — each stage key starts with its phase:
+  prep-*    local: synthetic derived files, B's FINAL asks, BEAM export, synthetic generation
+            (local models); waits for the private histories' asks (their question chain runs in
+            Z2's cloud block, with the maintainer's review)
+  local-*   per history: replay, the audit inventory of the final store (B, S9 — before any
+            read pass restores a checkpoint into that database), read passes; the
+            LongMemEval-S slice; the memory systems' ingestion
+  cloud-*   answers (Muse 1.2) for every read context
+  audit-*   the background-content audit of B and S9 (Muse 1.3 + DeepSeek second opinion)
+  grade-*   Muse 1.3 grading + the scoring report (pre-registration r2)
+  subset-*  the cloud-answerer subset (a non-Meta answerer), graded by Muse 1.3
+  crossjudge-*  the cross-family judge (GLM-5.3-Flash): verdicts on the subset contexts'
+            Muse 1.2 answers and non-Meta answers — measures the judge's family leniency
 
     uv run --no-sync python experiments/final/run_final.py run                    # everything, in order
     uv run --no-sync python experiments/final/run_final.py run --only <keys>      # some stages
@@ -26,6 +32,11 @@ from experiments.z2 import run_z2 as Z  # noqa: E402
 from experiments.z2.histories import BEAM, HISTORIES, SYNTHETIC  # noqa: E402
 
 PRIVATE = ["B", "A", "D", "SW", "LAP"]
+AUDITED = ("B", "S9")                       # fidelity audit (pre-registration r2 §4)
+SUBSET = ("S9", "B", "S5")                  # experiments/final/cloud_subset.py HISTORIES
+SUBSET_ANSWERER = "cloud:longcat"           # a non-Meta family; picked at the time (prereg §6)
+CROSS_JUDGE = "glm"                         # GLM-5.3-Flash (Z3 D13)
+MEMORY_SYSTEMS = ("graphiti", "mem0")       # A-Mem joins when its adapter exists (§2.1 item 15)
 PRESET = {"B": "final_main+final_ablation",                                       # D5
           "S9": "final_main+final_ablation+final_buildup"}                         # D5 + D10 (yes, 2026-10-26)
 REPLAY_SECONDS = {"B": 35.0, "S3": 120.0}          # per pair; long pastes are slower (Z2's C ran ~160 s)
@@ -99,9 +110,83 @@ class FinalRead(Z.Stage):
 
 
 def answers(history, planned, repeat=""):
-    return Z.Answers(history, key=f"local-answers-{history}{repeat}", title=f"answers {history}{repeat}",
+    return Z.Answers(history, key=f"cloud-answers-{history}{repeat}", title=f"answers {history}{repeat}",
                      units_key=f"local-read-{history}{repeat}", needs=(f"local-read-{history}{repeat}",),
                      planned=planned)
+
+
+def references(history):
+    """grade.py / bg_audit.py arguments naming one history's questions, ledger and changes."""
+    rel = lambda path: str(Z._rel(path))
+    if history in SYNTHETIC:
+        plans = ROOT / "experiments/synth/plans"
+        return dict(questions=["--occurrences", rel(plans / f"{history}.final-occurrences.json")],
+                    ledger=["--ledger", rel(plans / f"{history}.ledger.json")])
+    if history == "B":
+        return dict(questions=["--questions", "logs/z2-questions-final"],
+                    ledger=["--ledger", "logs/z2-ledger-detail-2026-10-18-r2/B/ledger.json",
+                            "--changes", "logs/z2-questions-final/B/changes.json"])
+    return dict(questions=["--questions", "logs/final-questions"],
+                ledger=["--ledger", f"logs/final-ledger-detail/{history}/ledger.json",
+                        "--changes", f"logs/final-questions/{history}/changes.json"])
+
+
+class Inventory(Z.Stage):
+    """The audit inventory of a replay's final store, frozen locally (bg_audit --inventory-only)
+    before the read passes restore checkpoints into the same database."""
+
+    def __init__(self, history, replay):
+        super().__init__(key=f"local-inventory-{history}", title=f"audit inventory {history}", unit="files",
+                         needs=(replay.key,))
+        self.history, self.replay = history, replay
+
+    def frozen(self, ctx):
+        return ctx.dir / f"audit-{self.history}" / "items.json"
+
+    def total(self, ctx):
+        return 1
+
+    def done(self, ctx):
+        return int(self.frozen(ctx).exists())
+
+    def complete(self, ctx):
+        return self.frozen(ctx).exists()
+
+    def run(self, ctx):
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = [sys.executable, "experiments/z2/bg_audit.py", "--history", self.history,
+                   "--database", self.replay.database(ctx), "--replay", str(self.replay.out(ctx).relative_to(ROOT)),
+                   *references(self.history)["ledger"], "--out", str(Z._rel(ctx.dir / f"audit-{self.history}")),
+                   "--inventory-only"]
+            return ctx.run_child(cmd, log_path), Z._tail(log_path)
+
+        return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
+class FinalAudit(Z.Audit):
+    """Cloud judging of the frozen inventory (bg_audit.py; the database is not read again)."""
+
+    def __init__(self, history, replay):
+        super().__init__(history)
+        self.key, self.title = f"audit-{history}", f"background audit {history}"
+        self.needs, self.replay = (f"local-inventory-{history}",), replay
+
+    def missing(self, ctx):
+        return []
+
+    def run(self, ctx):
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            (self.out(ctx) / "status.json").unlink(missing_ok=True)
+            cmd = [sys.executable, "experiments/z2/bg_audit.py", "--history", self.history,
+                   "--database", self.replay.database(ctx), "--replay", str(self.replay.out(ctx).relative_to(ROOT)),
+                   *references(self.history)["ledger"], "--out", str(self.out(ctx).relative_to(ROOT))]
+            return ctx.run_child(cmd, log_path), Z._tail(log_path)
+
+        return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
 class Group(Z.Stage):
@@ -277,29 +362,33 @@ class FinalGrade(Z.Stage):
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
-def grade_stage(history, repeat="", judge="muse"):
-    """grade.py with the references and ledger each kind of history uses."""
+def grade_stage(history, repeat="", judge="muse", *, units=None, answers_dir=None, key=None, verdicts_only=False,
+                needs=None):
+    """grade.py with the references and ledger each kind of history uses; the scoring report
+    gets the replay's timings and, for B and S9, the background audit (fidelity)."""
     rel = lambda path: str(Z._rel(path))
-    read, ans = f"local-read-{history}{repeat}", f"local-answers-{history}{repeat}"
-    if history in SYNTHETIC:
-        plans = ROOT / "experiments/synth/plans"
-        refs = ["--occurrences", rel(plans / f"{history}.final-occurrences.json"), "--ledger", rel(plans / f"{history}.ledger.json")]
-    elif history == "B":
-        refs = ["--questions", "logs/z2-questions-final", "--ledger", "logs/z2-ledger-detail-2026-10-18-r2/B/ledger.json",
-                "--changes", "logs/z2-questions-final/B/changes.json"]
-    else:
-        refs = ["--questions", "logs/final-questions", "--ledger", f"logs/final-ledger-detail/{history}/ledger.json",
-                "--changes", f"logs/final-questions/{history}/changes.json"]
-    args = lambda ctx, out: ["experiments/z2/grade.py", "--history", history, "--units", rel(ctx.dir / read),
-                             "--answers", rel(ctx.dir / ans), *refs, "--out", rel(out)]
-    return FinalGrade(f"grade-{history}{repeat}", f"grade {history}{repeat}", args, (ans,), judge)
+    read, ans = units or f"local-read-{history}{repeat}", answers_dir or f"cloud-answers-{history}{repeat}"
+    refs = references(history)
+    audited = history in AUDITED and not repeat and not verdicts_only
+
+    def args(ctx, out):
+        extra = ["--replay", rel(ctx.dir / f"local-replay-{history}{repeat}" / "progress.jsonl"), "--no-ranking"]
+        if audited:
+            extra += ["--audit", rel(ctx.dir / f"audit-{history}" / "bg-audit.json")]
+        if verdicts_only:
+            extra += ["--verdicts-only"]
+        return ["experiments/z2/grade.py", "--history", history, "--units", rel(ctx.dir / read),
+                "--answers", rel(ctx.dir / ans), *refs["questions"], *refs["ledger"], *extra, "--out", rel(out)]
+    key = key or f"grade-{history}{repeat}"
+    return FinalGrade(key, key.replace("-", " "), args, needs or ((ans,) + ((f"audit-{history}",) if audited else ())),
+                      judge)
 
 
 def beam_grade(key, judge="muse"):
     tier, cid = key.split("-")[1], key.split("-")[2]
     rel = lambda path: str(Z._rel(path))
     args = lambda ctx, out: ["experiments/beam/grade.py", "--units", rel(ctx.dir / f"local-read-{key}"),
-                             "--answers", rel(ctx.dir / f"local-answers-{key}"),
+                             "--answers", rel(ctx.dir / f"cloud-answers-{key}"),
                              "--asks", f"logs/final-beam/{tier}/{cid}/asks.json", "--out", rel(out)]
     return FinalGrade(f"grade-{key}", f"grade {key}", args, (), judge)
 
@@ -375,54 +464,73 @@ def final_stages(limit=None):
            *[SynthGenerate(s) for s in SYNTHETIC],
            *[WaitFor(f"prep-questions-{k}", f"questions {k} (Z2 S1-S6 chain + review)", HISTORIES[k].path("asks"))
              for k in PRIVATE if k != "B"]]
+    local, cloud = [], []
+    replays = {}
     for k in PRIVATE + list(SYNTHETIC):
         h = HISTORIES[k]
         asks = b_asks if k == "B" else h.path("asks")
-        replay = FinalReplay(k, limit)
+        replay = replays[k] = FinalReplay(k, limit)
         replay.needs = ((f"prep-generate-{k}",) if k in SYNTHETIC else ()) + (("prep-asks-B",) if k == "B" else ())
-        out += [replay, FinalRead(k, asks, replay), answers(k, planned=max(1, h.planned_asks or 100) * 6)]
+        read = FinalRead(k, asks, replay)
+        if k in AUDITED:
+            inventory = Inventory(k, replay)
+            read.needs = (replay.key, inventory.key)
+            local += [replay, inventory, read]
+        else:
+            local += [replay, read]
+        cloud.append(answers(k, planned=max(1, h.planned_asks or 100) * 6))
     # Run-to-run variance (Z3 D11): S1 replayed a second time into its own store, read under the
     # main conditions and answered; its grades are compared with the first replay's.
     again = FinalReplay("S1", limit, repeat="-repeat")
     again.needs = ("prep-generate-S1",)
-    out += [again, FinalRead("S1", HISTORIES["S1"].path("asks"), again, preset="final_main"),
-            answers("S1", planned=600, repeat="-repeat")]
+    local += [again, FinalRead("S1", HISTORIES["S1"].path("asks"), again, preset="final_main")]
+    cloud.append(answers("S1", planned=600, repeat="-repeat"))
     for tier in ("100K", "500K", "1M"):
         keys = [k for k in BEAM if k.startswith(f"BEAM-{tier}-")]
-        replays = [FinalReplay(k, limit) for k in keys]
+        beam_replays = [FinalReplay(k, limit) for k in keys]
         rk, dk = f"local-replay-BEAM{tier}", f"local-read-BEAM{tier}"
-        out += [Group(rk, f"replay BEAM {tier} ({len(keys)})", replays, "turns", needs=("prep-beam-export",)),
-                Group(dk, f"read passes BEAM {tier}",
-                      [FinalRead(k, HISTORIES[k].path("asks"), r) for k, r in zip(keys, replays)], "contexts", needs=(rk,)),
-                Group(f"local-answers-BEAM{tier}", f"answers BEAM {tier}", [answers(k, planned=120) for k in keys],
-                      "answers", needs=(dk,))]
-    out += [LongMemEvalS(), Z.Answers("lmes", key="local-answers-lmes", title="answers LongMemEval-S",
-                                     units_key="local-lmes", needs=("local-lmes",), planned=600, estimate=60.0)]
-    # Memory-system baselines (Z3 D11; which one(s) to run is decided at the time — pick with --only).
-    for system in ("graphiti", "mem0"):
-        out += [Baseline(system), Z.Answers(f"baseline-{system}", key=f"local-answers-baseline-{system}",
-                                            title=f"answers baseline {system}", units_key=f"local-baseline-{system}",
-                                            needs=(f"local-baseline-{system}",), planned=100, estimate=60.0)]
-    # Cloud judging, last: one judge (Muse) now; a second judge, when chosen, is another pass
-    # with --judge <role> into its own stage keys (Z3 D7, benched).
-    for k in PRIVATE + list(SYNTHETIC):
-        out.append(grade_stage(k))
-    out.append(grade_stage("S1", repeat="-repeat"))
+        local += [Group(rk, f"replay BEAM {tier} ({len(keys)})", beam_replays, "turns", needs=("prep-beam-export",)),
+                  Group(dk, f"read passes BEAM {tier}",
+                        [FinalRead(k, HISTORIES[k].path("asks"), r) for k, r in zip(keys, beam_replays)], "contexts",
+                        needs=(rk,))]
+        cloud.append(Group(f"cloud-answers-BEAM{tier}", f"answers BEAM {tier}", [answers(k, planned=120) for k in keys],
+                           "answers", needs=(dk,)))
+    local.append(LongMemEvalS())
+    cloud.append(Z.Answers("lmes", key="cloud-answers-lmes", title="answers LongMemEval-S", units_key="local-lmes",
+                           needs=("local-lmes",), planned=600))
+    for system in MEMORY_SYSTEMS:                  # their ingestion is local (gemma4:e4b); answers Muse 1.2
+        local.append(Baseline(system))
+        cloud.append(Z.Answers(f"baseline-{system}", key=f"cloud-answers-baseline-{system}",
+                               title=f"answers baseline {system}", units_key=f"local-baseline-{system}",
+                               needs=(f"local-baseline-{system}",), planned=100))
+
+    # ── cloud: answers above, then audits, grading, the subset, the cross-family judge
+    cloud += [FinalAudit(k, replays[k]) for k in AUDITED]
+    cloud += [grade_stage(k) for k in PRIVATE + list(SYNTHETIC)]
+    cloud.append(grade_stage("S1", repeat="-repeat"))
     for tier in ("100K", "500K", "1M"):
         keys = [k for k in BEAM if k.startswith(f"BEAM-{tier}-")]
-        out.append(Group(f"grade-BEAM{tier}", f"grade BEAM {tier}", [beam_grade(k) for k in keys], "conversations",
-                         needs=(f"local-answers-BEAM{tier}",)))
+        cloud.append(Group(f"grade-BEAM{tier}", f"grade BEAM {tier}", [beam_grade(k) for k in keys], "conversations",
+                           needs=(f"cloud-answers-BEAM{tier}",)))
     lmes = lambda ctx, out: ["experiments/z2/oracle.py", "grade", "--dataset", "s",
                              "--units", str(Z._rel(ctx.dir / "local-lmes")), "--answers",
-                             str(Z._rel(ctx.dir / "local-answers-lmes")), "--out", str(Z._rel(out))]
-    out.append(FinalGrade("grade-lmes", "grade LongMemEval-S", lmes, ("local-answers-lmes",)))
-    for system in ("graphiti", "mem0"):
+                             str(Z._rel(ctx.dir / "cloud-answers-lmes")), "--out", str(Z._rel(out))]
+    cloud.append(FinalGrade("grade-lmes", "grade LongMemEval-S", lmes, ("cloud-answers-lmes",)))
+    for system in MEMORY_SYSTEMS:
         args = (lambda sysname: lambda ctx, out: ["experiments/z2/oracle.py", "grade", "--dataset", "s",
                 "--units", str(Z._rel(ctx.dir / f"local-baseline-{sysname}")), "--answers",
-                str(Z._rel(ctx.dir / f"local-answers-baseline-{sysname}")), "--out", str(Z._rel(out))])(system)
-        out.append(FinalGrade(f"grade-baseline-{system}", f"grade baseline {system}", args,
-                              (f"local-answers-baseline-{system}",)))
-    return out
+                str(Z._rel(ctx.dir / f"cloud-answers-baseline-{sysname}")), "--out", str(Z._rel(out))])(system)
+        cloud.append(FinalGrade(f"grade-baseline-{system}", f"grade baseline {system}", args,
+                                (f"cloud-answers-baseline-{system}",)))
+    subset = lambda ctx, out: ["experiments/final/cloud_subset.py", "--run", str(Z._rel(ctx.dir)),
+                               "--answerer", SUBSET_ANSWERER]
+    cloud.append(FinalGrade("subset", f"cloud-answerer subset ({SUBSET_ANSWERER})", subset,
+                            tuple(f"grade-{h}" for h in SUBSET)))
+    for h in SUBSET:
+        for side, ans in (("main", f"cloud-answers-{h}"), ("subset", f"subset-answers-{h}")):
+            cloud.append(grade_stage(h, judge=CROSS_JUDGE, units=f"subset-read-{h}", answers_dir=ans,
+                                     key=f"crossjudge-{h}-{side}", verdicts_only=True, needs=("subset",)))
+    return out + local + cloud
 
 
 if __name__ == "__main__":

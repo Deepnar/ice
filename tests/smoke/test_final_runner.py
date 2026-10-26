@@ -21,7 +21,10 @@ def test_stage_list_is_consistent():
     assert next(s for s in stages if s.key == "local-replay-S5").needs == ("prep-generate-S5",)
     grades = [s for s in stages if s.key.startswith("grade-")]
     assert {"grade-B", "grade-S9", "grade-S1-repeat", "grade-BEAM1M", "grade-lmes"} <= {g.key for g in grades}
-    assert keys.index("grade-B") > keys.index("local-answers-lmes")          # every cloud stage last
+    last_local = max(i for i, k in enumerate(keys) if k.startswith(("prep-", "local-")))
+    first_cloud = min(i for i, k in enumerate(keys) if not k.startswith(("prep-", "local-")))
+    assert last_local < first_cloud                                          # all local, then all cloud (Z3 D13)
+    assert keys.index("cloud-answers-lmes") < keys.index("grade-B")
 
 
 def test_s1_is_replayed_twice_into_separate_stores():
@@ -30,11 +33,34 @@ def test_s1_is_replayed_twice_into_separate_stores():
     ctx = type("C", (), {"name": "main"})()
     assert first.database(ctx) != again.database(ctx)
     assert stages["local-read-S1-repeat"].replay is again and stages["local-read-S1-repeat"].preset == "final_main"
-    assert stages["local-answers-S1-repeat"].needs == ("local-read-S1-repeat",)
+    assert stages["cloud-answers-S1-repeat"].needs == ("local-read-S1-repeat",)
 
 
 def test_memory_baselines_are_stages_after_the_lme_reads():
     stages = {s.key: s for s in F.final_stages()}
     for system in ("graphiti", "mem0"):
         assert stages[f"local-baseline-{system}"].needs == ("local-lmes",)
-        assert stages[f"grade-baseline-{system}"].needs == (f"local-answers-baseline-{system}",)
+        assert stages[f"grade-baseline-{system}"].needs == (f"cloud-answers-baseline-{system}",)
+
+
+def test_audited_histories_freeze_their_inventory_before_any_read_pass():
+    stages = {s.key: s for s in F.final_stages()}
+    for h in F.AUDITED:
+        assert stages[f"local-read-{h}"].needs == (f"local-replay-{h}", f"local-inventory-{h}")
+        assert stages[f"audit-{h}"].needs == (f"local-inventory-{h}",)
+        assert f"audit-{h}" in stages[f"grade-{h}"].needs
+        ctx = type("C", (), {"dir": F.ROOT / "logs/final-run-x", "name": "x"})()
+        args = stages[f"grade-{h}"].cmd_args(ctx, ctx.dir / f"grade-{h}")
+        assert "--no-ranking" in args and "--audit" in args and "--replay" in args
+
+
+def test_subset_and_cross_family_judge_stages():
+    stages = {s.key: s for s in F.final_stages()}
+    assert stages["subset"].needs == tuple(f"grade-{h}" for h in F.SUBSET)
+    ctx = type("C", (), {"dir": F.ROOT / "logs/final-run-x", "name": "x"})()
+    for h in F.SUBSET:
+        main, sub = stages[f"crossjudge-{h}-main"], stages[f"crossjudge-{h}-subset"]
+        assert main.judge == sub.judge == F.CROSS_JUDGE and main.needs == ("subset",)
+        args = main.cmd_args(ctx, ctx.dir / main.key)
+        assert "--verdicts-only" in args and f"subset-read-{h}" in " ".join(args) and f"cloud-answers-{h}" in " ".join(args)
+        assert f"subset-answers-{h}" in " ".join(sub.cmd_args(ctx, ctx.dir / sub.key))

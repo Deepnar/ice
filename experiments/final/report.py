@@ -1,11 +1,15 @@
-"""FINAL report (FINAL_experiments.md §2.1; Z3 D11): one table per dataset, never pooled.
+"""FINAL report (FINAL_PREREGISTRATION r2; FINAL_experiments.md §2.1): one table per dataset,
+never pooled.
 
-From a FINAL run folder: per history and condition, the mean score and the hallucination
-measures Z2's report already computes (outdated-value use, invented claims, abstention accuracy
-on never-said questions; synthetic attribution questions separately), prompt tokens per answer
-and answer time; BEAM nugget means per tier; LongMemEval-S (upstream yes/no + grade);
-run-to-run variance (S1 vs its second replay); the cloud-answerer subset beside the local
-answers; and the judge's agreement with the maintainer's blind sample.
+Per history, from grade-<h>/report.json's `scoring` (experiments/z2/scoring.py): M1 accuracy,
+M2 supported current accuracy overall and on out-of-window questions, the hallucination rates,
+prompt tokens and TUR; the primary tests' verdicts (§3), hallucination non-inferiority, M2 by
+evidence distance, update accuracy, turn-cited evidence recall, context precision and — for B
+and S9 — the fidelity audit; the judge's 1–5 as a descriptive column. Then: BEAM nugget means
+per tier; LongMemEval-S (upstream yes/no + grade); run-to-run variance (S1 replayed twice, in
+M1/M2); the cloud-answerer subset (does ICE keep its margin under a non-Meta answerer?); the
+cross-family judge check (does Muse 1.3 grade Muse 1.2's answers more leniently?); and the
+judge's agreement with the maintainer's blind sample.
 
     uv run --no-sync python experiments/final/report.py --run logs/final-run-main
 """
@@ -76,42 +80,127 @@ def beam(run):
     return out
 
 
+HEADLINE = ("graded", "m1", "m2", "outdated", "invented", "confident_never_said", "attribution_wrong",
+            "prompt_tokens", "tur", "tokens_per_correct")
+
+
+def headline(scoring):
+    """Per condition: the r2 headline numbers, with M2 on out-of-window questions beside them."""
+    if not scoring:
+        return {}
+    out = {}
+    for cond, row in scoring["by_condition"].items():
+        out[cond] = {k: row.get(k) for k in HEADLINE}
+        out[cond]["m2_out_of_window"] = scoring["by_window"][cond]["out"]["m2"]
+        out[cond]["update_m2"] = scoring["update_accuracy"][cond]["m2"]
+    return out
+
+
+def history_table(run, h, read_dir, answers_dir):
+    report = _load(run / f"grade-{h}" / "report.json") or {}
+    sc = report.get("scoring")
+    return dict(headline=headline(sc), primary_tests=(sc or {}).get("primary_tests"),
+                noninferiority=(sc or {}).get("hallucination_noninferiority"),
+                by_distance=(sc or {}).get("by_distance"), evidence_recall=(sc or {}).get("evidence_recall"),
+                context_precision=(sc or {}).get("context_precision"),
+                fidelity={c: f["state"] for c, f in ((sc or {}).get("fidelity") or {}).items()
+                          if f["state"] != "not ablated here"} or None,
+                write_cost=(sc or {}).get("write_cost"), window_rule=(sc or {}).get("window_rule"),
+                questions=(sc or {}).get("questions"), out_of_window=(sc or {}).get("out_of_window"),
+                descriptive_1_5=condition_summary(report), costs=costs(read_dir, answers_dir))
+
+
+def cross_judge(run):
+    """Muse 1.3 vs the cross-family judge on the subset contexts, pooled over the subset's
+    histories (ask ids carry their history)."""
+    from experiments.final.run_final import SUBSET
+    from experiments.z2.scoring import judge_family_check
+    graded = lambda path: ((_load(path) or {}).get("graded") or {})
+    muse_main, other_main, muse_sub, other_sub = {}, {}, {}, {}
+    for h in SUBSET:
+        theirs_main = graded(run / f"crossjudge-{h}-main" / "grades.json")
+        other_main.update(theirs_main)
+        muse_main.update({k: v for k, v in graded(run / f"grade-{h}" / "grades.json").items() if k in theirs_main})
+        other_sub.update(graded(run / f"crossjudge-{h}-subset" / "grades.json"))
+        muse_sub.update(graded(run / f"subset-grade-{h}" / "grades.json"))
+    if not (other_main and other_sub):
+        return None
+    return judge_family_check(muse_main, other_main, muse_sub, other_sub)
+
+
 def build(run):
     run = Path(run)
     histories = sorted(p.name.removeprefix("grade-") for p in run.glob("grade-*")
                        if (p / "report.json").exists())
-    tables = {h: dict(conditions=condition_summary(_load(run / f"grade-{h}" / "report.json")),
-                      costs=costs(run / f"local-read-{h}", run / f"local-answers-{h}")) for h in histories}
+    tables = {h: history_table(run, h, run / f"local-read-{h}", run / f"cloud-answers-{h}") for h in histories}
     variance = None
     if "S1" in tables and "S1-repeat" in tables:
-        a, b = tables["S1"]["conditions"], tables["S1-repeat"]["conditions"]
-        variance = {c: round(b[c]["mean_score"] - a[c]["mean_score"], 3) for c in a
-                    if c in b and a[c]["mean_score"] is not None and b[c]["mean_score"] is not None}
-    cloud = {h.removeprefix("cloud-grade-"): condition_summary(_load(p / "report.json"))
-             for h, p in ((p.name, p) for p in run.glob("cloud-grade-*")) if (p / "report.json").exists()}
+        a, b = tables["S1"]["headline"], tables["S1-repeat"]["headline"]
+        variance = {c: {m: round(b[c][m] - a[c][m], 4) for m in ("m1", "m2") if a[c][m] is not None and b[c][m] is not None}
+                    for c in a if c in b}
+    subset = {}
+    for p in sorted(run.glob("subset-grade-*")):
+        sc = (_load(p / "report.json") or {}).get("scoring")
+        if sc:
+            subset[p.name.removeprefix("subset-grade-")] = dict(headline=headline(sc), primary_tests=sc["primary_tests"])
     return dict(label="FINAL — one table per dataset; never pooled", histories=tables, beam=beam(run),
                 longmemeval_s=_load(run / "grade-lmes" / "oracle-report.json"),
-                run_to_run_variance_S1=variance, cloud_answerer_subset=cloud,
+                run_to_run_variance_S1=variance, cloud_answerer_subset=subset or None,
+                cross_family_judge=cross_judge(run),
                 judge_vs_human=_load(run / "human-sample" / "agreement.json"))
 
 
+def _pct(x):
+    return "—" if x is None else f"{100 * x:.1f}"
+
+
 def markdown(report):
-    lines = [f"# {report['label']}", ""]
+    lines = [f"# {report['label']}", "",
+             "M1 = correct; M2 = correct, current, nothing invented (declines never-said questions); "
+             "out-of-window M2 = evidence beyond the long-context window. Percentages.", ""]
     for h, t in report["histories"].items():
-        lines += [f"## {h}", "", "| condition | graded | mean score | outdated used | invented | abstention acc. | prompt tokens | answer s |",
-                  "|---|---|---|---|---|---|---|---|"]
-        for c, v in t["conditions"].items():
-            k = t["costs"].get(c, {})
-            lines.append(f"| {c} | {v['graded']} | {v['mean_score']} | {v['superseded_rate']} | {v['invented_rate']} | "
-                         f"{v['abstention_accuracy']} | {k.get('prompt_tokens')} | {k.get('answer_seconds')} |")
+        lines += [f"## {h}", "", f"{t['questions']} questions, {t['out_of_window']} out of window ({t['window_rule']}).", "",
+                  "| condition | graded | M1 | M2 | M2 out-of-window | M2 on updates | outdated | invented | "
+                  "confident never-said | prompt tokens | TUR | 1–5 (descriptive) |",
+                  "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+        for c, v in t["headline"].items():
+            lines.append(f"| {c} | {v['graded']} | {_pct(v['m1'])} | {_pct(v['m2'])} | {_pct(v['m2_out_of_window'])} | "
+                         f"{_pct(v['update_m2'])} | {_pct(v['outdated'])} | {_pct(v['invented'])} | "
+                         f"{_pct(v['confident_never_said'])} | {v['prompt_tokens']} | {v['tur']} | "
+                         f"{(t['descriptive_1_5'].get(c) or {}).get('mean_score')} |")
+        lines.append("")
+        for name, test in (t["primary_tests"] or {}).items():
+            if test.get("pairs"):
+                lines.append(f"- **{name}**: {test['verdict']} — difference {_pct(test['diff'])} points, 95% CI "
+                             f"{[_pct(x) for x in test['ci95'] or []]}, Holm p {test['p_holm']:.4g}, {test['pairs']} pairs "
+                             f"(detectable ≈ {_pct(test['detectable'])})")
+        for measure, test in (t["noninferiority"] or {}).items():
+            if test.get("pairs"):
+                lines.append(f"- non-inferiority, {measure}: {'shown' if test['non_inferior'] else 'NOT shown'} "
+                             f"(upper bound {_pct((test['ci95'] or [None, None])[1])} points)")
+        if t["fidelity"]:
+            lines.append("- fidelity: " + "; ".join(f"{c} {state}" for c, state in t["fidelity"].items()))
         lines.append("")
     for tier, conds in report["beam"].items():
         if conds:
             lines += [f"## BEAM {tier} (nugget protocol, non-official judge)", ""] + \
                      [f"- {c}: {v['mean_nugget']} over {v['graded']}" for c, v in conds.items()] + [""]
     if report["run_to_run_variance_S1"]:
-        lines += ["## Run-to-run variance (S1 replayed twice; second minus first)", ""] + \
-                 [f"- {c}: {d:+}" for c, d in report["run_to_run_variance_S1"].items()] + [""]
+        lines += ["## Run-to-run variance (S1 replayed twice; second minus first, points)", ""] + \
+                 [f"- {c}: M1 {_pct(d.get('m1'))}, M2 {_pct(d.get('m2'))}" for c, d in report["run_to_run_variance_S1"].items()] + [""]
+    if report["cloud_answerer_subset"]:
+        lines += ["## Cloud-answerer subset (non-Meta answerer)", ""]
+        for h, sub in report["cloud_answerer_subset"].items():
+            for name, test in sub["primary_tests"].items():
+                if test.get("pairs"):
+                    lines.append(f"- {h} {name}: {test['verdict']} ({_pct(test['diff'])} points, {test['pairs']} pairs)")
+        lines.append("")
+    if report["cross_family_judge"]:
+        j = report["cross_family_judge"]
+        lines += ["## Cross-family judge (does Muse 1.3 favour Muse 1.2's answers?)", "",
+                  f"- {j['reading']}: family effect {_pct(j['family_effect'])} points, 95% CI {[_pct(x) for x in j['ci95'] or []]}",
+                  f"- agreement on Muse answers {j['on_muse_answers']['agreement']} (kappa {j['on_muse_answers']['kappa']}); "
+                  f"on other-family answers {j['on_other_family_answers']['agreement']} (kappa {j['on_other_family_answers']['kappa']})", ""]
     if report["judge_vs_human"]:
         j = report["judge_vs_human"]
         lines += ["## Judge vs the maintainer", "", f"- n {j['n']}, exact {j['exact']}, Cohen's kappa {j['cohen_kappa']}", ""]

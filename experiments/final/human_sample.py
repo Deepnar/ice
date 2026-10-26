@@ -29,7 +29,7 @@ def collect(run):
     for grades_path in sorted(Path(run).glob("grade-*/grades.json")):
         history = grades_path.parent.name.removeprefix("grade-")
         g = json.loads(grades_path.read_text())
-        read, ans = Path(run) / f"local-read-{history}", Path(run) / f"local-answers-{history}"
+        read, ans = Path(run) / f"local-read-{history}", Path(run) / f"cloud-answers-{history}"
         if not (ans / "index.json").exists():
             continue
         index = json.loads((ans / "index.json").read_text())["index"]

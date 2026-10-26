@@ -1,12 +1,15 @@
-"""FINAL's cloud-answerer subset (Z3 D6): do the conclusions depend on the answerer?
+"""FINAL's cloud-answerer subset (Z3 D6, D13): do the conclusions depend on the answerer?
 
-~70 questions from each of S9 (the ablation conversation), B (real history) and S5 (time),
-each under full ICE, recent-only and bare vector (~210 contexts), chosen by a fixed hash
-from the local read passes, answered by a cloud model of another family, and graded exactly
-like the local answers. Compare: does full ICE keep its margin over the baselines?
+25 questions from each of S9 (the ablation conversation), B (real history) and S5 (time), each
+under full ICE, recent-only and bare vector (225 contexts), chosen by a fixed hash from the read
+passes, answered by a model of a non-Meta family (the main answerer is Muse 1.2), and graded
+exactly like the main answers. Compare: does full ICE keep its margin over the baselines? The
+same contexts feed the cross-family judge check (run_final's crossjudge-* stages).
 
     uv run --no-sync python experiments/final/cloud_subset.py --run logs/final-run-main \
-        --answerer cloud:<role> [--judge muse] [--per-history 70]
+        --answerer cloud:<role> [--judge muse] [--per-history 25]
+
+Writes subset-read-<h> (the chosen units), subset-answers-<h>, subset-grade-<h>.
 """
 
 import argparse
@@ -45,20 +48,19 @@ def main() -> int:
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--answerer", required=True, help="cloud:<role>")
     parser.add_argument("--judge", default="muse")
-    parser.add_argument("--per-history", type=int, default=70)
+    parser.add_argument("--per-history", type=int, default=25)
     args = parser.parse_args()
     from experiments.final.run_final import grade_stage
     for h in HISTORIES:
         read = args.run / f"local-read-{h}"
         asks = choose(read, args.per_history)
-        units = stage_units(read, args.run / f"cloud-read-{h}", asks)
-        answers = args.run / f"cloud-answers-{h}"
+        units = stage_units(read, args.run / f"subset-read-{h}", asks)
+        answers = args.run / f"subset-answers-{h}"
         subprocess.run([sys.executable, "experiments/z2/answers.py", "--units", str(units.relative_to(ROOT)),
                         "--out", str(answers.relative_to(ROOT)), "--answerer", args.answerer], check=True, cwd=ROOT)
-        grade = grade_stage(h)
+        grade = grade_stage(h, units=f"subset-read-{h}", answers_dir=f"subset-answers-{h}", key=f"subset-grade-{h}")
         ctx = type("Ctx", (), {"dir": args.run})()
-        cmd = grade.cmd_args(ctx, args.run / f"cloud-grade-{h}")
-        cmd = [x.replace(f"local-read-{h}", f"cloud-read-{h}").replace(f"local-answers-{h}", f"cloud-answers-{h}") for x in cmd]
+        cmd = grade.cmd_args(ctx, args.run / f"subset-grade-{h}")
         subprocess.run([sys.executable, *cmd, "--judge", args.judge], check=True, cwd=ROOT)
         print(json.dumps(dict(history=h, asks=len(asks), contexts=len(asks) * len(CONDITIONS))))
     return 0
