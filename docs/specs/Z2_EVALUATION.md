@@ -240,11 +240,11 @@ Decision:
   of ~20 real Muse 1.2 answers and size the stage from it (TRAPS 148) —
   `experiments/z2/allowance.py` projects every answer stage from the saved answers'
   allowance (on Luna's 2,669 kept answers: median $0.0114, all Z2 answers ≈ $101).
-- **⚑ Data use — the maintainer must accept before S10:** Muse Contributor models may
+- **Data use — accepted by the maintainer, 2026-10-27:** Muse Contributor models may
   train on prompts and completions and are not zero-retention (Data-use terms below). The
-  2026-10-17 acceptance covered the judge, which sees cited source text; the answerer
-  sees every full memory prompt (median ~25k tokens of B/C). Read Muse 1.2's terms,
-  record them, and the acceptance, here.
+  2026-10-17 acceptance covered the judge, which sees cited source text; the answerer sees
+  every full memory prompt (median ~25k tokens of B/C). **Muse 1.2 Contributor is accepted
+  as the answerer on these terms, for Z2's B/C prompts and FINAL's private prompts.**
 - **What this changes:** Z2's answers come from a cloud model again; nothing answered by
   Luna or Qwen is mixed in, and no Qwen- or Luna-answered number is compared with them.
 
