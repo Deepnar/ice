@@ -56,3 +56,18 @@ def test_style_twin_changes_only_the_style():
     assert twin["facts"] == src["facts"] and twin["events"] == src["events"]
     assert [s["date"] for s in twin["sessions"]] == [s["date"] for s in src["sessions"]]
     assert src["sessions"][0]["style"] == "casual"                    # the source is untouched
+
+
+def test_keys_answer_as_of_each_checkpoint():
+    from experiments.synth import keys as K
+    p = plan()
+    occ = K.occurrences(p)
+    f1 = [o for o in occ if o["family"] == "T1:F1"]
+    assert {o["type"] for o in f1} == {"update"}
+    at = {o["checkpoint_turn"]: o["reference"]["required"] for o in f1}
+    assert at[50] == ["2,500 euros"]                          # after the correction
+    later = [o for o in f1 if o["checkpoint_turn"] == 50][0]
+    assert later["reference"]["superseded"] == ["2,000 euros"]
+    f2 = [o for o in occ if o["family"] == "T1:F2"]
+    assert f2 and f2[0]["type"] == "attribution" and f2[0]["reference"]["speaker"] == "assistant"
+    assert K.reference(p["facts"][0], 2)[1] is True           # asked before it is said -> abstain
