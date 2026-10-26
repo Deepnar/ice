@@ -183,6 +183,9 @@ PRESETS = {
     "final_main": ["full_default", "full", "warm_vector", "recent_only", "bare_vector", "long_context"],
     "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER],
     "final_buildup": ["full", "recent_only"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))],
+    # LoCoMo (an extra table, prereg r2 §4): every history fits the long-context window; recent_only
+    # is the envelope the memory systems' prompts reuse
+    "final_locomo": ["full", "recent_only", "bare_vector", "long_context"],
 }
 
 

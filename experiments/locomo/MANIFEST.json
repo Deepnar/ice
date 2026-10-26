@@ -1,0 +1,51 @@
+{
+ "dataset": "LoCoMo",
+ "source": "https://github.com/snap-research/locomo",
+ "commit": "3eb6f2c585f5e1699204e3c3bdf7adc5c28cb376",
+ "file": "data/locomo10.json",
+ "sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+ "licence": "none stated in the repository (2026-10-27)",
+ "downloaded": "2026-10-27",
+ "conversations": {
+  "conv-26": {
+   "turns": 214,
+   "questions": 199
+  },
+  "conv-30": {
+   "turns": 188,
+   "questions": 105
+  },
+  "conv-41": {
+   "turns": 340,
+   "questions": 193
+  },
+  "conv-42": {
+   "turns": 323,
+   "questions": 260
+  },
+  "conv-43": {
+   "turns": 349,
+   "questions": 242
+  },
+  "conv-44": {
+   "turns": 343,
+   "questions": 158
+  },
+  "conv-47": {
+   "turns": 355,
+   "questions": 190
+  },
+  "conv-48": {
+   "turns": 347,
+   "questions": 239
+  },
+  "conv-49": {
+   "turns": 260,
+   "questions": 196
+  },
+  "conv-50": {
+   "turns": 292,
+   "questions": 204
+  }
+ }
+}

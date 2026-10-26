@@ -88,7 +88,24 @@ def _beam():
     return out
 
 
+# FINAL LoCoMo histories (source clock; pre-registration r2 §4, an extra table): the 10
+# conversations, exported by experiments/locomo/adapter.py into logs/final-locomo/<id>/.
+def _locomo():
+    import json
+    manifest = ROOT / "experiments/locomo/MANIFEST.json"
+    if not manifest.exists():
+        return {}
+    out = {}
+    for sid, c in json.loads(manifest.read_text())["conversations"].items():
+        key, d = f"LOCOMO-{sid}", f"logs/final-locomo/{sid}"
+        out[key] = History(key, f"locomo{sid.replace('-', '')}", f"{d}/originals.json", c["turns"], True,
+                           0, 1.0, c["questions"], asks=f"{d}/asks.json")
+    return out
+
+
 SYNTHETIC = _synthetic()
 BEAM = _beam()
+LOCOMO = _locomo()
 HISTORIES.update(SYNTHETIC)
 HISTORIES.update(BEAM)
+HISTORIES.update(LOCOMO)

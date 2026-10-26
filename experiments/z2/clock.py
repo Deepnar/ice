@@ -55,7 +55,7 @@ def declared_times(history: str, count: int, anchor: datetime) -> list:
 # FINAL (Z3): histories that carry their own real calendar — synthetic plans (session dates
 # are part of what S5 tests) and BEAM (its session anchors). Their times are kept and a
 # session is a run of turns without a gap of SOURCE_SESSION_GAP or more.
-SOURCE_CLOCK = {"synthetic_plan", "beam_time_anchor"}
+SOURCE_CLOCK = {"synthetic_plan", "beam_time_anchor", "locomo_session_date"}
 SOURCE_SESSION_GAP = timedelta(hours=6)
 
 
