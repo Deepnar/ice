@@ -64,6 +64,21 @@ the per-call cost on 20 calls before sizing (TRAPS 148).
 
 ## D3 ⚑ Public data
 
+**BEAM, checked 2026-10-26** ([paper, ICLR 2026](https://arxiv.org/abs/2510.27246);
+[dataset](https://huggingface.co/datasets/Mohammadta/BEAM), CC-BY-SA-4.0, not gated;
+10M tier in `Mohammadta/BEAM-10M`): 100 synthetic conversations — 128K tier 20, 500K 35,
+1M 35, 10M 10 — in sessions with time anchors; general, coding and math domains (19 in
+all). Per conversation, on average: 128K ~144 user messages, 500K ~544, 1M ~1,067 (about
+B's length), 10M ~10,435. 20 human-validated probing questions per conversation over ten
+abilities (abstention, contradiction resolution, event ordering, information extraction,
+instruction following, knowledge update, multi-session reasoning, preference following,
+summarization, temporal reasoning), asked **after** the whole conversation. Scoring:
+nugget-based (an LLM judge scores each reference nugget 0 / 0.5 / 1; Kendall tau-b for
+event ordering; judge model unnamed). Published 1M averages: vanilla long context
+0.19–0.26, RAG top-5 0.27–0.31, the authors' LIGHT 0.28–0.34. The user side is an LLM
+role-player. Replay estimate at B's rate: ~12 h per 1M conversation, ~6 h per 500K, ~1.5 h
+per 128K; no ledger or question writing needed.
+
 | option | cost | pick |
 |---|---|---|
 | LongMemEval-S, all 500 | 122,506 user turns ≈ ~20 days of replay | no |
