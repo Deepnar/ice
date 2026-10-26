@@ -106,6 +106,9 @@ on a ~50-question sample if a venue requires it (cost per call ~the whole histor
 
 ## D5 ⚑ Ablations in FINAL
 
+**Decided 2026-10-26:** leave-one-out on S9 (a purpose-built ablation conversation) plus sealed B;
+see FINAL_experiments.md §2.1. The text below is the original proposal.
+
 Z2's ablations are development evidence (fixes were made against them), so FINAL repeats
 them on the frozen post-fix system (FINAL_experiments.md §2.7). **Pick:** the 10
 leave-one-out conditions only, on sealed B/C and the synthetic set; the 9-step additive
@@ -126,6 +129,9 @@ Haiku 5.5 on the plan (3,850 per 5 h by the table — check the real per-call co
 Report agreement; never average the two.
 
 ## D8 Time and money, rough
+
+**Superseded 2026-10-26** by the build list and run estimate in FINAL_experiments.md §2.1
+(≈ 26 GPU days). MemoryAgentBench benched; LongMemEval-S unchanged.
 
 GPU: replays ~1 (private) + ~1 (B/C again, post-fix) + ~2–3 (synthetic) + ~4 (LME-S)
 days; reads ~2 days; local answers ~5–8 days. ≈ 2.5–3 weeks of GPU, resumable.

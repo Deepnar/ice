@@ -429,9 +429,60 @@ every planted fact present at its turn, nothing contradicting the plan, failed t
 regenerated; questions phrased and checked by Z2's question machinery. Releasable. Size
 the generation from 20 measured calls (TRAPS 148).
 
-**Ablations on the synthetic set — under discussion (2026-10-26):** decided first as
-leave-one-out on S1, S2, S4 and S7; a single purpose-built ablation conversation was then
-proposed instead (Z3_DECISIONS.md D5).
+**⚑ Ablations — decided by the maintainer, 2026-10-26.** Leave-one-out (the 10 groups) on
+**S9, a purpose-built ablation conversation**, plus the FINAL-sealed B families as the
+real-data check. S9: ~1,000 pairs, mixed styles, ~250 questions planned **per component
+group** (~20–25 each), so every ablation has questions it should hurt — exact rare terms
+(BM25), paraphrased recall (vector + reranker), facts linking across turns (codex), long
+turns (summaries), the conversation fold (notes), how-to steps (procedures), the memory
+decision (no-memory questions — gate), same-shaped facts in different topics (clusters),
+"when" questions (temporal), one thing under two names (maintenance / entity merges).
+Not on S1–S8 (a conversation built for one target leaves most groups with nothing to
+measure), and not on a molded BEAM or LongMemEval conversation (20 and ~1 questions each;
+molding needs our own ledger and discards the benchmark's validated questions). The 9-step
+additive ladder is reported from Z2, labelled pre-fix development evidence.
+
+**⚑ Public data — decided 2026-10-26.** LongMemEval-S as planned, unchanged: a
+100-instance slice stratified by question type, native protocol and upstream prompts,
+with the oracle evidence as a read-time control (no separate oracle replay). BEAM as
+above. **MemoryAgentBench benched** — not run now; reconsidered once FINAL's measured
+time is known. LoCoMo stays out.
+
+**FINAL build list and run estimate (2026-10-26, v3).** Rates measured in Z2: replay ~34 s
+per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3.8:27b, thinking).
+
+*Data curation:*
+1. Private A, D, laptop thread, software project (826 pairs): originals (the laptop thread
+   from the DeepSeek export), two-family ledger + detail pass, changes, questions, forward-walk
+   audit, **maintainer review** (USER-REQUIRED, a few hours). Cloud, ~3–5 days wall. B: none.
+2. Synthetic S1–S9 (~4,900 pairs): plans (fast model + validator), generation, verification,
+   questions from the plan; maintainer spot review. Cloud, ~2–3 days wall once built.
+3. BEAM (40 conversations): convert to originals with session timestamps; probes and nuggets
+   to asks. Local, hours.
+4. LongMemEval-S: the 100-instance slice, pinned by seed. Local, hours.
+
+*Machinery to build (sessions, while Z2 finishes; on branch `fix-pass`):*
+5. Fix-pass GPU tests and merge (G79, G60, G75, B7, DB suites) — ~3–4 GPU days, after Z2's
+   local stages.
+6. FINAL runner: `run_z2.py` generalised to the history registry — every FINAL history and
+   condition as resumable stages behind the one command.
+7. Synthetic generator: plan schema + validator, user/assistant simulators with style cards,
+   per-turn verifier, plan → answer keys, question phrasing (the largest new build).
+8. BEAM adapter: replay, one end-of-conversation read, nugget scoring (0 / 0.5 / 1) and
+   Kendall tau-b for event ordering.
+9. LongMemEval-S: `oracle.py` generalised to haystack instances (per-instance store,
+   question-time maintenance, `all_evidence` control).
+10. Long-context baseline condition (newest history packed into the 49,152-token window).
+11. Second judge (Claude Haiku 5.5): D6a qualification with planted controls; agreement report.
+12. Cloud-answerer subset (~200 answers) for answerer sensitivity.
+13. FINAL report: per-dataset tables, never pooled.
+
+*Run estimate (GPU, continuous):* replays — B 0.5 d, private 0.5 d, synthetic ~2 d, BEAM ~7.3 d,
+LME-S ~4 d (≈ 14 d); reads ~2 d (~16,000 contexts); local answers ~10 d (~11,500 distinct
+prompts). **≈ 26 GPU days ≈ 4–5 weeks with cooling pauses.** Cloud: private ledgers, synthetic
+generation, two judges — sized from measured per-call cost (TRAPS 148), likely two plan
+periods. Levers if it runs long: BEAM 1M tier 10 → 5 (−3 d), fewer main conditions on BEAM,
+LME-S 100 → 50 (−2 d).
 
 **Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the
 record).** Reported in separate tables, never pooled. *Native* = the dataset's own

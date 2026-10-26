@@ -155,9 +155,12 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   decides D1–D5, D7.**
 - ✅ `26791d5` FINAL machinery: one history registry (`experiments/z2/histories.py`) replaces
   the B/C constants in replay/clock/ledger/questions/run_z2 — a FINAL history is an entry.
-- ☐ FINAL prep **after the maintainer's Z3 decisions**: multi-conversation replay for chat
-  groups (D1), synthetic seeds + generator (D2), LongMemEval-S slice selection (D3), the
-  long-context baseline condition (D4), second-judge profile (D7).
+- ✅ Z3 decided 2026-10-26 (FINAL_experiments.md §2.1): private B/A/D/laptop/software, BEAM 40
+  conversations (`experiments/beam/`), synthetic S1–S8 + S9 ablation conversation,
+  LongMemEval-S slice unchanged, MemoryAgentBench benched, stitched ICE chat dropped.
+- ☐ FINAL build list (§2.1, items 5–13): FINAL runner, synthetic generator, BEAM adapter,
+  LME-S slice + replay, long-context baseline, second judge, cloud-answerer subset, report.
+  Data curation (items 1–4) needs the renewed plan for the cloud parts.
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
   non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
 - Merge after S12 reads: quick + db smoke groups on the branch, the ⏳ tests, then merge.
