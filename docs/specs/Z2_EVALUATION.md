@@ -171,7 +171,7 @@ against, so Z2 families are development material for FINAL purposes.
 |---|---|
 | Ledger/question writers (two families) | DeepSeek V4.1 Flash; MiMo V2.5/V2.6 Flash |
 | Ledger verifier / tie-break | the non-writing family of the two, then LongCat-2.0 |
-| Answerer | ~~GPT 6 Luna (`opencode-luna6`)~~ → **local `qwen3.8:27b`** (D6c, 2026-10-26) |
+| Answerer | ~~GPT 6 Luna (`opencode-luna6`)~~ → ~~local `qwen3.8:27b`~~ (D6c) → **Muse Spark 1.2 Contributor (`muse12`)** (D6d, 2026-10-27) |
 | Answer judge, background-content judge | Muse Spark 1.3 Contributor (`opencode-muse13`) |
 | Second-opinion sample (background audit) | DeepSeek V4.1 Flash on 20% of judged items |
 | Second answer judge | **FINAL only**, untuned, reported beside Muse |
@@ -219,6 +219,27 @@ Decision:
   the configuration ICE itself runs (local-first). Within-study comparisons hold —
   every condition shares the answerer. Absolute scores are not comparable with any
   Luna-answered number.
+
+**D6d — Answerer Muse 1.2; local stages first, then every cloud stage (maintainer,
+2026-10-27).** Supersedes D6c's answerer. The laptop can run only some hours a day
+(thermals), so D6c's ~7–9 GPU days of local answering would stretch into weeks; S10-B had
+257 of 4,864 local answers when stopped.
+- **Answerer = `muse-spark-1.2-contributor`** (confirmed in the provider's model list
+  2026-10-27), Responses API, temperature 0, output cap 16,000 (reasoning included — D6c's
+  reason against a tight cap holds: it would turn the weakest conditions' long answers into
+  ungraded `incomplete`), four workers, no request pacing: the spend limit is met by
+  waiting (TRAPS 148). The 257 Qwen answers are moved aside (`s10-B.qwen-answers/`);
+  `answers.py` refuses to add answers from a different model to a saved file.
+- **Judge unchanged:** Muse 1.3. Answerer and judge share a family (Meta). Accepted: the
+  judge checks required items against quoted sources, not taste, and every condition
+  shares the answerer, so any family leniency cancels in paired comparisons; it can move
+  absolute levels only, which Z2 never compares outside the study. FINAL measures it
+  (cross-family judge sample, blind human sample) and keeps Muse out of its ground truth.
+- **Order:** local — S12 replay + reads; then cloud, on one renewed plan — S10 B, S10 C,
+  S12 answers, S11 B, S11 C, S12 grading. Before the cloud stages: read the allowance cost
+  of ~20 real Muse 1.2 answers and size the stage from it (TRAPS 148).
+- **What this changes:** Z2's answers come from a cloud model again; nothing answered by
+  Luna or Qwen is mixed in, and no Qwen- or Luna-answered number is compared with them.
 
 **Data-use terms (read 2026-10-17, opencode.ai/docs/go).** MiMo, DeepSeek and LongCat on
 Go: no training, 0-day retention (DeepSeek's zero-retention agreement is renewed monthly;
@@ -495,9 +516,9 @@ hash-bound to its inputs; private content stays under `logs/`):
 | S7 replay B and C on the declared clock | checkpoint stores, event log | local |
 | S8 background-content audit | `bg-audit.json` | Muse + sample |
 | S9 read passes (controls, ablations, decay overlays) | per-condition contexts | local |
-| S10 answers | per-condition answers | local `qwen3.8:27b` (D6c) |
+| S10 answers | per-condition answers | Muse 1.2 (D6d) — cloud, after every local stage |
 | S11 grading and retrieval diagnostics | grades, semantic credits, report | Muse — runs last (D6c) |
-| S12 LME oracle | per-instance contexts, answers, grades | local (answers too, D6c) + Muse last |
+| S12 LME oracle | per-instance contexts, answers, grades | replay + reads local; answers Muse 1.2, grades Muse 1.3 (D6d) |
 
 **Ledger entry:** `{id, history, kind (fact|preference|decision|plan|advice|procedure|event), subject, value, speaker, asserted|suggested|hypothetical, citations[], valid_from_turn, superseded_by?, writers[], verified}`.
 
