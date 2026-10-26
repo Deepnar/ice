@@ -1,0 +1,9 @@
+{
+ "system": "A-Mem (agentic memory), the memory layer its paper evaluated",
+ "repository": "https://github.com/WujiangXu/A-mem",
+ "commit": "b31a1dddf56f87ec762cce3539418602d7e2ffb1",
+ "file": "memory_layer.py",
+ "sha256": "dd8f871da00a57a2218de63ba9792336dd5bf040ec4502beaea22739bd865d3c",
+ "licence": "MIT",
+ "why_not_the_library": "agiresearch/A-mem's agentic_memory package never calls analyze_content, so its notes get no keywords/context/tags; its README points to this repository for the paper's results (read 2026-10-27)"
+}

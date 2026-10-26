@@ -1,10 +1,27 @@
 [project]
 name = "ice-final-baselines"
 version = "0.1.0"
-description = "FINAL's memory-system baselines (Graphiti, Mem0), isolated from ICE's environment"
+description = "FINAL's memory-system baselines (Graphiti, Mem0, A-Mem), isolated from ICE's environment"
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "graphiti-core[kuzu]>=0.31.2",
     "mem0ai>=2.2.1",
     "ollama>=0.6.3",
+    # A-Mem: its paper's memory layer (vendor.py fetches the pinned memory_layer.py) and what it imports
+    "sentence-transformers>=5.0",
+    "scikit-learn>=1.5",
+    "transformers>=4.50",
+    "nltk>=3.9",
+    "rank-bm25>=0.2.2",
+    "litellm>=1.70",
+    "requests>=2.32",
+    "torch",                               # CPU build: MiniLM embeddings only, the GPU stays ICE's
 ]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
