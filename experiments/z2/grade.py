@@ -172,7 +172,7 @@ def grade_answers(contexts, out, ask, *, say=print):
                             abstained=bool(value.get("abstained")),
                             abstention_expected=bool(occ.get("expected_abstention")),
                             unsupported_claims=[c for c in value.get("unsupported_claims") or [] if isinstance(c, str)],
-                            reason=value.get("reason"))
+                            reason=value.get("reason"), reference=ref.get("required", []))
     return results, pending
 
 
