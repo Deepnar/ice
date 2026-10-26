@@ -389,6 +389,50 @@ LSREP — there are no mid-conversation cutoffs; the synthetic set covers that. 
 days at B's rate) — chosen by a fixed seed, balanced over BEAM's categories, before any
 result is seen. Exact conversations and file hashes: `experiments/beam/MANIFEST.json`.
 
+**⚑ BEAM conversations chosen** (seed 20261026, revision `3205395e`; ids and hashes in
+`experiments/beam/MANIFEST.json`; regenerate or verify with `experiments/beam/select.py`):
+
+- **128K tier (BEAM split `100K`), all 20** — 2,866 user messages: Building a Personal Budget Tracker Web App in Python and Flask (Coding); Developing a Weather Forecast App in JavaScript with OpenWeather API (Coding); Building a Portfolio Website with HTML, CSS, and Bootstrap (Coding); Exploring the Geometry of Triangles (Math); Understanding the Basics of Probability (Math); Building a Portfolio-Ready Resume that Passes Any Applicant Tracking System (Writing Assistant & Learning); Mastering the Art of Persuasive Academic Essay Writing (Writing Assistant & Learning); Crafting a Standout Cover Letter for Competitive Job Markets (Writing Assistant & Learning); Designing a Multi-Purpose Personal Statement for Global Opportunities (Writing Assistant & Learning); Developing a Self-Editing System for Lifelong Writing Improvement (Writing Assistant & Learning); Deciding Whether to Use AI to Automate Hiring in My Company (Philosophical or Ethical Discussion); Considering Whether to Believe in and Live by the Idea of Free Will (Philosophical or Ethical Discussion); Selecting a Must-Read Fiction Series for Winter Evenings (Asking Recommendation); Finding the Best Streaming Movies for a Family Weekend (Asking Recommendation); Choosing Comfortable and Stylish Sneakers for Daily Wear (Asking Recommendation); Personal Finance for Everyday Life (Lifestyle); Time Management for a Balanced Life (Lifestyle); Recovering from Workplace Burnout and Chronic Stress (Therapy and Emotional Support); Creating a Legally Valid Will and Estate Plan (Legal and Administrative); Applying for a Patent to Protect a New Invention (Legal and Administrative).
+- **500K tier, 10 of 35** — 5,311 user messages: Finding the Perfect Smartphone for Photography and Gaming (Asking Recommendation); Building a Successful Startup (Business & Entrepreneurship); Building a Real-Time Chat Application with Node.js and Socket.io (Coding); Creating an AI-Powered Resume Analyzer with Python and NLP (Coding); Exploring Performing Arts: Acting, Theater, and Dance (Education & Learning); Understanding and Managing Chronic Illness (Health & Wellness); Filing for a Marriage-Based Green Card in the United States (Legal and Administrative); Diving into Analytic Geometry (Math); Exploring Conic Sections in Depth (Math); Coping with Post-Breakup Emotional Pain and Relationship Trauma (Therapy and Emotional Support).
+- **1M tier, 10 of 35** — 10,387 user messages: Landing Your Next Job: From Resume to Job Offer (Career and Professional Development); Creating an Autonomous Stock Trading Bot (Coding); Implementing a Custom Image Captioning Model (Coding); Mastering a New Language for Real-World Communication (Education & Learning); Navigating the World of Cryptocurrency (Financial Investment); Selling Your Home for Maximum Value (Home & Real Estate); Exploring Non-Euclidean Geometry (Math); Solving Ordinary Differential Equations (ODEs) (Math); Strengthening Communication in Romantic Relationships (Relationship & Family); Preparing for a Week-Long Hiking and Camping Adventure in Patagonia (Trip Planning).
+
+**⚑ Synthetic LSREP set — decided by the maintainer, 2026-10-26.** Eight conversations that
+cover what BEAM and LongMemEval cannot: questions asked **during** the conversation with
+answers as of that point, human writing styles, the traps Z2 found, and exact control of
+when facts appear and change. BEAM's simulated users write polished text (8,586 user
+messages: median 52 words, 3.5% all-lowercase, 1.4% chat slang) where the private
+histories do not (B 55% lowercase / 15% slang, A 92% / 0%, D 63% / 16%).
+
+Each conversation has a **type** in the classifier's own taxonomy
+(`data/labeled/label_schema.json`): a majority topic/intent/context mix, plus ~10% of turns
+that need no memory (`General_Reference_&_Trivia` / `Casual_Banter` / `Null_Noise`) and a few
+`Needs_Live_Info` turns, so the memory gate is exercised everywhere.
+
+| # | Targets | Pairs | Writing style | Majority topics | Majority intents | Majority context |
+|---|---|---|---|---|---|---|
+| S1 | changing decisions — updates, corrections, reversals, asked as of each checkpoint | 400 | terse lowercase, typos | Admin_&_Productivity, Business_&_Finance | Strategic_Planning, Decision_Making | Needs_Memory, Temporal_Recall |
+| S2 | who said what — assistant suggestions vs user decisions, hypotheticals, rejected options | 300 | rambling run-ons | Business_&_Finance, Creative_&_Media | Ideation, Decision_Making | Needs_Memory |
+| S3 | pasted material — long documents, logs and code; pasted text is not "said" | 200 | formal | Software_&_Tech, STEM_&_Academics | Troubleshooting, Analysis_&_Summarization, Code_Change, Utility_Formatting | Needs_Memory, High_Complexity |
+| S4 | long retention — facts planted early, never repeated, asked 100 / 300 / 600 / 1,000 turns later | 1,200 | mixed (style shifts by session) | Lifestyle_&_Health, Social_&_Relationships, Creative_&_Media | Open_Exploration, Factual_Retrieval, Generation, Emotional_Processing | Needs_Memory |
+| S5 | time — real calendar gaps, relative dates, durations, event order across sessions | 500 | casual | Lifestyle_&_Health, Admin_&_Productivity | Strategic_Planning, Factual_Retrieval | Temporal_Recall |
+| S6 | standing preferences and instructions that must persist; some changed later | 300 | terse | Lifestyle_&_Health, General_Reference_&_Trivia | Generation, Utility_Formatting | Needs_Memory |
+| S7 | topic hopping — four interleaved projects with same-shaped facts (scoping, distractors) | 600 | casual | Software_&_Tech, Creative_&_Media, Business_&_Finance, Lifestyle_&_Health (+ Meta_AI, World_&_Current_Events) | mixed, incl. Analysis_&_Summarization | Needs_Memory |
+| S8 | **style twin of S1** — the same fact plan written formally and polished; S1 vs S8 measures style invariance directly | 400 | formal, polished | as S1 | as S1 | as S1 |
+
+About 3,900 pairs, ~2 days of replay. **Build:** (1) a structured plan per conversation —
+persona, timeline, every planted fact with its introduce / change / correct turns, speaker,
+and decided / suggested / hypothetical status — drafted by a fast model and checked by a
+script for consistency; **the answer key is computed from the plan** (no ledger);
+(2) turn-by-turn generation — a cheap cloud model plays the user from the persona, a style
+card and the facts due that turn; another family plays the assistant; (3) verification —
+every planted fact present at its turn, nothing contradicting the plan, failed turns
+regenerated; questions phrased and checked by Z2's question machinery. Releasable. Size
+the generation from 20 measured calls (TRAPS 148).
+
+**Ablations on the synthetic set — under discussion (2026-10-26):** decided first as
+leave-one-out on S1, S2, S4 and S7; a single purpose-built ablation conversation was then
+proposed instead (Z3_DECISIONS.md D5).
+
 **Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the
 record).** Reported in separate tables, never pooled. *Native* = the dataset's own
 questions and protocol; *LSREP* = ordered replay with checkpoints, cutoff-local
