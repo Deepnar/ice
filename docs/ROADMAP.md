@@ -177,11 +177,16 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ✅ synthetic questions S1–S9 (Haiku agents, `phrase.py` checks; S8 = S1 polished) and asks.
   - ✅ private originals A, D, SW, LAP (`experiments/final/private_originals.py`); LAP = the
     101-pair laptop chat (maintainer-approved swap; the DeepSeek thread is never used).
-  - ☐ FINAL grading (cloud): grader for synthetic asks (references from the plan keys), BEAM nugget
-    scoring wired to the judge, second judge (Haiku 5.5 profile + D6a qualification), agreement
-    report; cloud-answerer subset; FINAL report.
-  - ☐ private question chain for A/D/SW/LAP: run Z2's S1–S6 (`experiments/z2/run_questions.sh`
-    generalised to these keys) after the plan renews; maintainer review.
+  - ✅ FINAL grading pieces: `grade.py --occurrences/--judge` with per-plan reference files and plan
+    ledgers (`phrase.py`), BEAM grading (`experiments/beam/grade.py`), `qualify.py --judge`.
+  - ✅ private question chain (`experiments/final/run_private_questions.sh`, `questions.py finalize-final`).
+  - ✅ synthetic generation sides: `generate.py --user local:<model> --assistant cloud:<role>`
+    (default: local ministral-3:8b user, cloud deepseek assistant).
+  - ⚑ second judge: Claude Haiku 5.5 on OpenCode costs about as much as Luna per the plan's table
+    and the maintainer has no Anthropic API key — candidates GLM-5.3-flash / MiniMax-M3.1-flash
+    (fifth families), qualified on the planted controls after the plan renews; pick the cheapest
+    that passes. The haiku role stays in profiles.py unused until decided.
+  - ☐ cloud-answerer subset (~200 answers), FINAL report, grading stages in `run_final.py`.
   - ☐ live trials when free: generator on 20 measured cloud calls; replay/read slices on GPU.
   - ⚑ Open: additive build-up ablation on S9 too (recommended; ~2 GPU days).
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately

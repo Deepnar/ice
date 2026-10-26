@@ -185,3 +185,27 @@ two parts that cover for each other each look useless alone. A **build-up** star
 bare system and adds one part at a time in Z2's frozen order, showing what each adds on top
 of the earlier ones (order-dependent: the first parts get the easy credit). Cost on S9:
 9 more conditions × 260 asks ≈ 2,300 local answers ≈ 2 GPU days. Recommended: yes.
+
+## D11 Research-paper gaps to close before or with FINAL (proposed 2026-10-26)
+
+What a reviewer will look for that the current plan does not yet give:
+1. **Other memory systems as baselines.** FINAL compares ICE with our own baselines (bare
+   vector, warm vector, recent-only, long context). Reviewers expect at least one published
+   memory system run on the same data (e.g. Mem0 or Letta/MemGPT, run locally with the same
+   answerer). Without it the claim is "better than simple retrieval", not "competitive".
+2. **Judge validity against people.** Planted controls prove the judge rejects wrong answers;
+   a human-graded sample (~100 answers graded blind by the maintainer, agreement reported)
+   shows its grades match a person's.
+3. **A pre-registration note** written before FINAL runs: primary metric, the comparisons that
+   count, the keep rule, how many comparisons (corrected), what counts as a win.
+4. **Run-to-run variance.** Answers are deterministic, but replay is not (background models).
+   Replay one history twice and report how much the scores move.
+5. **Cost and speed.** ICE's claim is quality at a fixed budget: report prompt tokens per
+   answer, write-path time per turn and background model calls per turn beside the scores.
+6. **Error analysis.** A small taxonomy of why answers failed (not retrieved, retrieved but
+   misread, stale value used, attribution confused), from the graded answers.
+7. **Threats to validity, stated plainly:** synthetic users written by an LLM; private data is
+   one person's; LLM judges; the answerer is one local model (the cloud-answerer subset
+   addresses part of it); possible benchmark contamination of public sets.
+8. **Reproducibility package:** code, synthetic plans and conversations, BEAM/LongMemEval
+   selections and seeds, model ids and settings — everything except the private histories.
