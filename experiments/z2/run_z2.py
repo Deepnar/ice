@@ -1,4 +1,5 @@
-"""Z2 long-run driver: S7 → S8 → S9 → S10 → S11 → S12 in one resumable command.
+"""Z2 long-run driver: S7 → S8 → S9 → S10 → S12 → S11 → S12 grading in one resumable
+command — every local stage first, every cloud judging stage last (spec D6c).
 
 The maintainer launches the long runs (2026-10-18); this is the one command, and
 the same command resumes. Every stage keeps its own durable, resumable units, so a
@@ -406,12 +407,14 @@ class ReadPasses(Stage):
 
 
 class Answers(Stage):
-    """S10: Luna answers every S9 context, one per distinct prompt (experiments/z2/answers.py)."""
+    """S10: the local answerer (spec D6c) answers every S9 context, one per distinct
+    prompt (experiments/z2/answers.py)."""
 
-    def __init__(self, history, *, key=None, title=None, units_key=None, needs=None, planned=None):
-        # ~4.5 s per answer: 4,000 per rolling 5 hours is the binding pace, not latency.
+    def __init__(self, history, *, key=None, title=None, units_key=None, needs=None, planned=None,
+                 estimate=85.0):
+        # qwen3.8:27b with thinking: ~100 s for a 37.5k-token prompt, ~85 s at B's median.
         super().__init__(key=key or f"s10-{history}", title=title or f"S10 answers {history}",
-                         needs=needs or (f"s9-{history}",), unit="answers", estimate=4.5)
+                         needs=needs or (f"s9-{history}",), unit="answers", estimate=estimate)
         self.history = history
         self.units_key = units_key or f"s9-{history}"
         self.planned = planned
@@ -605,11 +608,12 @@ def stages(limit=None):
         ReadPasses("C"),
         Answers("B"),
         Answers("C"),
+        Oracle(),
+        Answers("lme", key="s12-answers", title="S12 answers (local Qwen)", units_key="s12", needs=("s12",),
+                planned=2000, estimate=60.0),
+        # Every cloud stage last, on one plan period (spec D6c).
         Grading("B"),
         Grading("C"),
-        Oracle(),
-        Answers("lme", key="s12-answers", title="S12 answers (Luna)", units_key="s12", needs=("s12",),
-                planned=2000),
         OracleGrade(),
     ]
 

@@ -1,20 +1,24 @@
-"""Z2 S10: answers to every read-pass context with Luna (spec D7, D10, D11).
+"""Z2 S10: answers to every read-pass context (spec D6c, D7, D10, D11).
 
 Every unit S9 wrote (one question under one condition) is answered from its exact
 prompt messages; identical prompts are answered once (a gated-off question gives
-the same prompt in several conditions). Answer output cap 4,000 tokens (D7);
-the answerer never sees the condition's name.
+the same prompt in several conditions). The answerer never sees the condition's name.
+
+Answerer (D6c, 2026-10-26): local `qwen3.8:27b` through Ollama, thinking on,
+temperature 0, num_ctx 49,152; the output cap (thinking + answer) is what the window
+leaves after the prompt, up to 16,000 and never below 8,000. A prompt that leaves
+less is recorded `too_long`, never truncated.
+`--answerer luna` keeps the cloud path (paced, 4,000-token cap, D7) for the record.
 
 Built for a long unattended run:
 - every answer is a durable row in answers.jsonl keyed by the prompt's sha256;
   a rerun skips what is saved;
-- Luna allows ~4,230 calls per 5 hours: calls are paced to LUNA_PER_5H inside any
-  rolling 5-hour window, and a quota/rate-limit reply waits and retries;
-- a rejected API key waits too, re-reading .env every few minutes, so replacing
-  the key continues the run without a restart;
-- an answer the provider returns incomplete is recorded as such — ungraded,
-  never counted wrong (D11); any other error is retried on the next attempt and
-  recorded as an error after three.
+- an answer cut at the output cap is recorded `incomplete` — ungraded, never counted
+  wrong (D11); any other error is retried on the next attempt and recorded as an
+  error after three;
+- cloud only: calls are paced to LUNA_PER_5H inside any rolling 5-hour window, a
+  quota/rate-limit reply waits and retries, and a rejected key waits too, re-reading
+  .env every few minutes.
 
     uv run --no-sync python experiments/z2/answers.py --units logs/z2-run-main/s9-B \
         --out logs/z2-run-main/s10-B
@@ -27,18 +31,33 @@ import sys
 import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-POLICY = "ice-z2-answers-1"
-ANSWERER = "luna"
-OUTPUT_TOKENS = 4_000                    # D7
+POLICY = "ice-z2-answers-2"
+OUTPUT_TOKENS = {"local": 16_000, "luna": 4_000}    # D6c local ceiling (thinking included); D7 Luna
+LOCAL_MIN_OUTPUT = 8_000                 # the window must leave at least this much
 LUNA_PER_5H = 4_000                      # under the plan's 4,230 per 5 hours
 WINDOW = 5 * 3600
-WORKERS = 4
+WORKERS = {"local": 1, "luna": 4}        # Ollama serves one request at a time
 MAX_ERRORS = 3
 AUTH_WAIT, QUOTA_WAIT = 300, 600
+
+LOCAL_MODEL = "qwen3.8:27b"
+LOCAL_NUM_CTX = 49_152                   # largest Z2 prompt ~38.4k Qwen tokens + 8k output
+LOCAL_KEEP_ALIVE = "30m"
+LOCAL_SEED = 0
+FIT_MARGIN = 1.05                        # embedder tokenizer vs the answerer's chat template
+
+
+class Incomplete(Exception):
+    """The answer hit the output cap."""
+
+
+class TooLong(Exception):
+    """The prompt plus the output cap does not fit the answerer's window."""
 
 
 def prompt_sha(messages):
@@ -103,12 +122,78 @@ class Pacer:
             self.sleep(min(60, max(1, wait)))
 
 
+class LocalAnswerer:
+    """`qwen3.8:27b` through Ollama's native chat API (D6c): thinking on, fixed seed,
+    explicit num_ctx and keep_alive (ICE manages model memory itself, not the host
+    default), released by `close()`."""
+
+    def __init__(self, model=LOCAL_MODEL, num_ctx=LOCAL_NUM_CTX, host=None, post=None):
+        from src.api.config import settings
+        self.model, self.num_ctx = model, num_ctx
+        self.host = (host or settings.ollama_base_url).rstrip("/")
+        self._post, self._tok = post or self._http_post, None
+
+    def _http_post(self, path, body, timeout=3600):
+        import urllib.request
+        request = urllib.request.Request(self.host + path, data=json.dumps(body).encode(),
+                                         headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.load(response)
+
+    def estimate_tokens(self, messages):
+        if self._tok is None:
+            from transformers import AutoTokenizer
+
+            from src.api.config import settings
+            self._tok = AutoTokenizer.from_pretrained(settings.embedding_model_name)
+        return sum(len(self._tok(m["content"])["input_ids"]) + 8 for m in messages)
+
+    def generate(self, messages, *, temperature, max_output_tokens, session_id=None):
+        # Long thinking is likeliest where memory is thinnest (recent-only reads), so a
+        # fixed cap would turn exactly those failures into "ungraded": the cap is what the
+        # window leaves after the prompt, up to max_output_tokens, never below 8,000.
+        estimate = self.estimate_tokens(messages)
+        cap = min(max_output_tokens, self.num_ctx - int(estimate * FIT_MARGIN))
+        if cap < LOCAL_MIN_OUTPUT:
+            raise TooLong(f"~{estimate} prompt tokens leave {cap} < {LOCAL_MIN_OUTPUT} output in num_ctx {self.num_ctx}")
+        out = self._post("/api/chat", dict(
+            model=self.model, messages=messages, stream=False, think=True, keep_alive=LOCAL_KEEP_ALIVE,
+            options=dict(num_ctx=self.num_ctx, temperature=temperature, seed=LOCAL_SEED,
+                         num_predict=cap)))
+        message = out.get("message") or {}
+        usage = dict(prompt_tokens=out.get("prompt_eval_count"), output_tokens=out.get("eval_count"), output_cap=cap,
+                     thinking_chars=len(message.get("thinking") or ""), done_reason=out.get("done_reason"),
+                     prefill_s=round((out.get("prompt_eval_duration") or 0) / 1e9, 2),
+                     generate_s=round((out.get("eval_duration") or 0) / 1e9, 2))
+        if (usage["prompt_tokens"] or 0) + (usage["output_tokens"] or 0) >= self.num_ctx:
+            raise TooLong(f"window filled: {usage}")              # Ollama would have shifted the prompt
+        if out.get("done_reason") == "length":
+            raise Incomplete(f"output cap {cap} reached: {usage}")
+        return SimpleNamespace(text=(message.get("content") or "").strip(), usage=usage)
+
+    def metadata(self):
+        return dict(provider="ollama", model=self.model, digest=self.digest(), think=True,
+                    num_ctx=self.num_ctx, seed=LOCAL_SEED, keep_alive=LOCAL_KEEP_ALIVE)
+
+    def digest(self):
+        import urllib.request
+        with urllib.request.urlopen(self.host + "/api/tags", timeout=30) as response:
+            models = json.load(response).get("models", [])
+        return next((m.get("digest") for m in models if m.get("name") == self.model), None)
+
+    def close(self):
+        try:
+            self._post("/api/generate", dict(model=self.model, keep_alive=0), timeout=120)
+        except Exception as exc:                                     # releasing is best effort
+            print(f"WARNING: could not unload {self.model}: {exc}", flush=True)
+
+
 class Answerer:
     """The answer client, rebuildable: after a rejected key the provider variables are
     re-read from .env (load_selected_env never overrides values already set) and the
     client is built again, so a replaced key is used without restarting the run."""
 
-    def __init__(self, role=ANSWERER):
+    def __init__(self, role="luna"):
         from experiments.lme.cloud_provider import load_selected_env
         from experiments.z2.profiles import generator
         load_selected_env()
@@ -131,18 +216,22 @@ class Answerer:
             self._gen = generator(self.role)
 
 
-def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_env=None):
+def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_env=None,
+               output_tokens=OUTPUT_TOKENS["local"]):
     """One answer row; waits through auth and quota failures, returns on anything final."""
     from experiments.lme.cloud_provider import CloudCompletionError, ProviderAccessError
     while True:
         started = time.time()
         try:
-            result = generate(messages, temperature=0, max_output_tokens=OUTPUT_TOKENS,
+            result = generate(messages, temperature=0, max_output_tokens=output_tokens,
                               session_id=f"ice-z2-answer-{sha[:24]}")
             return dict(prompt_sha256=sha, finish="complete", text=result.text, usage=result.usage,
                         seconds=round(time.time() - started, 2), wall=round(time.time(), 3))
-        except CloudCompletionError as exc:
+        except (CloudCompletionError, Incomplete) as exc:
             return dict(prompt_sha256=sha, finish="incomplete", text="", detail=str(exc)[:300],
+                        seconds=round(time.time() - started, 2), wall=round(time.time(), 3))
+        except TooLong as exc:
+            return dict(prompt_sha256=sha, finish="too_long", text="", detail=str(exc)[:300],
                         seconds=round(time.time() - started, 2), wall=round(time.time(), 3))
         except ProviderAccessError as exc:
             if exc.kind == "authentication":
@@ -161,7 +250,8 @@ def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_e
                     reload_env()
 
 
-def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=WORKERS):
+def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1, pace=False,
+        output_tokens=OUTPUT_TOKENS["local"]):
     from concurrent.futures import ThreadPoolExecutor
     out.mkdir(parents=True, exist_ok=True)
     store = Store(out / "answers.jsonl")
@@ -169,13 +259,15 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=W
     index = {f"{c}|{a}": prompt_sha(m) for c, a, m in units}
     prompts = {prompt_sha(m): m for _, _, m in units}
     todo = [s for s in prompts if not store.settled(s)]
-    pacer = Pacer([r["wall"] for r in store.rows.values() if r.get("wall")])
+    pacer = Pacer([r["wall"] for r in store.rows.values() if r.get("wall")]) if pace else None
     say(f"{len(units)} contexts, {len(prompts)} distinct prompts, {len(todo)} to answer")
 
     def work(sha):
         try:
-            pacer.take(say)
-            row = answer_one(generate, prompts[sha], sha, say=say, reload_env=reload_env)
+            if pacer:
+                pacer.take(say)
+            row = answer_one(generate, prompts[sha], sha, say=say, reload_env=reload_env,
+                             output_tokens=output_tokens)
             store.add(dict(row, policy=POLICY, answerer=meta))
         except Exception as exc:                  # this prompt only; retried next attempt
             store.failed(sha, exc)
@@ -186,6 +278,7 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=W
     pending = [s for s in prompts if not store.settled(s)]
     status = dict(contexts=len(units), prompts=len(prompts), answered=sum(1 for s in prompts if s in store.rows),
                   incomplete=sum(1 for s in prompts if store.rows.get(s, {}).get("finish") == "incomplete"),
+                  too_long=sum(1 for s in prompts if store.rows.get(s, {}).get("finish") == "too_long"),
                   errors_given_up=sum(1 for s in prompts if s not in store.rows and store.settled(s)),
                   pending=len(pending), finished=not pending)
     (out / "status.json").write_text(json.dumps(status, indent=1))
@@ -219,13 +312,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--units", type=Path, required=True, help="an S9 output directory")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--answerer", choices=("local", "luna"), default="local")
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("answers are private: keep them under logs/")
-    from experiments.z2.profiles import metadata
-    answerer = Answerer()
-    status = run(args.units, args.out, generate=answerer.generate, meta=metadata(ANSWERER),
-                 reload_env=answerer.refresh)
+    if args.answerer == "luna":
+        from experiments.z2.profiles import metadata
+        answerer = Answerer()
+        status = run(args.units, args.out, generate=answerer.generate, meta=metadata("luna"),
+                     reload_env=answerer.refresh, workers=WORKERS["luna"], pace=True,
+                     output_tokens=OUTPUT_TOKENS["luna"])
+    else:
+        answerer = LocalAnswerer()
+        try:
+            status = run(args.units, args.out, generate=answerer.generate,
+                         meta=dict(answerer.metadata(), output_tokens=OUTPUT_TOKENS["local"]),
+                         workers=WORKERS["local"], output_tokens=OUTPUT_TOKENS["local"])
+        finally:
+            answerer.close()
     print(json.dumps(status))
     return 0 if status["finished"] else 3
 

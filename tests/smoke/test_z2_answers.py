@@ -1,5 +1,6 @@
-"""Z2 S10 answers: one answer per distinct prompt, pacing under Luna's 5-hour
-limit, incomplete answers recorded (ungraded), waits through quota and key errors."""
+"""Z2 S10 answers: one answer per distinct prompt, incomplete and too-long answers
+recorded (ungraded), the local answerer never truncates, and the cloud path paces
+under Luna's 5-hour limit and waits through quota and key errors."""
 
 import json
 from types import SimpleNamespace as NS
@@ -61,3 +62,41 @@ def test_pacer_never_exceeds_the_window():
     assert now[0] == 0.0
     pacer.take(lambda *_: None)            # the 4th waits for the first to leave the window
     assert now[0] >= 100
+
+
+def fake_ollama(reply):
+    calls = []
+    def post(path, body, timeout=3600):
+        calls.append((path, body))
+        return reply
+    return post, calls
+
+
+def test_local_answerer_sends_think_seed_ctx_and_reads_the_answer():
+    post, calls = fake_ollama(dict(message=dict(content=" Tofu. ", thinking="hmm"), done_reason="stop",
+                                   prompt_eval_count=100, eval_count=20))
+    local = A.LocalAnswerer(host="http://x", post=post)
+    local.estimate_tokens = lambda messages: 100
+    out = local.generate([dict(role="user", content="q")], temperature=0, max_output_tokens=8000)
+    assert out.text == "Tofu." and out.usage["thinking_chars"] == 3
+    body = calls[0][1]
+    assert body["think"] is True and body["options"]["num_ctx"] == A.LOCAL_NUM_CTX
+    assert body["options"]["seed"] == A.LOCAL_SEED and body["options"]["num_predict"] == 8000
+    local.estimate_tokens = lambda messages: 36_000          # cap = what the window leaves
+    local.generate([dict(role="user", content="q")], temperature=0, max_output_tokens=16_000)
+    assert calls[-1][1]["options"]["num_predict"] == A.LOCAL_NUM_CTX - int(36_000 * A.FIT_MARGIN)
+
+
+def test_local_cap_is_incomplete_and_overflow_is_too_long_never_truncated(tmp_path):
+    post, calls = fake_ollama(dict(message=dict(content="half"), done_reason="length",
+                                   prompt_eval_count=100, eval_count=8000))
+    local = A.LocalAnswerer(host="http://x", post=post)
+    local.estimate_tokens = lambda messages: 100
+    src = units(tmp_path / "s9", [("full", "a", [dict(role="user", content="q")])])
+    status = A.run(src, tmp_path / "s10", generate=local.generate, meta={}, say=lambda *_: None)
+    assert status["incomplete"] == 1 and status["finished"]
+    local.estimate_tokens = lambda messages: A.LOCAL_NUM_CTX          # cannot fit: never sent
+    src2 = units(tmp_path / "s9b", [("full", "b", [dict(role="user", content="huge")])])
+    calls.clear()
+    status = A.run(src2, tmp_path / "s10b", generate=local.generate, meta={}, say=lambda *_: None)
+    assert status["too_long"] == 1 and not calls
