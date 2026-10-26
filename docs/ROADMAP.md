@@ -167,11 +167,18 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     originals with BEAM's own dates, asks, nugget + tau-b scoring).
   - ✅ LongMemEval-S: slice pinned (`experiments/lme/final_slice.json`); `oracle.py --dataset s --slice`.
   - ✅ long-context baseline read condition (`read_passes` `long_context`).
-  - ☐ FINAL runner (`run_z2.py` over the history registry: private, synthetic, BEAM, LME-S).
-  - ☐ question phrasing for synthetic asks (Z2's phrasing + check, plus never-said negatives).
-  - ☐ second judge (Haiku 5.5 profile + D6a qualification), cloud-answerer subset, FINAL report.
-  - ☐ private data: originals for A, D, the laptop thread (DeepSeek export), software project;
-    then Z2's S1–S6 ledger/question chain (cloud, after the plan renews) + maintainer review.
+  - ✅ FINAL runner `experiments/final/run_final.py` (prep → local → grade on Z2's driver; 55
+    histories in the registry; source clock for synthetic/BEAM; condition presets; B's FINAL asks
+    from the sealed families through `split.load_final`).
+  - ✅ synthetic questions S1–S9 (Haiku agents, `phrase.py` checks; S8 = S1 polished) and asks.
+  - ✅ private originals A, D, SW, LAP (`experiments/final/private_originals.py`); LAP = the
+    101-pair laptop chat (maintainer-approved swap; the DeepSeek thread is never used).
+  - ☐ FINAL grading (cloud): grader for synthetic asks (references from the plan keys), BEAM nugget
+    scoring wired to the judge, second judge (Haiku 5.5 profile + D6a qualification), agreement
+    report; cloud-answerer subset; FINAL report.
+  - ☐ private question chain for A/D/SW/LAP: run Z2's S1–S6 (`experiments/z2/run_questions.sh`
+    generalised to these keys) after the plan renews; maintainer review.
+  - ☐ live trials when free: generator on 20 measured cloud calls; replay/read slices on GPU.
   - ⚑ Open: additive build-up ablation on S9 too (recommended; ~2 GPU days).
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
   non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
