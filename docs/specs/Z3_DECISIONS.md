@@ -237,9 +237,10 @@ its open-source SDK, not its managed platform). Both must run entirely in our se
 LongMemEval-S slice, same local answerer, same judge. Cost: their ingestion makes several model
 calls per session — on the 100-instance slice roughly 2–4 GPU days each with a local model.
 
-**Requirements (maintainer, 2026-10-26):** run entirely locally with our own adapter code, on the
-same models as ICE (answerer qwen3.8:27b, background gemma4:e4b, embedder Qwen3-Embedding-0.6B,
-the same reranker), so only the memory system differs. Choose by three tests together: it runs
-locally; it has its own LongMemEval score at a good level; and users regard its real-world
-output as good (a high score alone is not enough). Candidates under discussion: Graphiti (Zep),
-Mem0 (open-source SDK), Hindsight (Vectorize, MIT). Not decided.
+**Requirements (maintainer, 2026-10-26):** no paid service — the system's code must be open
+source and run locally, through our own adapter. Its LLM roles use FINAL's models (answerer
+qwen3.8:27b, background/extraction gemma4:e4b, judge Muse) in place of any API model; its small
+parts (embedder, reranker) stay as the system itself chose them, run locally. Choose by three
+tests together: it runs locally; it has its own LongMemEval score at a good level; users
+regard its real-world output as good. Candidates: Graphiti (Zep), Mem0 (open-source SDK),
+Hindsight (Vectorize, MIT); **which one (or two) is decided at the time, by how things stand then.**
