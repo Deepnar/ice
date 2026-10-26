@@ -143,7 +143,8 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   assistant facts ~40-50%, advice ~37-42%; user facts too few to judge (6 / 3). Missed
   content stays in the raw turns (≈80% of prompt memory tokens), so **no fix** unless S11
   shows questions failing that the codex would have answered.
-- ☐ **B7** classifier init/input-scaling variants — code on the branch, train later (GPU).
+- ✅⏳ `dffb68f` **B7** classifier input-norm / init variants — train + compare later with
+  `logs/fix-pass/b7_variants.py` (F1 + style flip rate on Z2's 35 base/messy pairs).
 - ☐ **Z3** decision sheet for FINAL (roster, synthetic set, LongMemEval-S slice, ablations,
   baselines, answerer) — maintainer decides.
 - ☐ FINAL prep after Z3: synthetic seeds, dataset adapters, runner parameters (Z2 D13).
