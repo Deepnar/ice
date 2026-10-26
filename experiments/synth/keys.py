@@ -12,14 +12,17 @@ brief; the sample is a deterministic hash, chosen before any result.
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 
-from experiments.synth.plans import BRIEFS, PLANS
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from experiments.synth.plans import BRIEFS, PLANS  # noqa: E402
 
 RECENT_TURNS, REPEAT_GAP = 40, 150
 RETENTION = (100, 300, 600, 1000)
 CAPS = {"S1": 120, "S2": 90, "S3": 60, "S4": 150, "S5": 100, "S6": 80, "S7": 120, "S8": 120, "S9": 260}
-EARLY_ABSTAIN_SHARE = 0.05
+EARLY_ABSTAIN_SHARE = 0.10
 POLICY = "ice-final-synth-keys-1"
 
 
@@ -91,11 +94,14 @@ def reference(fact, checkpoint):
 
 def occurrences(plan):
     pid, points, out = plan["id"], checkpoints(plan), []
+    # A derived plan (S8 from S1) samples exactly its source's asks, so the pair differs
+    # in writing style only.
+    src = plan.get("derived_from", pid)
     for fact in plan["facts"]:
         fam = f"{pid}:{fact['id']}"
-        asks = ask_points(fact, points, pid)
+        asks = ask_points(fact, points, src)
         early = [c for c in points if c < fact["values"][0]["turn"]]
-        if early and _h(fam, "early") % 1000 < EARLY_ABSTAIN_SHARE * 1000:
+        if early and _h(f"{src}:{fact['id']}", "early") % 1000 < EARLY_ABSTAIN_SHARE * 1000:
             asks = [early[-1]] + asks
         for i, cp in enumerate(asks):
             ref, abstain = reference(fact, cp)
@@ -114,7 +120,7 @@ def occurrences(plan):
                                            date=event["date"]), expected_abstention=False))
     cap = CAPS.get(pid)
     if cap and len(out) > cap:
-        keep = sorted(out, key=lambda o: _h(o["family"], o["checkpoint_turn"]))[:cap]
+        keep = sorted(out, key=lambda o: _h(o["family"].replace(pid, src, 1), o["checkpoint_turn"]))[:cap]
         out = [o for o in out if o in keep]
     return sorted(out, key=lambda o: (o["checkpoint_turn"], o["family"]))
 

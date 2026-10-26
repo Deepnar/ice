@@ -1,0 +1,2742 @@
+[
+ {
+  "family": "S2:F001",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "game title",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "Ferryman's Ledger"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 3,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F002",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "player count",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "2 to 4 players"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F003",
+  "type": "attribution",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "playtime (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "about 90 minutes per game"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 8,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F006",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "company name",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "Low Tide Games"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 10,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F004",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "playtime (her decision)",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "60 to 75 minutes per game"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 12,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F007",
+  "type": "hypothetical",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "pirate-themed spin-off",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a pirate-themed spin-off set on the same delta"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F008",
+  "type": "hypothetical",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "companion phone app",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a companion phone app that keeps score"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 21,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F009",
+  "type": "attribution",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "marketplace illustrator",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a marketplace illustrator at $1,200 for the box art"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 28,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F010",
+  "type": "update",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "box art and card illustrator",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "Dario Wren at $900 total for box art and cards"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F011",
+  "type": "attribution",
+  "checkpoint_turn": 100,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Kickstarter goal (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$12,000"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 36,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F012",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Kickstarter goal",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$18,000"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 52,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F013",
+  "type": "hypothetical",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "skip Kickstarter for conventions",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "skip Kickstarter and sell only at conventions"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 41,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F014",
+  "type": "hypothetical",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "wooden ferry token stretch goal",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a wooden ferry token as a stretch goal"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 47,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F015",
+  "type": "attribution",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "base deck size (assistant idea)",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "trim the base deck to 80 cards"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 44,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F016",
+  "type": "fact_recall",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "base deck size",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "keep the base deck at 112 cards"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 46,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F017",
+  "type": "attribution",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "retail price (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$29.99"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 55,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F018",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "retail price",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$39"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 60,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F010",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "box art and card illustrator",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "Dario Wren at $900 total for box art and cards"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F012",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Kickstarter goal",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$18,000"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 52,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F019",
+  "type": "attribution",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "print run (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "1,000 copies"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 63,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F021",
+  "type": "hypothetical",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "2,000 copies kept in the garage",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "print 2,000 and keep them in the garage"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F022",
+  "type": "attribution",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "shipping (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$7 flat shipping in the US"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 74,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F023",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "free shipping threshold",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "free shipping on orders over $60, and I absorb the cost"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 80,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F024",
+  "type": "attribution",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "wholesale to three game stores",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "sell to three local game stores at a 40 percent margin"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 78,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F025",
+  "type": "fact_recall",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "sales channel",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "direct sales only, through my own site and conventions"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 84,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F018",
+  "type": "update",
+  "checkpoint_turn": 150,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "retail price",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$39"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 60,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F026",
+  "type": "attribution",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "TikTok marketing",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "short TikTok videos for marketing"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 88,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F027",
+  "type": "fact_recall",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "marketing channel",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a monthly newsletter and Bluesky posts"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 92,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F028",
+  "type": "attribution",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "playtest plan (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "twelve playtests at the public library"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 96,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F029",
+  "type": "fact_recall",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "playtest plan",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "six playtests at the Harbor Cafe on Thursday nights"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 99,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F030",
+  "type": "hypothetical",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "physical game cafe",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "open a physical game cafe that stocks the game"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 98,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F031",
+  "type": "attribution",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "credit union loan",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "a $10,000 small business loan at 9 percent"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 103,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F032",
+  "type": "update",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "startup money",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$6,500 from savings only"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 106,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F033",
+  "type": "attribution",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "launch event (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "launch at the Pacific Game Fair in March"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 110,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F012",
+  "type": "update",
+  "checkpoint_turn": 175,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "Kickstarter goal",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$20,000 after the printer quote rose"
+   ],
+   "superseded": [
+    "$18,000"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 52,
+     "role": "user"
+    },
+    {
+     "turn": 130,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F020",
+  "type": "update",
+  "checkpoint_turn": 175,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "print run",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "750 copies"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F023",
+  "type": "update",
+  "checkpoint_turn": 175,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "free shipping threshold",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "free shipping on orders over $60, and I absorb the cost"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 80,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F032",
+  "type": "update",
+  "checkpoint_turn": 175,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "startup money",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$6,500 from savings only"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 106,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F034",
+  "type": "fact_recall",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "launch event",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "launch at the Port Callan Tabletop Expo in May"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 113,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F035",
+  "type": "hypothetical",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Lisbon convention demo",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "bring a demo to a convention in Lisbon"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 117,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F036",
+  "type": "attribution",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "logo (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "make the logo with an AI logo generator"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 121,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F037",
+  "type": "attribution",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "stretch goal count (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "five stretch goals"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 128,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F001",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "game title",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "Ferryman's Ledger"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 3,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F002",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "player count",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "2 to 4 players"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F003",
+  "type": "attribution",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "playtime (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "about 90 minutes per game"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 8,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F005",
+  "type": "attribution",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "company name Tidewater Tabletop",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "Tidewater Tabletop"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F006",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "company name",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "Low Tide Games"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 10,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F010",
+  "type": "update",
+  "checkpoint_turn": 200,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "box art and card illustrator",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "$1,150 total for box art and card faces"
+   ],
+   "superseded": [
+    "Dario Wren at $900 total for box art and cards"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    },
+    {
+     "turn": 143,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F018",
+  "type": "update",
+  "checkpoint_turn": 200,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "retail price",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$34, the 39 was a typo in my own sheet"
+   ],
+   "superseded": [
+    "$39"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 60,
+     "role": "user"
+    },
+    {
+     "turn": 160,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F039",
+  "type": "hypothetical",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "solo mode as standalone box",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "sell the solo mode as its own standalone box"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 136,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F040",
+  "type": "attribution",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "sourcing broker (assistant idea)",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "a Vietnamese sourcing broker at $3.10 per unit"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 153,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F041",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "manufacturer",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "Brightwater Print Co. in Poland at $4.40 per unit"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 158,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F046",
+  "type": "attribution",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "box format (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": [],
+   "status": "suggested",
+   "speaker": "assistant"
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S2:F004",
+  "type": "fact_recall",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "playtime (her decision)",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "60 to 75 minutes per game"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 12,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F007",
+  "type": "hypothetical",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "pirate-themed spin-off",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a pirate-themed spin-off set on the same delta"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F020",
+  "type": "update",
+  "checkpoint_turn": 225,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "print run",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "1,000 copies again, because the Expo wants stock on the table"
+   ],
+   "superseded": [
+    "750 copies"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    },
+    {
+     "turn": 182,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F023",
+  "type": "update",
+  "checkpoint_turn": 225,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "free shipping threshold",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "free shipping on orders over $90 instead"
+   ],
+   "superseded": [
+    "free shipping on orders over $60, and I absorb the cost"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 80,
+     "role": "user"
+    },
+    {
+     "turn": 185,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F042",
+  "type": "attribution",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "third-party warehouse (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "outsourced fulfilment at $5 per order"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 162,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F043",
+  "type": "fact_recall",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "fulfilment",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "fulfil from my spare room and ship by post office"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 165,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F044",
+  "type": "attribution",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "part-time helper (assistant idea)",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "a part-time fulfilment helper at $18 an hour, ten hours a week"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 178,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F011",
+  "type": "attribution",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "Kickstarter goal (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$12,000"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 36,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F013",
+  "type": "hypothetical",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "skip Kickstarter for conventions",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "skip Kickstarter and sell only at conventions"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 41,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F014",
+  "type": "hypothetical",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "wooden ferry token stretch goal",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a wooden ferry token as a stretch goal"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 47,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F015",
+  "type": "attribution",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "base deck size (assistant idea)",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "trim the base deck to 80 cards"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 44,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F016",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "base deck size",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "keep the base deck at 112 cards"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 46,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F032",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "startup money",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "savings plus a $4,000 credit union loan, after all"
+   ],
+   "superseded": [
+    "$6,500 from savings only"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 106,
+     "role": "user"
+    },
+    {
+     "turn": 190,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F045",
+  "type": "hypothetical",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "quitting logistics job",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "quit my logistics job by August"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 192,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F046",
+  "type": "attribution",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "box format (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a horizontal wraparound box"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 205,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F047",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "box format",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a square box with Dario's painted harbour scene on the lid"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 209,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F019",
+  "type": "attribution",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "print run (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "1,000 copies"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 63,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F021",
+  "type": "hypothetical",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "2,000 copies kept in the garage",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "print 2,000 and keep them in the garage"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F022",
+  "type": "attribution",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "shipping (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$7 flat shipping in the US"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 74,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F024",
+  "type": "attribution",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "wholesale to three game stores",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "sell to three local game stores at a 40 percent margin"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 78,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F025",
+  "type": "fact_recall",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "sales channel",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "direct sales only, through my own site and conventions"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 84,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F048",
+  "type": "hypothetical",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "deluxe wooden ferry edition",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a deluxe edition with a wooden ferry in the box"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 214,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F049",
+  "type": "attribution",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "paper scoring pad (assistant idea)",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "drop the paper scoring pad and use only the app"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 218,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F050",
+  "type": "fact_recall",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "scoring pad",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "keep the paper ledger pad at 40 sheets"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 221,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F051",
+  "type": "attribution",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "email list target (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "500 email subscribers before launch"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 228,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F052",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "email list target",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "500 subscribers, since that was the sensible number all along"
+   ],
+   "superseded": [
+    "800 email subscribers before launch"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 233,
+     "role": "user"
+    },
+    {
+     "turn": 262,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F026",
+  "type": "attribution",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "TikTok marketing",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "short TikTok videos for marketing"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 88,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F027",
+  "type": "fact_recall",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "marketing channel",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "a monthly newsletter and Bluesky posts"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 92,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F029",
+  "type": "fact_recall",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "playtest plan",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "six playtests at the Harbor Cafe on Thursday nights"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 99,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F030",
+  "type": "hypothetical",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "physical game cafe",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "open a physical game cafe that stocks the game"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 98,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F031",
+  "type": "attribution",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "credit union loan",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "a $10,000 small business loan at 9 percent"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 103,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F033",
+  "type": "attribution",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "launch event (assistant idea)",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  "reference": {
+   "required": [
+    "launch at the Pacific Game Fair in March"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 110,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F053",
+  "type": "hypothetical",
+  "checkpoint_turn": 300,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "email list only reaches 300",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "the list only reaches 300 people"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 240,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F054",
+  "type": "attribution",
+  "checkpoint_turn": 300,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "expansion bundle (assistant idea)",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "bundle the expansion at checkout"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 243,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F055",
+  "type": "fact_recall",
+  "checkpoint_turn": 300,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "bundles",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "no bundles until after launch"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 247,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F056",
+  "type": "update",
+  "checkpoint_turn": 300,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "budget ceiling",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "$10,200 after the shipping quote came in"
+   ],
+   "superseded": [
+    "$9,400 for the first print run and fees"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 255,
+     "role": "user"
+    },
+    {
+     "turn": 268,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S2:F057",
+  "type": "attribution",
+  "checkpoint_turn": 300,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "crowdfunding platform (assistant idea)",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  "reference": {
+   "required": [
+    "Gamefound instead of Kickstarter"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 258,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ }
+]

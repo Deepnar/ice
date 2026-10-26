@@ -1,0 +1,1898 @@
+[
+ {
+  "family": "S6:F001",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "coriander",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "dislikes coriander, picks it out of everything"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 1,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F002",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "units for recipes",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "recipes in metric: grams, ml, celsius"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 2,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F003",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "prep time placement",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "always list prep time first, before ingredients"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 3,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F004",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "household size",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "cooks for 3: me, Sol and Kit"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F005",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "emojis in replies",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "no emojis in replies"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 5,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F006",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "reply format",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "reply in bullet points"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F007",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "weekday recipe time cap",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "cap recipes at 30 minutes on weekdays"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 7,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F008",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "favourite cuisine",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "favourite cuisine is Thai"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F010",
+  "type": "preference",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "nuts",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "no nuts in anything, it's Kit's school rule"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 10,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F009",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Kit and visible herbs",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "Kit (6) won't eat anything with visible herbs"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 28,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F011",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "weekly grocery budget",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "£70 a week on groceries"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F012",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Sol's diet",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "Sol is vegetarian on weekdays"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F013",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "shopping list",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "always end a meal plan with a shopping list"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 22,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F014",
+  "type": "update",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "half-marathon training",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "training for a half-marathon in October, 3 runs a week"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 24,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F015",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "spice levels",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "mild for Kit, hot for everyone else"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 27,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F016",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "reply length",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "keep replies under 200 words unless I ask for more"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 30,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F017",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Thursday takeaway",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "Thursday is takeaway night, no dinner plan needed"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 34,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F018",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "vitamin D",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "taking 2000 IU vitamin D every day since November"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 35,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F019",
+  "type": "preference",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "one-pot weeknights",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "prefers one-pot meals on weeknights"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 40,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F020",
+  "type": "attribution",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "brown rice for Kit",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "assistant suggested brown rice for Kit's dinners; rejected, he won't eat it"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 47,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F021",
+  "type": "attribution",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "batch-cooked chilli",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "batch-cook a chilli on Sundays and freeze four portions"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 55,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F022",
+  "type": "hypothetical",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "slow cooker stew plan",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "if we get a slow cooker, do stews on Wednesdays"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 60,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F008",
+  "type": "preference",
+  "checkpoint_turn": 125,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "favourite cuisine",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "favourite cuisine is Thai"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F014",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "half-marathon training",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "training for a half-marathon in October, 3 runs a week"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 24,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F024",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "pub quiz team",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "General_Reference_&_Trivia"
+  },
+  "reference": {
+   "required": [
+    "team is called Crumbs of Comfort, Rhiannon is captain"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F002",
+  "type": "preference",
+  "checkpoint_turn": 150,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "units for recipes",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "recipes in metric: grams, ml, celsius"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 2,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F013",
+  "type": "preference",
+  "checkpoint_turn": 150,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "shopping list",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "always end a meal plan with a shopping list"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 22,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F004",
+  "type": "preference",
+  "checkpoint_turn": 175,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "household size",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "cooks for 3: me, Sol and Kit"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F012",
+  "type": "preference",
+  "checkpoint_turn": 175,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Sol's diet",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "Sol is vegetarian on weekdays"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F017",
+  "type": "preference",
+  "checkpoint_turn": 175,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Thursday takeaway",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "Thursday is takeaway night, no dinner plan needed"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 34,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F001",
+  "type": "preference",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "coriander",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "dislikes coriander, picks it out of everything"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 1,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F002",
+  "type": "preference",
+  "checkpoint_turn": 200,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "units for recipes",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "back to cups and tablespoons, oven still celsius"
+   ],
+   "superseded": [
+    "recipes in metric: grams, ml, celsius"
+   ],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 2,
+     "role": "user"
+    },
+    {
+     "turn": 153,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F003",
+  "type": "preference",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "prep time placement",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "always list prep time first, before ingredients"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 3,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F005",
+  "type": "preference",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "emojis in replies",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "no emojis in replies"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 5,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F006",
+  "type": "preference",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "reply format",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "reply in bullet points"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F008",
+  "type": "preference",
+  "checkpoint_turn": 200,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "favourite cuisine",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "mostly Korean now since the kimchi class"
+   ],
+   "superseded": [
+    "favourite cuisine is Thai"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    },
+    {
+     "turn": 146,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F010",
+  "type": "preference",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "nuts",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "no nuts in anything, it's Kit's school rule"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 10,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F014",
+  "type": "update",
+  "checkpoint_turn": 200,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "half-marathon training",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "down to 2 runs a week after a knee twinge"
+   ],
+   "superseded": [
+    "training for a half-marathon in October, 3 runs a week"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 24,
+     "role": "user"
+    },
+    {
+     "turn": 140,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F023",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "slow cooker purchase",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "bought a 6-litre slow cooker for £45"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 152,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F009",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "Kit and visible herbs",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "Kit (6) won't eat anything with visible herbs"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 28,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F011",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "weekly grocery budget",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "£70 a week on groceries"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F013",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "shopping list",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "shopping list only when I ask for it"
+   ],
+   "superseded": [
+    "always end a meal plan with a shopping list"
+   ],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 22,
+     "role": "user"
+    },
+    {
+     "turn": 169,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F015",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "spice levels",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "mild for Kit, hot for everyone else"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 27,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F016",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "reply length",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "keep replies under 200 words unless I ask for more"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 30,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F018",
+  "type": "fact_recall",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "vitamin D",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "taking 2000 IU vitamin D every day since November"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 35,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F024",
+  "type": "update",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "pub quiz team",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "General_Reference_&_Trivia"
+  },
+  "reference": {
+   "required": [
+    "team is called Crumbs of Comfort, Rhiannon is captain"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F001",
+  "type": "preference",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "coriander",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "coriander is fine cooked, still hates it raw"
+   ],
+   "superseded": [
+    "dislikes coriander, picks it out of everything"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 1,
+     "role": "user"
+    },
+    {
+     "turn": 207,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F004",
+  "type": "preference",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "household size",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "cooks for 4 now, Gwen moved in"
+   ],
+   "superseded": [
+    "cooks for 3: me, Sol and Kit"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    },
+    {
+     "turn": 188,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F007",
+  "type": "preference",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "weekday recipe time cap",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "cap recipes at 30 minutes on weekdays"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 7,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F012",
+  "type": "preference",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "Sol's diet",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "Sol's gone back to chicken, so no vegetarian weekdays"
+   ],
+   "superseded": [
+    "Sol is vegetarian on weekdays"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    },
+    {
+     "turn": 194,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F017",
+  "type": "preference",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "Thursday takeaway",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "takeaway moved to Friday, Thursday is Gwen's cooking night"
+   ],
+   "superseded": [
+    "Thursday is takeaway night, no dinner plan needed"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 34,
+     "role": "user"
+    },
+    {
+     "turn": 195,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F019",
+  "type": "preference",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "one-pot weeknights",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "prefers one-pot meals on weeknights"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 40,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F020",
+  "type": "attribution",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "brown rice for Kit",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "assistant suggested brown rice for Kit's dinners; rejected, he won't eat it"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 47,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F021",
+  "type": "attribution",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "batch-cooked chilli",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "batch-cook a chilli on Sundays and freeze four portions"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 55,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F022",
+  "type": "hypothetical",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": null,
+  "ask": {
+   "about": "slow cooker stew plan",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "if we get a slow cooker, do stews on Wednesdays"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 60,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F025",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Gwen moved in",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Social_&_Relationships"
+  },
+  "reference": {
+   "required": [
+    "Gwen moved into the spare room in June"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 186,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F026",
+  "type": "preference",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Gwen's dairy",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "Gwen is lactose intolerant, so no cream or butter in her portions"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 197,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F006",
+  "type": "preference",
+  "checkpoint_turn": 275,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "reply format",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "no bullets needed, normal sentences are fine now"
+   ],
+   "superseded": [
+    "reply in bullet points"
+   ],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    },
+    {
+     "turn": 218,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F024",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "pub quiz team",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "General_Reference_&_Trivia"
+  },
+  "reference": {
+   "required": [
+    "came second, team renamed Second Helpings"
+   ],
+   "superseded": [
+    "team is called Crumbs of Comfort, Rhiannon is captain"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    },
+    {
+     "turn": 232,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F027",
+  "type": "fact_recall",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": null,
+  "ask": {
+   "about": "Kit's club pickup",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "after-school club pickup moved to 6pm, so weeknights run later"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 224,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S6:F011",
+  "type": "preference",
+  "checkpoint_turn": 300,
+  "repeat_index": 2,
+  "question": null,
+  "ask": {
+   "about": "weekly grocery budget",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  "reference": {
+   "required": [
+    "£90 a week now, four of us"
+   ],
+   "superseded": [
+    "£70 a week on groceries"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    },
+    {
+     "turn": 236,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ }
+]

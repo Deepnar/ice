@@ -105,3 +105,12 @@ def test_a_rejection_happens_once_at_its_first_mention():
     rejects = [(t, i) for t, slot in d.items() for i in slot["user"] if i["change"] == "reject"]
     assert [t for t, _ in rejects] == [9]
     assert not any(i["change"] == "mention" and i["id"] == "F2" for s in d.values() for i in s["user"])
+
+
+def test_a_style_twin_asks_exactly_its_sources_questions():
+    from experiments.synth import keys as K
+    src = plan()
+    twin = P.style_twin(src, "T2")
+    a = [(o["family"].split(":")[1], o["checkpoint_turn"], o["reference"]["required"]) for o in K.occurrences(src)]
+    b = [(o["family"].split(":")[1], o["checkpoint_turn"], o["reference"]["required"]) for o in K.occurrences(twin)]
+    assert a == b
