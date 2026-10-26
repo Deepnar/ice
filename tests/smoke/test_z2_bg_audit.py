@@ -117,3 +117,13 @@ def test_judge_all_routes_oversized_items_to_partwise(tmp_path):
     results, _ = A.judge_all([item], "C", [], 10, tmp_path, models=models(judge))
     r = results["session_summary:9"]
     assert r["partwise"] and r["verdicts"] == dict(faithful="yes", attributed="yes") and "complete" in r["not_judged"]
+
+
+def test_a_part_without_a_usable_reply_errors_instead_of_judging_no(tmp_path, monkeypatch):
+    item = dict(id="conversation_note:x:1", kind="conversation_note", text="The cat is Tofu. The dog is Rex.",
+                sources=[dict(turn=1, text="y" * (A.SOURCE_CHARS + 1))])
+    import experiments.z2.questions as Q
+    monkeypatch.setattr(Q, "ask_object", lambda *a, **k: None)          # a cut reply
+    results, pending = A.judge_all([item], "C", [], 10, tmp_path, models=models(Judge([])))
+    assert "conversation_note:x:1" not in results or results["conversation_note:x:1"]["status"] != "judged"
+    assert pending == 1

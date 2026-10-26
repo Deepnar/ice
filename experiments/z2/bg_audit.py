@@ -415,9 +415,15 @@ def judge_all(items, history, ledger, end_turn, out, *, models, judge="muse", ta
             body = dict(STATEMENTS={str(i): t for i, t in enumerate(numbered, 1)},
                         PASSAGES=[dict(turn=s["turn"], text=s["text"]) for s in part])
             # Part-wise reasoning runs longer (4 of 113 qualification calls ran out at 8,000).
-            verdicts.append(ask_object(calls, judge, models[judge][1], models[judge][0], PART_SYSTEM,
-                                       json.dumps(body, ensure_ascii=False), session,
-                                       max_output_tokens=2 * JUDGE_OUTPUT_TOKENS))
+            reply = ask_object(calls, judge, models[judge][1], models[judge][0], PART_SYSTEM,
+                               json.dumps(body, ensure_ascii=False), session,
+                               max_output_tokens=2 * JUDGE_OUTPUT_TOKENS)
+            # A cut or unreadable part reply is not "nothing supported": combining it as
+            # empty marked every statement unsupported (3 C fold notes, 2026-10-26). The
+            # item errors instead - retried, then recorded unjudged, never "no".
+            if not isinstance(reply, dict):
+                raise ValueError(f"part {len(verdicts) + 1} of {item['id']}: no usable judge reply")
+            verdicts.append(reply)
         return len(numbered), verdicts
 
     for item, got, exc in _parallel(partwise, work_parts):
