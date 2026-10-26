@@ -19,3 +19,12 @@ def test_stage_list_is_consistent():
     assert member.replay is groups["local-replay-BEAM100K"].members[0]
     assert next(s for s in stages if s.key == "local-replay-S5").needs == ("prep-generate-S5",)
     assert stages[-1].built is False                      # grading listed, not built yet
+
+
+def test_s1_is_replayed_twice_into_separate_stores():
+    stages = {s.key: s for s in F.final_stages()}
+    first, again = stages["local-replay-S1"], stages["local-replay-S1-repeat"]
+    ctx = type("C", (), {"name": "main"})()
+    assert first.database(ctx) != again.database(ctx)
+    assert stages["local-read-S1-repeat"].replay is again and stages["local-read-S1-repeat"].preset == "final_main"
+    assert stages["local-answers-S1-repeat"].needs == ("local-read-S1-repeat",)

@@ -35,13 +35,14 @@ def safe(key):
 
 
 class FinalReplay(Z.Replay):
-    def __init__(self, history, limit=None):
+    def __init__(self, history, limit=None, repeat=""):
         h = HISTORIES[history]
         super().__init__(history, h.turns, REPLAY_SECONDS.get(history, 35.0), limit)
-        self.key, self.title = f"local-replay-{history}", f"replay {history}"
+        self.repeat = repeat
+        self.key, self.title = f"local-replay-{history}{repeat}", f"replay {history}{repeat}"
 
     def database(self, ctx):
-        return f"ice_final_{safe(ctx.name)}_{safe(self.history)}"
+        return f"ice_final_{safe(ctx.name)}_{safe(self.history + self.repeat)}"
 
     def missing(self, ctx):
         path = HISTORIES[self.history].path("originals")
@@ -51,10 +52,12 @@ class FinalReplay(Z.Replay):
 class FinalRead(Z.Stage):
     """Read passes of one history under its condition preset (experiments/z2/read_passes.py)."""
 
-    def __init__(self, history, asks, replay):
-        super().__init__(key=f"local-read-{history}", title=f"read passes {history}",
+    def __init__(self, history, asks, replay, preset=None):
+        repeat = getattr(replay, "repeat", "")
+        super().__init__(key=f"local-read-{history}{repeat}", title=f"read passes {history}{repeat}",
                          needs=(replay.key,), unit="contexts", estimate=6.0)
-        self.history, self.asks, self.preset = history, Path(asks), PRESET.get(history, "final_main")
+        self.history, self.asks = history, Path(asks)
+        self.preset = preset or PRESET.get(history, "final_main")
         self.replay = replay
 
     def out(self, ctx):
@@ -94,10 +97,10 @@ class FinalRead(Z.Stage):
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
-def answers(history, planned):
-    a = Z.Answers(history, key=f"local-answers-{history}", title=f"answers {history}",
-                  units_key=f"local-read-{history}", needs=(f"local-read-{history}",), planned=planned)
-    return a
+def answers(history, planned, repeat=""):
+    return Z.Answers(history, key=f"local-answers-{history}{repeat}", title=f"answers {history}{repeat}",
+                     units_key=f"local-read-{history}{repeat}", needs=(f"local-read-{history}{repeat}",),
+                     planned=planned)
 
 
 class Group(Z.Stage):
@@ -265,6 +268,12 @@ def final_stages(limit=None):
         replay = FinalReplay(k, limit)
         replay.needs = ((f"prep-generate-{k}",) if k in SYNTHETIC else ()) + (("prep-asks-B",) if k == "B" else ())
         out += [replay, FinalRead(k, asks, replay), answers(k, planned=max(1, h.planned_asks or 100) * 6)]
+    # Run-to-run variance (Z3 D11): S1 replayed a second time into its own store, read under the
+    # main conditions and answered; its grades are compared with the first replay's.
+    again = FinalReplay("S1", limit, repeat="-repeat")
+    again.needs = ("prep-generate-S1",)
+    out += [again, FinalRead("S1", HISTORIES["S1"].path("asks"), again, preset="final_main"),
+            answers("S1", planned=600, repeat="-repeat")]
     for tier in ("100K", "500K", "1M"):
         keys = [k for k in BEAM if k.startswith(f"BEAM-{tier}-")]
         replays = [FinalReplay(k, limit) for k in keys]
