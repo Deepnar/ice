@@ -1,0 +1,1500 @@
+{
+ "id": "S2",
+ "persona": {
+  "name": "Ruth Adeyemi",
+  "situation": "Logistics coordinator at a freight forwarder in the port city of Port Callan. Evenings and weekends she is developing her first board game, Ferryman's Ledger, a route-trading game set on a river delta, under a one-person label called Low Tide Games. She has about 6,500 dollars of savings, a friend (Dario Wren) who draws, and a launch she wants to make in the summer.",
+  "voice": "Thinks out loud in long run-on messages with tangents, filler ('ok so', 'like'), and self-corrections halfway through a sentence. Friendly and a little anxious about money, but decisive once she has checked the numbers. Often asks the assistant to just pick something and then ignores half of it."
+ },
+ "sessions": [
+  {
+   "index": 1,
+   "date": "2026-02-09",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Ruth pitches Ferryman's Ledger: a route-trading game on a river delta for two to four players.",
+    "The assistant suggests about 90 minutes a game and 'Tidewater Tabletop' as the company name; she says 90 is too long and rejects the name.",
+    "She settles on 60 to 75 minutes and the name Low Tide Games.",
+    "She muses about a pirate-themed spin-off set on the same delta and a companion phone app that keeps score."
+   ]
+  },
+  {
+   "index": 2,
+   "date": "2026-02-12",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "The assistant suggests a marketplace illustrator at 1,200 dollars for the box art; she refuses and says she will ask Dario Wren instead, at 900 dollars.",
+    "The assistant suggests a 12,000-dollar Kickstarter goal; she thinks it is too low and wonders aloud about skipping Kickstarter and selling only at conventions.",
+    "The assistant suggests cutting the deck to 80 cards; she keeps the 112-card base deck.",
+    "She floats a wooden ferry token as a stretch goal."
+   ]
+  },
+  {
+   "index": 3,
+   "date": "2026-02-19",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "She raises her Kickstarter goal to 18,000 dollars and says the assistant's 12,000 was 'a nice guess'.",
+    "The assistant suggests a 29.99-dollar retail price; she sets it at 39 dollars.",
+    "The assistant suggests a print run of 1,000; she goes with 750 and muses about printing 2,000 and storing them in the garage.",
+    "The assistant suggests flat 7-dollar US shipping; she is still unsure about free shipping."
+   ]
+  },
+  {
+   "index": 4,
+   "date": "2026-02-21",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "She decides on free shipping over 60 dollars and rejects the plan to sell to three local game stores at a 40 percent margin.",
+    "She rejects TikTok marketing outright and chooses a monthly newsletter and Bluesky posts.",
+    "The assistant suggests twelve library playtests; she picks six Thursday-night sessions at the Harbor Cafe.",
+    "She muses about opening a physical game cafe that stocks the game."
+   ]
+  },
+  {
+   "index": 5,
+   "date": "2026-03-04",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "The assistant suggests a 10,000-dollar credit union loan at 9 percent; she rejects it and plans to fund the run from her 6,500 dollars of savings.",
+    "The assistant suggests the Pacific Game Fair in March; she chooses the Port Callan Tabletop Expo in May.",
+    "The assistant suggests an AI logo generator; she is lukewarm and says she will think about it.",
+    "She asks what it would be like to bring a demo to a convention in Lisbon."
+   ]
+  },
+  {
+   "index": 6,
+   "date": "2026-03-08",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "The assistant suggests five stretch goals; she settles on three: wooden tokens, a solo expansion and a cloth bag.",
+    "She mentions Kickstarter goal moving to 20,000 dollars after the printer quote went up.",
+    "Dario's fee rises to 1,150 dollars because he is now doing the card faces too.",
+    "She muses about selling the solo mode as its own standalone box."
+   ]
+  },
+  {
+   "index": 7,
+   "date": "2026-03-17",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "The assistant suggests a Vietnamese sourcing broker at 3.10 dollars a unit; she rejects the markup and picks Brightwater Print Co. in Poland at 4.40 dollars.",
+    "The assistant suggests outsourced fulfilment at 5 dollars an order; she decides to fulfil from her spare room and ship by post office.",
+    "She corrects her own retail price: the 39 dollars was a typo, it is 34 dollars."
+   ]
+  },
+  {
+   "index": 8,
+   "date": "2026-03-18",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "The assistant suggests a part-time fulfilment helper; she rejects it and does not want a stranger in her spare room.",
+    "She reverses her print run back to 1,000 because the Expo wants stock on the table.",
+    "She reverses her funding: savings plus a 4,000-dollar credit union loan after all.",
+    "She raises the free shipping threshold to 90 dollars and muses about quitting her logistics job by August."
+   ]
+  },
+  {
+   "index": 9,
+   "date": "2026-03-31",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "The assistant suggests a horizontal wraparound box; she prefers a square box with Dario's painted harbour scene on the lid.",
+    "The assistant suggests dropping the paper scoring pad for the app; she rejects that and keeps a 40-sheet ledger pad.",
+    "She muses about a deluxe edition with a wooden ferry in the box."
+   ]
+  },
+  {
+   "index": 10,
+   "date": "2026-04-05",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "The assistant suggests a pre-launch list of 500 subscribers; she sets her own target at 800.",
+    "She worries the list will only reach 300 people.",
+    "The assistant suggests bundling the expansion at checkout; she says no bundles until after launch."
+   ]
+  },
+  {
+   "index": 11,
+   "date": "2026-04-15",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "She raises her budget ceiling to 10,200 dollars after the shipping quote; the earlier figure was 9,400.",
+    "The assistant suggests Gamefound instead of Kickstarter; she rejects it because her friends back on Kickstarter.",
+    "She reverses her email target back to 500, because that was the sensible number all along.",
+    "She muses about launching in late August instead."
+   ]
+  },
+  {
+   "index": 12,
+   "date": "2026-04-21",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Business_&_Finance",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Ideation",
+    "Decision_Making"
+   ],
+   "beats": [
+    "She fixes the Kickstarter launch on Tuesday 7 July with a 30-day campaign; the assistant had suggested 10 days.",
+    "The assistant suggests a 25-dollar tier with the poster; she rejects it and picks a 30-dollar tier with the poster and card sleeves.",
+    "She muses about whether the campaign could fund within its first 48 hours."
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "id": "F001",
+   "about": "game title",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 3,
+     "value": "Ferryman's Ledger",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    13,
+    40,
+    77,
+    150,
+    233
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F002",
+   "about": "player count",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 4,
+     "value": "2 to 4 players",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    19,
+    58,
+    170
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F003",
+   "about": "playtime (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 8,
+     "value": "about 90 minutes per game",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    9
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F004",
+   "about": "playtime (her decision)",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 12,
+     "value": "60 to 75 minutes per game",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    31,
+    102
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F005",
+   "about": "company name Tidewater Tabletop",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 6,
+     "value": "Tidewater Tabletop",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    7
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F006",
+   "about": "company name",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 10,
+     "value": "Low Tide Games",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    44,
+    149,
+    215
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F007",
+   "about": "pirate-themed spin-off",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 16,
+     "value": "a pirate-themed spin-off set on the same delta",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F008",
+   "about": "companion phone app",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 21,
+     "value": "a companion phone app that keeps score",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F009",
+   "about": "marketplace illustrator",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 28,
+     "value": "a marketplace illustrator at $1,200 for the box art",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    30
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F010",
+   "about": "box art and card illustrator",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 33,
+     "value": "Dario Wren at $900 total for box art and cards",
+     "change": "introduce"
+    },
+    {
+     "turn": 143,
+     "value": "$1,150 total for box art and card faces",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    70,
+    118
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F011",
+   "about": "Kickstarter goal (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 36,
+     "value": "$12,000",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    37
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F012",
+   "about": "Kickstarter goal",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 52,
+     "value": "$18,000",
+     "change": "introduce"
+    },
+    {
+     "turn": 130,
+     "value": "$20,000 after the printer quote rose",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    88
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F013",
+   "about": "skip Kickstarter for conventions",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 41,
+     "value": "skip Kickstarter and sell only at conventions",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F014",
+   "about": "wooden ferry token stretch goal",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 47,
+     "value": "a wooden ferry token as a stretch goal",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F015",
+   "about": "base deck size (assistant idea)",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 44,
+     "value": "trim the base deck to 80 cards",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    45
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F016",
+   "about": "base deck size",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 46,
+     "value": "keep the base deck at 112 cards",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    96
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F017",
+   "about": "retail price (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 55,
+     "value": "$29.99",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F018",
+   "about": "retail price",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 60,
+     "value": "$39",
+     "change": "introduce"
+    },
+    {
+     "turn": 160,
+     "value": "$34, the 39 was a typo in my own sheet",
+     "change": "correction"
+    }
+   ],
+   "mentions": [
+    100,
+    139
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F019",
+   "about": "print run (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 63,
+     "value": "1,000 copies",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F020",
+   "about": "print run",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 66,
+     "value": "750 copies",
+     "change": "introduce"
+    },
+    {
+     "turn": 182,
+     "value": "1,000 copies again, because the Expo wants stock on the table",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    86,
+    120
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F021",
+   "about": "2,000 copies kept in the garage",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 70,
+     "value": "print 2,000 and keep them in the garage",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F022",
+   "about": "shipping (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 74,
+     "value": "$7 flat shipping in the US",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F023",
+   "about": "free shipping threshold",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 80,
+     "value": "free shipping on orders over $60, and I absorb the cost",
+     "change": "introduce"
+    },
+    {
+     "turn": 185,
+     "value": "free shipping on orders over $90 instead",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    111
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F024",
+   "about": "wholesale to three game stores",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 78,
+     "value": "sell to three local game stores at a 40 percent margin",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    85
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F025",
+   "about": "sales channel",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 84,
+     "value": "direct sales only, through my own site and conventions",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    172
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F026",
+   "about": "TikTok marketing",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 88,
+     "value": "short TikTok videos for marketing",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    89
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F027",
+   "about": "marketing channel",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 92,
+     "value": "a monthly newsletter and Bluesky posts",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    141
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F028",
+   "about": "playtest plan (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 96,
+     "value": "twelve playtests at the public library",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    97
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F029",
+   "about": "playtest plan",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 99,
+     "value": "six playtests at the Harbor Cafe on Thursday nights",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    162
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F030",
+   "about": "physical game cafe",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 98,
+     "value": "open a physical game cafe that stocks the game",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F031",
+   "about": "credit union loan",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 103,
+     "value": "a $10,000 small business loan at 9 percent",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    104
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F032",
+   "about": "startup money",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 106,
+     "value": "$6,500 from savings only",
+     "change": "introduce"
+    },
+    {
+     "turn": 190,
+     "value": "savings plus a $4,000 credit union loan, after all",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    119
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F033",
+   "about": "launch event (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 110,
+     "value": "launch at the Pacific Game Fair in March",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F034",
+   "about": "launch event",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 113,
+     "value": "launch at the Port Callan Tabletop Expo in May",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    146,
+    201
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F035",
+   "about": "Lisbon convention demo",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 117,
+     "value": "bring a demo to a convention in Lisbon",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F036",
+   "about": "logo (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 121,
+     "value": "make the logo with an AI logo generator",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    122
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F037",
+   "about": "stretch goal count (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 128,
+     "value": "five stretch goals",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F038",
+   "about": "stretch goal count",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 131,
+     "value": "three stretch goals: wooden tokens, a solo expansion and a cloth bag",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    145
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F039",
+   "about": "solo mode as standalone box",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 136,
+     "value": "sell the solo mode as its own standalone box",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F040",
+   "about": "sourcing broker (assistant idea)",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 153,
+     "value": "a Vietnamese sourcing broker at $3.10 per unit",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    155
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F041",
+   "about": "manufacturer",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 158,
+     "value": "Brightwater Print Co. in Poland at $4.40 per unit",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    174
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F042",
+   "about": "third-party warehouse (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 162,
+     "value": "outsourced fulfilment at $5 per order",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F043",
+   "about": "fulfilment",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 165,
+     "value": "fulfil from my spare room and ship by post office",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    181
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F044",
+   "about": "part-time helper (assistant idea)",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 178,
+     "value": "a part-time fulfilment helper at $18 an hour, ten hours a week",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    180
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F045",
+   "about": "quitting logistics job",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 192,
+     "value": "quit my logistics job by August",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F046",
+   "about": "box format (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 205,
+     "value": "a horizontal wraparound box",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F047",
+   "about": "box format",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 209,
+     "value": "a square box with Dario's painted harbour scene on the lid",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    235
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F048",
+   "about": "deluxe wooden ferry edition",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 214,
+     "value": "a deluxe edition with a wooden ferry in the box",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F049",
+   "about": "paper scoring pad (assistant idea)",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 218,
+     "value": "drop the paper scoring pad and use only the app",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    219
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F050",
+   "about": "scoring pad",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 221,
+     "value": "keep the paper ledger pad at 40 sheets",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    260
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media"
+  },
+  {
+   "id": "F051",
+   "about": "email list target (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 228,
+     "value": "500 email subscribers before launch",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F052",
+   "about": "email list target",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 233,
+     "value": "800 email subscribers before launch",
+     "change": "introduce"
+    },
+    {
+     "turn": 262,
+     "value": "500 subscribers, since that was the sensible number all along",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    246
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F053",
+   "about": "email list only reaches 300",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 240,
+     "value": "the list only reaches 300 people",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F054",
+   "about": "expansion bundle (assistant idea)",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 243,
+     "value": "bundle the expansion at checkout",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    245
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F055",
+   "about": "bundles",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 247,
+     "value": "no bundles until after launch",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F056",
+   "about": "budget ceiling",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 255,
+     "value": "$9,400 for the first print run and fees",
+     "change": "introduce"
+    },
+    {
+     "turn": 268,
+     "value": "$10,200 after the shipping quote came in",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    263
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F057",
+   "about": "crowdfunding platform (assistant idea)",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 258,
+     "value": "Gamefound instead of Kickstarter",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    259
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F058",
+   "about": "late August launch",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 270,
+     "value": "launch in late August instead",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F059",
+   "about": "launch date",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 278,
+     "value": "Kickstarter launch on Tuesday 7 July",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    289
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F060",
+   "about": "campaign length (assistant idea)",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 280,
+     "value": "a 10-day campaign",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F061",
+   "about": "campaign length",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 283,
+     "value": "a 30-day campaign",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F062",
+   "about": "$25 poster tier",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 290,
+     "value": "a $25 tier with the poster",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    291
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F063",
+   "about": "pledge tier",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 292,
+     "value": "a $30 tier with the poster and card sleeves",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  },
+  {
+   "id": "F064",
+   "about": "funded in the first 48 hours",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 296,
+     "value": "the campaign funds within the first 48 hours",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance"
+  }
+ ],
+ "events": [],
+ "no_memory_turns": [
+  1,
+  17,
+  25,
+  35,
+  49,
+  57,
+  67,
+  75,
+  87,
+  101,
+  114,
+  126,
+  135,
+  147,
+  157,
+  168,
+  177,
+  188,
+  196,
+  203,
+  211,
+  222,
+  229,
+  237,
+  248,
+  254,
+  266,
+  274,
+  282,
+  293
+ ]
+}

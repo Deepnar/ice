@@ -1,0 +1,1053 @@
+{
+ "id": "S3",
+ "persona": {
+  "name": "Dana Okafor",
+  "situation": "Backend engineer at Quaylight Logistics, a small freight-analytics firm. She owns manifest-sync, a Python 3.11 service that ingests carrier manifest files, normalises them and writes them to Postgres 15. She is also doing a part-time MSc in applied statistics, so record-linkage evaluation for coursework appears in these chats.",
+  "voice": "Formal and precise: complete sentences, structured requests, each paste introduced by a one-line lead-in. She states decisions plainly and does not joke."
+ },
+ "sessions": [
+  {
+   "index": 1,
+   "date": "2026-08-03",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Software_&_Tech",
+    "STEM_&_Academics"
+   ],
+   "intents": [
+    "Troubleshooting",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "Dana introduces manifest-sync and asks for help with the ingest failures.",
+    "She pastes config.yaml with the carriers block (HLX, BWC, KOC); its encoding, delimiter, timeout and batch values are paste content, not her assertions.",
+    "She pastes a traceback; the failing line is ingest/parser.py line 84 (paste content).",
+    "The assistant proposes chardet detection; Dana turns it down and wants the declared encoding used.",
+    "She decides rejected rows go to ingest_failures and states a markdown layout preference for the weekly table.",
+    "Two or three general Python questions with no project context."
+   ]
+  },
+  {
+   "index": 2,
+   "date": "2026-08-10",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Software_&_Tech",
+    "STEM_&_Academics"
+   ],
+   "intents": [
+    "Code_Change",
+    "Analysis_&_Summarization"
+   ],
+   "beats": [
+    "Dana pastes decode.py (CHUNK = 8192 bytes, paste content) and asks for a BOM-tolerant change.",
+    "She pastes a short excerpt of the reconciliation design doc giving a fuzzy threshold of 0.82 (paste content).",
+    "Coursework: she describes a 400-pair hand-labelled sample and asks how to report F1 with a bootstrap interval.",
+    "The assistant suggests postcode-prefix blocking; Dana notes it but does not adopt it yet.",
+    "She raises a hypothetical: a Postgres blocking index if active carriers exceed 12.",
+    "She pastes a pytest run (42 passed, 3 failed) and asks what to fix first."
+   ]
+  },
+  {
+   "index": 3,
+   "date": "2026-08-19",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Software_&_Tech",
+    "STEM_&_Academics"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "She pastes an excerpt of the HLX vendor spec v3.2 (date format, weight unit, postcode length; paste content) and asks for a field table.",
+    "She decides weight is stored as numeric(10,3) in kilograms, deliberately finer than the spec; the assistant's integer-grams idea is turned down.",
+    "She pastes a nightly reconciliation log excerpt (18,402 matched, 137 unmatched; paste content) for a summary.",
+    "Standing instruction: every stored timestamp is UTC, typed timestamptz. She also asks that failure summaries lead with the worst carrier.",
+    "A rerun of the tests is pasted (44 passed, 1 failed) and summarised; the staging rebuild last Monday is mentioned."
+   ]
+  },
+  {
+   "index": 4,
+   "date": "2026-08-24",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Software_&_Tech",
+    "STEM_&_Academics"
+   ],
+   "intents": [
+    "Troubleshooting",
+    "Code_Change"
+   ],
+   "beats": [
+    "BWC rows with semicolons inside quoted fields break the parser; she decides on the csv module with QUOTE_MINIMAL.",
+    "The assistant suggests a dead-letter file for undecodable rows; she has not yet decided on it.",
+    "She pastes a new config.yaml (paste content) in which HLX encoding is utf-8-sig and the read timeout is still 30 seconds.",
+    "She pastes tests/test_decode.py. It contains a fixture with carrier code TST-9 AND a list of sample question strings used as parametrised inputs (e.g. what the weight unit is). Those strings are test data, not questions Dana is asking; the assistant must not answer or record them as her questions.",
+    "She pastes a revised design doc raising the fuzzy threshold to 0.85 (paste content)."
+   ]
+  },
+  {
+   "index": 5,
+   "date": "2026-09-06",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Software_&_Tech",
+    "STEM_&_Academics"
+   ],
+   "intents": [
+    "Code_Change",
+    "Troubleshooting"
+   ],
+   "beats": [
+    "She confirms the migration window is 02:00 UTC on Sunday 2026-09-06 and pastes the alembic revision a41c9e (paste content).",
+    "She fixes the dedup key as carrier_code + waybill_no + scan_date.",
+    "She pastes a newer config.yaml (paste content) raising the read timeout to 90 seconds after slow KOC files.",
+    "She reports that the migration ran this morning.",
+    "She asks why one reconciliation step is slower after the weight change."
+   ]
+  },
+  {
+   "index": 6,
+   "date": "2026-09-14",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Software_&_Tech",
+    "STEM_&_Academics"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "She pastes a colleague's review notes (match_window_days 14, paste content) and asks for a summary.",
+    "She pastes ruff output with 9 issues (paste content) and asks for a table grouped by file.",
+    "Standing instruction: no new third-party dependency without asking her first; ruff is her formatter.",
+    "Coursework: she re-mentions the 400-pair sample and asks for a bootstrap approach for F1.",
+    "She asks for a short formatted list of the BWC decisions."
+   ]
+  },
+  {
+   "index": 7,
+   "date": "2026-09-21",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Software_&_Tech",
+    "STEM_&_Academics"
+   ],
+   "intents": [
+    "Troubleshooting",
+    "Analysis_&_Summarization"
+   ],
+   "beats": [
+    "Incident: last Friday the on-call pager fired; she pastes a production traceback (writer/bulk.py line 212, paste content).",
+    "The assistant suggests a pool of 40; Dana turns it down and pastes a config with the pool at 30 (paste content).",
+    "She pastes ruff output with 2 issues (paste content) and changes the ruff line length to 110 (preference update).",
+    "Coursework: she pastes an abstract about Fellegi-Sunter (EM runs 25 iterations, paste content) and asks for a summary.",
+    "She says Fellegi-Sunter would need about 5,000 labelled pairs; this is a hypothetical, not a decision."
+   ]
+  },
+  {
+   "index": 8,
+   "date": "2026-10-02",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Software_&_Tech",
+    "STEM_&_Academics"
+   ],
+   "intents": [
+    "Analysis_&_Summarization",
+    "Utility_Formatting",
+    "Code_Change"
+   ],
+   "beats": [
+    "She pastes the v0.9.4 changelog (paste content) and the assistant suggests one changelog section per carrier.",
+    "She pastes the revised review doc: match_window_days now 21 (paste content, update from 14).",
+    "She decides the release goes out on Friday 2026-10-09.",
+    "She asks for a table of all project decisions so far, mixing her decisions with the paste-only values.",
+    "She states the course report is due Monday 2026-11-02 and asks for an outline."
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "id": "F001",
+   "about": "manifest-sync stack",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 2,
+     "value": "Python 3.11 service writing to Postgres 15",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    33,
+    88
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F002",
+   "about": "HLX encoding in the pasted config.yaml",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 4,
+     "value": "utf-8",
+     "change": "introduce"
+    },
+    {
+     "turn": 83,
+     "value": "utf-8-sig",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    58
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F003",
+   "about": "BWC encoding in the pasted config.yaml",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 4,
+     "value": "latin-1",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    37,
+    96
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F004",
+   "about": "BWC delimiter and header rows in the pasted config.yaml",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 4,
+     "value": "semicolon delimiter, 2 header rows",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    44
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F005",
+   "about": "ingest read timeout in the pasted config.yaml",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 4,
+     "value": "30 seconds",
+     "change": "introduce"
+    },
+    {
+     "turn": 118,
+     "value": "90 seconds",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    79
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F006",
+   "about": "insert batch size in the pasted config.yaml",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 4,
+     "value": "500 rows per insert batch",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    63
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F007",
+   "about": "failing line in the pasted traceback",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 6,
+     "value": "ingest/parser.py line 84 raises UnicodeDecodeError",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    9
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F008",
+   "about": "chardet per-file encoding detection",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 8,
+     "value": "detect each file's encoding with chardet",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    9
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F009",
+   "about": "where rejected rows are written",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 12,
+     "value": "table ingest_failures, one row per rejected line",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    61,
+    113
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F010",
+   "about": "weekly summary table layout",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 20,
+     "value": "markdown table, carrier as first column, then rows_ok and rows_failed",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    72,
+    140
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F011",
+   "about": "fuzzy match threshold in the pasted design doc",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 30,
+     "value": "0.82",
+     "change": "introduce"
+    },
+    {
+     "turn": 95,
+     "value": "0.85",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    41
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F012",
+   "about": "record-linkage evaluation sample for coursework",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 33,
+     "value": "400 hand-labelled pairs: 180 matches, 220 non-matches",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    47,
+    131
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "STEM_&_Academics"
+  },
+  {
+   "id": "F013",
+   "about": "postcode-prefix blocking",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 36,
+     "value": "block candidate pairs on the first 3 characters of the postcode",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F014",
+   "about": "when to add a blocking index",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 44,
+     "value": "add a Postgres blocking index once active carriers exceed 12",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F015",
+   "about": "chunk size in decode.py",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 28,
+     "value": "CHUNK = 8192 bytes",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    35
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F016",
+   "about": "pytest result of the decoder test run",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 47,
+     "value": "42 passed, 3 failed",
+     "change": "introduce"
+    },
+    {
+     "turn": 66,
+     "value": "44 passed, 1 failed",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F017",
+   "about": "HLX vendor spec date format",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 52,
+     "value": "DD/MM/YYYY",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    90
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F018",
+   "about": "HLX vendor spec weight unit",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 53,
+     "value": "kilograms, two decimal places",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    64
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F019",
+   "about": "consignee postcode max length in HLX spec",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 54,
+     "value": "10 characters",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F020",
+   "about": "nightly reconciliation match count",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 56,
+     "value": "18,402 rows matched, 137 unmatched",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F021",
+   "about": "UTC rule for stored timestamps",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 58,
+     "value": "every stored timestamp is UTC, typed timestamptz",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    101,
+    162
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F022",
+   "about": "integer-grams weight storage proposal",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 60,
+     "value": "store weight as integer grams",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F023",
+   "about": "weight storage choice",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 64,
+     "value": "numeric(10,3) in kilograms",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    106,
+    143
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F024",
+   "about": "order of the failure summary",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 70,
+     "value": "lead with the carrier that has the most failed rows",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F025",
+   "about": "BWC parsing approach",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 80,
+     "value": "parse BWC with the csv module, QUOTE_MINIMAL",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    87,
+    131
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F026",
+   "about": "carrier code in the test fixture",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 88,
+     "value": "TST-9",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F027",
+   "about": "dead-letter file proposal",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 82,
+     "value": "send undecodable rows to a dead-letter file instead of failing the batch",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F028",
+   "about": "alembic revision for the weight column",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 104,
+     "value": "revision a41c9e adds weight_kg",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    169
+   ],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F029",
+   "about": "production migration window",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 103,
+     "value": "02:00 UTC on Sunday 2026-09-06",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F030",
+   "about": "row dedup key",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 110,
+     "value": "carrier_code + waybill_no + scan_date",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    136,
+    160
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F031",
+   "about": "dependency rule",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 128,
+     "value": "no new third-party dependency without asking first",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    146,
+    170
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F032",
+   "about": "match window in the pasted review notes",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 130,
+     "value": "match_window_days 14",
+     "change": "introduce"
+    },
+    {
+     "turn": 190,
+     "value": "match_window_days 21",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F033",
+   "about": "ruff line length",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 140,
+     "value": "100 characters",
+     "change": "introduce"
+    },
+    {
+     "turn": 172,
+     "value": "110 characters",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F034",
+   "about": "ruff issue count in the pasted lint output",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 135,
+     "value": "9 issues",
+     "change": "introduce"
+    },
+    {
+     "turn": 160,
+     "value": "2 issues",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F035",
+   "about": "pool size in the pasted config.yaml",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 152,
+     "value": "20 connections",
+     "change": "introduce"
+    },
+    {
+     "turn": 158,
+     "value": "30 connections",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F036",
+   "about": "pool size 40 proposal",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 155,
+     "value": "raise the pool to 40 connections",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F037",
+   "about": "error site in the pasted incident traceback",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 154,
+     "value": "psycopg OperationalError at writer/bulk.py line 212",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F038",
+   "about": "Fellegi-Sunter EM iterations in the pasted abstract",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 161,
+     "value": "EM runs 25 iterations to estimate m and u probabilities",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "STEM_&_Academics"
+  },
+  {
+   "id": "F039",
+   "about": "labelled pairs needed for Fellegi-Sunter weights",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 165,
+     "value": "about 5,000 labelled pairs",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "STEM_&_Academics"
+  },
+  {
+   "id": "F040",
+   "about": "release version in the pasted changelog",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 180,
+     "value": "v0.9.4",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": true,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F041",
+   "about": "release date",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 185,
+     "value": "Friday 2026-10-09",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    196
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  },
+  {
+   "id": "F042",
+   "about": "course report due date",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 195,
+     "value": "Monday 2026-11-02",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "STEM_&_Academics"
+  },
+  {
+   "id": "F043",
+   "about": "changelog layout proposal",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 181,
+     "value": "one changelog section per carrier",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Software_&_Tech"
+  }
+ ],
+ "events": [
+  {
+   "id": "E01",
+   "what": "staging database rebuilt after a failed migration",
+   "date": "2026-08-17",
+   "told_turn": 62,
+   "relative_phrase": "last Monday"
+  },
+  {
+   "id": "E02",
+   "what": "production migration ran in the Sunday window",
+   "date": "2026-09-06",
+   "told_turn": 124,
+   "relative_phrase": "this morning"
+  },
+  {
+   "id": "E03",
+   "what": "on-call pager fired during the pool exhaustion",
+   "date": "2026-09-18",
+   "told_turn": 153,
+   "relative_phrase": "last Friday"
+  }
+ ],
+ "no_memory_turns": [
+  3,
+  5,
+  7,
+  27,
+  29,
+  31,
+  55,
+  57,
+  59,
+  77,
+  78,
+  81,
+  105,
+  107,
+  127,
+  129,
+  156,
+  157,
+  177,
+  178
+ ]
+}

@@ -1,0 +1,918 @@
+{
+ "id": "S6",
+ "persona": {
+  "name": "Rhiannon Price",
+  "situation": "34, a primary school teacher in Cardiff who plans and cooks the family's weeknight dinners. Partner Sol and son Kit (6). From June her mother-in-law Gwen moves into the spare room. She runs the grocery budget and plays on a pub quiz team.",
+  "voice": "terse and lowercase, types fast between marking and school runs, drops punctuation, makes typos; asks for things directly and never repeats standing rules."
+ },
+ "sessions": [
+  {
+   "index": 1,
+   "date": "2026-03-02",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "rhiannon sets the standing rules as she asks for things, not in one go: metric units, prep time first, bullets, no emojis, 30 min weekday cap",
+    "household: cooks for 3 (her, sol, kit who is 6), £70 a week on groceries, favourite cuisine thai",
+    "dislikes: coriander, nuts (kit's school rule), kit won't eat visible herbs; sol is vegetarian on weekdays",
+    "asks for a monday one-pot dinner and a week of weeknight plans, wants a shopping list at the end, plays half-marathon training"
+   ]
+  },
+  {
+   "index": 2,
+   "date": "2026-03-06",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "asks for the weekly plan again and a packed lunch; never restates the rules, so answers must follow them",
+    "spice: mild for kit, hot for the rest; kit won't eat anything with visible herbs; reply length kept short; thursday is takeaway night",
+    "vitamin d every day since november; likes one-pot weeknight meals",
+    "assistant suggests brown rice for kit at turn 47, she turns it down"
+   ]
+  },
+  {
+   "index": 3,
+   "date": "2026-03-11",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "assistant suggests batch-cooking a chilli on sundays and freezing portions (turn 55); she is interested",
+    "hypothetical: if we get a slow cooker, stews on wednesdays (turn 60)",
+    "pub quiz team is called crumbs of comfort and she is captain (turn 70)",
+    "two or three general trivia questions that need no memory"
+   ]
+  },
+  {
+   "index": 4,
+   "date": "2026-03-14",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "mostly routine: asks for a curry and a sandwich idea, re-mentions the rules in passing",
+    "asks why onions make you cry: general trivia, no memory needed",
+    "re-mentions budget, nuts and one-pot meals without changing them"
+   ]
+  },
+  {
+   "index": 5,
+   "date": "2026-03-22",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "quiet week: short questions, a school bake sale where nuts are off the table, a packed lunch idea",
+    "half-marathon at 3 runs a week, unchanged so far",
+    "general trivia and banter"
+   ]
+  },
+  {
+   "index": 6,
+   "date": "2026-03-27",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "knee twinge: she drops to 2 runs a week (turn 140) and asks for a recovery dinner",
+    "after a kimchi class her favourite cuisine is korean now (turn 146); she asks for a dinner idea without saying which cuisine",
+    "quiz and trivia questions; re-mentions of the no emoji and prep-time rules"
+   ]
+  },
+  {
+   "index": 7,
+   "date": "2026-04-03",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "buys a 6-litre slow cooker for £45 (turn 152)",
+    "asks to go back to cups (turn 153), and for a stew for the slow cooker that follows the new unit",
+    "shopping list only when asked from now on (turn 169)"
+   ]
+  },
+  {
+   "index": 8,
+   "date": "2026-04-06",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "gwen (sol's mum) moves into the spare room in june (turn 186); the household is four (turn 188)",
+    "sol is eating chicken again (turn 194): no vegetarian weekdays any more",
+    "takeaway moves to friday, thursday is gwen's cooking night (turn 195); gwen is lactose intolerant (turn 197)",
+    "asks for a family dinner that must cover four people, no nuts, no cream or butter for gwen"
+   ]
+  },
+  {
+   "index": 9,
+   "date": "2026-04-16",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "coriander is fine cooked now (turn 207) but raw is still a no; asks for a salad with herbs for her only",
+    "asks for normal sentences, not bullets (turn 218)",
+    "kit's after-school club pickup moves to 6pm (turn 224), so weeknights run later"
+   ]
+  },
+  {
+   "index": 10,
+   "date": "2026-04-20",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "budget raised to £90 a week now there are four of them (turn 236)",
+    "the quiz team came second and was renamed second helpings (turn 232)",
+    "asks for a weekly plan that fits four people, £90, thursday cooked by gwen, takeaway on friday, no nuts"
+   ]
+  },
+  {
+   "index": 11,
+   "date": "2026-04-29",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "weekday cap moves to 40 minutes (turn 262): 30 was too tight with the slow cooker",
+    "asks for a weeknight recipe and checks it against the new cap",
+    "general trivia between requests"
+   ]
+  },
+  {
+   "index": 12,
+   "date": "2026-05-04",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "General_Reference_&_Trivia"
+   ],
+   "intents": [
+    "Generation",
+    "Utility_Formatting"
+   ],
+   "beats": [
+    "final check: asks for a dinner idea and a shopping list only when asked, plus a pub quiz trivia question",
+    "tests current values without restating them: four people, £90 a week, cups not grams, no bullets, cooked coriander only",
+    "re-mentions the no emoji and no nut rules"
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "id": "F001",
+   "about": "coriander",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 1,
+     "value": "dislikes coriander, picks it out of everything",
+     "change": "introduce"
+    },
+    {
+     "turn": 207,
+     "value": "coriander is fine cooked, still hates it raw",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    12,
+    58,
+    95,
+    140
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F002",
+   "about": "units for recipes",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 2,
+     "value": "recipes in metric: grams, ml, celsius",
+     "change": "introduce"
+    },
+    {
+     "turn": 153,
+     "value": "back to cups and tablespoons, oven still celsius",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    14,
+    39,
+    88
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F003",
+   "about": "prep time placement",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 3,
+     "value": "always list prep time first, before ingredients",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    17,
+    41,
+    64,
+    103,
+    137,
+    190,
+    234,
+    288
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F004",
+   "about": "household size",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 4,
+     "value": "cooks for 3: me, Sol and Kit",
+     "change": "introduce"
+    },
+    {
+     "turn": 188,
+     "value": "cooks for 4 now, Gwen moved in",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    21,
+    77,
+    118,
+    160
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F005",
+   "about": "emojis in replies",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 5,
+     "value": "no emojis in replies",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    29,
+    52,
+    90,
+    126,
+    149,
+    183,
+    212,
+    244,
+    271,
+    296
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F006",
+   "about": "reply format",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 6,
+     "value": "reply in bullet points",
+     "change": "introduce"
+    },
+    {
+     "turn": 218,
+     "value": "no bullets needed, normal sentences are fine now",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    23,
+    47,
+    81,
+    109,
+    166,
+    199
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F007",
+   "about": "weekday recipe time cap",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 7,
+     "value": "cap recipes at 30 minutes on weekdays",
+     "change": "introduce"
+    },
+    {
+     "turn": 262,
+     "value": "cap is 40 minutes on weekdays now, 30 was too tight",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    28,
+    73,
+    142,
+    181,
+    215
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F008",
+   "about": "favourite cuisine",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 9,
+     "value": "favourite cuisine is Thai",
+     "change": "introduce"
+    },
+    {
+     "turn": 146,
+     "value": "mostly Korean now since the kimchi class",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    31,
+    64,
+    118
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F009",
+   "about": "Kit and visible herbs",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 28,
+     "value": "Kit (6) won't eat anything with visible herbs",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    62,
+    179,
+    241
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F010",
+   "about": "nuts",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 10,
+     "value": "no nuts in anything, it's Kit's school rule",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    55,
+    135,
+    201,
+    277
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F011",
+   "about": "weekly grocery budget",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 11,
+     "value": "£70 a week on groceries",
+     "change": "introduce"
+    },
+    {
+     "turn": 236,
+     "value": "£90 a week now, four of us",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    44,
+    97,
+    170,
+    200
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F012",
+   "about": "Sol's diet",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 16,
+     "value": "Sol is vegetarian on weekdays",
+     "change": "introduce"
+    },
+    {
+     "turn": 194,
+     "value": "Sol's gone back to chicken, so no vegetarian weekdays",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    36,
+    84,
+    150,
+    172
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F013",
+   "about": "shopping list",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 22,
+     "value": "always end a meal plan with a shopping list",
+     "change": "introduce"
+    },
+    {
+     "turn": 169,
+     "value": "shopping list only when I ask for it",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    49,
+    86,
+    136
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F014",
+   "about": "half-marathon training",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 24,
+     "value": "training for a half-marathon in October, 3 runs a week",
+     "change": "introduce"
+    },
+    {
+     "turn": 140,
+     "value": "down to 2 runs a week after a knee twinge",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    79,
+    113
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F015",
+   "about": "spice levels",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 27,
+     "value": "mild for Kit, hot for everyone else",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    92,
+    157,
+    213
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F016",
+   "about": "reply length",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 30,
+     "value": "keep replies under 200 words unless I ask for more",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    66,
+    123,
+    248,
+    292
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F017",
+   "about": "Thursday takeaway",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 34,
+     "value": "Thursday is takeaway night, no dinner plan needed",
+     "change": "introduce"
+    },
+    {
+     "turn": 195,
+     "value": "takeaway moved to Friday, Thursday is Gwen's cooking night",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    43,
+    98,
+    147
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F018",
+   "about": "vitamin D",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 35,
+     "value": "taking 2000 IU vitamin D every day since November",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    100,
+    181,
+    270
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F019",
+   "about": "one-pot weeknights",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 40,
+     "value": "prefers one-pot meals on weeknights",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    96,
+    149,
+    210,
+    255
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F020",
+   "about": "brown rice for Kit",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 47,
+     "value": "assistant suggested brown rice for Kit's dinners; rejected, he won't eat it",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F021",
+   "about": "batch-cooked chilli",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 55,
+     "value": "batch-cook a chilli on Sundays and freeze four portions",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    130,
+    233
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F022",
+   "about": "slow cooker stew plan",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 60,
+     "value": "if we get a slow cooker, do stews on Wednesdays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    75,
+    110
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F023",
+   "about": "slow cooker purchase",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 152,
+     "value": "bought a 6-litre slow cooker for £45",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    166,
+    230
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F024",
+   "about": "pub quiz team",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 70,
+     "value": "team is called Crumbs of Comfort, Rhiannon is captain",
+     "change": "introduce"
+    },
+    {
+     "turn": 232,
+     "value": "came second, team renamed Second Helpings",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    84,
+    127,
+    184
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "General_Reference_&_Trivia"
+  },
+  {
+   "id": "F025",
+   "about": "Gwen moved in",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 186,
+     "value": "Gwen moved into the spare room in June",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    205,
+    252
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships"
+  },
+  {
+   "id": "F026",
+   "about": "Gwen's dairy",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 197,
+     "value": "Gwen is lactose intolerant, so no cream or butter in her portions",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    214,
+    258
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  },
+  {
+   "id": "F027",
+   "about": "Kit's club pickup",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 224,
+     "value": "after-school club pickup moved to 6pm, so weeknights run later",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    246,
+    280
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health"
+  }
+ ],
+ "events": [],
+ "no_memory_turns": [
+  13,
+  18,
+  20,
+  33,
+  46,
+  54,
+  63,
+  71,
+  82,
+  93,
+  105,
+  114,
+  121,
+  132,
+  143,
+  155,
+  163,
+  173,
+  180,
+  192,
+  204,
+  216,
+  222,
+  231,
+  245,
+  256,
+  264,
+  272,
+  283,
+  295
+ ]
+}

@@ -1,0 +1,1470 @@
+{
+ "id": "S8",
+ "persona": {
+  "name": "Maren Oduya",
+  "situation": "31, operations analyst at Pellworth Freight in Leeds. Accepts an operations role at Corbel Energy in Bristol and plans the move over four months: flat, movers, storage, salary, notice dates. Flatmate Jonah is leaving; the cat Biscuit is coming along.",
+  "voice": "carefully written, well organised, assistant-like clarity (the BEAM convention)"
+ },
+ "sessions": [
+  {
+   "index": 1,
+   "date": "2026-11-02",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "got the verbal offer from Corbel Energy in Bristol, wants to plan a move around it",
+    "lists current Pellworth salary and the offer, asks which numbers to pin down first",
+    "Biscuit the cat comes too, asks about the commute options",
+    "starts a to-do list with a 1 February start date"
+   ]
+  },
+  {
+   "index": 2,
+   "date": "2026-11-09",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Jonah the flatmate is leaving, she wants his move-out date in the plan",
+    "corrects her Pellworth salary to 46,200 after checking the payslip",
+    "corrects the Leeds landlord notice from 1 month to 2 months",
+    "asks about hybrid days and annual leave from the offer letter",
+    "decides to sell the Fiesta before moving, asks whether that is worth it"
+   ]
+  },
+  {
+   "index": 3,
+   "date": "2026-11-14",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "corrects the relocation allowance down to 3,000 after rereading the email",
+    "corrects the offered salary to 61,500 and asks how bonus timing works",
+    "fixes the employer pension to 10% after reading the offer letter",
+    "picks Bishopston as the neighbourhood and sets a 2,000 cash buffer"
+   ]
+  },
+  {
+   "index": 4,
+   "date": "2026-11-23",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "sets a 12 month lease and a one-bed, gets a moving quote from Hoyle & Sons",
+    "resigns from Pellworth: last day 29 January, asks how notice works",
+    "Jonah's move-out date is 19 December, not the 20th, she corrects it",
+    "rent ceiling goes up to 1,250 after seeing listings; savings now 9,100",
+    "asks what probation means at Corbel, wants a 16 inch work laptop"
+   ]
+  },
+  {
+   "index": 5,
+   "date": "2026-11-27",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "viewed a Bishopston flat last Tuesday, weighing it against another",
+    "rejects the sedative idea and the Pellworth retention bonus idea the assistant offered",
+    "moving day set for 30 January, one-off costs budgeted at 2,800",
+    "rent ceiling back to 1,150, says the 1,250 was a typo, corrects it",
+    "deposit quoted by the agent is 1,500"
+   ]
+  },
+  {
+   "index": 6,
+   "date": "2026-12-08",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "switches to Southville for a bigger garden, asks what it changes",
+    "plans a salary ask of 65,000 and asks about office days",
+    "moves the bonus to January after Pellworth's reply",
+    "fixes one-off costs to 3,200 after forgetting van hire",
+    "switches movers to Brightline, flat goes to two-bed, buffer to 2,500"
+   ]
+  },
+  {
+   "index": 7,
+   "date": "2026-12-12",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Corbel bumps the title to Operations Lead, asks what that does to the offer",
+    "asks to split the relocation allowance into two payments, not one",
+    "lease becomes 6 months with a break; goes back to Bishopston after the Southville rent check",
+    "decides to cycle to work, sets up a parking permit",
+    "finds a vet near the flat"
+   ]
+  },
+  {
+   "index": 8,
+   "date": "2026-12-21",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "books three nights at the Ashgrove Hotel for the first week",
+    "keeps the Fiesta after all and will drive it down",
+    "Pellworth agrees to extend, last day moves to 12 February; Corbel start moves to 15 February",
+    "furniture budget 1,500 and council tax band C",
+    "goes back to Hoyle & Sons after Brightline's insurance question"
+   ]
+  },
+  {
+   "index": 9,
+   "date": "2027-01-02",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "drops the salary ask to 64,000",
+    "changes the laptop request to 14 inch",
+    "the Corbel reorg means her line manager is now Tomasz Wrenn",
+    "sent the signed contract back last Tuesday",
+    "asks what a bus pass would cost, probably not needed"
+   ]
+  },
+  {
+   "index": 10,
+   "date": "2027-01-09",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "furniture budget cut to 900 after the IKEA plan",
+    "Corbel confirms 63,000 base, she updates the totals",
+    "checks the new totals against the 2,300 monthly ceiling"
+   ]
+  },
+  {
+   "index": 11,
+   "date": "2027-01-17",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "drops the bus pass idea, cycling instead",
+    "storage booking confirmed for Thursday 14 January, asks how it fits the timeline",
+    "annual leave goes to 28 days after the contract revision"
+   ]
+  },
+  {
+   "index": 12,
+   "date": "2027-01-22",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "moving day moves to Saturday 13 February to match the Pellworth last day",
+    "says Jonah moved out about five weeks ago",
+    "asks for a timeline view of what is still open"
+   ]
+  },
+  {
+   "index": 13,
+   "date": "2027-02-03",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "upsizes the storage unit to 175 sq ft after the sofa question",
+    "asks how a council tax appeal works",
+    "asks what is still open before the move"
+   ]
+  },
+  {
+   "index": 14,
+   "date": "2027-02-08",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "council tax appeal worked, the band is now B",
+    "the bike arrived on Saturday",
+    "asks for a checklist of what is left"
+   ]
+  },
+  {
+   "index": 15,
+   "date": "2027-02-19",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Corbel agrees probation drops to 3 months",
+    "asks which numbers changed in the last month",
+    "asks whether the hotel dates still work"
+   ]
+  },
+  {
+   "index": 16,
+   "date": "2027-03-01",
+   "pairs": 25,
+   "style": "polished",
+   "topics": [
+    "Admin_&_Productivity",
+    "Business_&_Finance"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Decision_Making"
+   ],
+   "beats": [
+    "Corbel changes the office policy back to 2 days, asks what that changes",
+    "tells the assistant the van was loaded about two weeks ago",
+    "asks for a final summary of every current value as of today"
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "about": "job title at Corbel Energy",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 4,
+     "value": "Operations Analyst",
+     "change": "introduce"
+    },
+    {
+     "turn": 152,
+     "value": "Operations Lead",
+     "change": "update"
+    }
+   ],
+   "id": "F001",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    34,
+    376
+   ]
+  },
+  {
+   "about": "base salary offered by Corbel",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 5,
+     "value": "\u00a358,000 a year",
+     "change": "introduce"
+    },
+    {
+     "turn": 61,
+     "value": "\u00a361,500 a year",
+     "change": "correction"
+    },
+    {
+     "turn": 233,
+     "value": "\u00a363,000 a year",
+     "change": "update"
+    }
+   ],
+   "id": "F002",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    20,
+    100,
+    364
+   ]
+  },
+  {
+   "about": "current salary at Pellworth Freight",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 2,
+     "value": "\u00a344,800 a year",
+     "change": "introduce"
+    },
+    {
+     "turn": 40,
+     "value": "\u00a346,200 a year",
+     "change": "correction"
+    }
+   ],
+   "id": "F003",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    28,
+    353
+   ]
+  },
+  {
+   "about": "Corbel start date",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 6,
+     "value": "Monday 1 February 2027",
+     "change": "introduce"
+    },
+    {
+     "turn": 188,
+     "value": "Monday 15 February 2027",
+     "change": "update"
+    }
+   ],
+   "id": "F004",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    29,
+    191
+   ]
+  },
+  {
+   "about": "Corbel employer pension contribution",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 19,
+     "value": "8% employer, 5% mine",
+     "change": "introduce"
+    },
+    {
+     "turn": 70,
+     "value": "10% employer, 5% mine",
+     "change": "correction"
+    }
+   ],
+   "id": "F005",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    47,
+    280
+   ]
+  },
+  {
+   "about": "Corbel annual leave",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 27,
+     "value": "25 days",
+     "change": "introduce"
+    },
+    {
+     "turn": 268,
+     "value": "28 days",
+     "change": "update"
+    }
+   ],
+   "id": "F006",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    122,
+    314
+   ]
+  },
+  {
+   "about": "Corbel office days per week",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 31,
+     "value": "2 days in office",
+     "change": "introduce"
+    },
+    {
+     "turn": 140,
+     "value": "3 days in office",
+     "change": "update"
+    },
+    {
+     "turn": 390,
+     "value": "2 days in office",
+     "change": "reversal"
+    }
+   ],
+   "id": "F007",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    59,
+    328,
+    400
+   ]
+  },
+  {
+   "about": "Pellworth bonus timing",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 64,
+     "value": "\u00a31,200 paid in March",
+     "change": "introduce"
+    },
+    {
+     "turn": 137,
+     "value": "\u00a31,200 paid in January",
+     "change": "update"
+    }
+   ],
+   "id": "F008",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    103,
+    287
+   ]
+  },
+  {
+   "about": "Corbel relocation allowance amount",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 14,
+     "value": "\u00a33,500",
+     "change": "introduce"
+    },
+    {
+     "turn": 57,
+     "value": "\u00a33,000",
+     "change": "correction"
+    }
+   ],
+   "id": "F009",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    36,
+    278
+   ]
+  },
+  {
+   "about": "how the relocation allowance is paid",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 46,
+     "value": "one payment with the first payslip",
+     "change": "introduce"
+    },
+    {
+     "turn": 158,
+     "value": "split into two payments",
+     "change": "reversal"
+    }
+   ],
+   "id": "F010",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    53,
+    224
+   ]
+  },
+  {
+   "about": "salary ask in the negotiation",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 133,
+     "value": "ask for \u00a365,000",
+     "change": "introduce"
+    },
+    {
+     "turn": 204,
+     "value": "ask for \u00a364,000",
+     "change": "update"
+    }
+   ],
+   "id": "F011",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    167,
+    341
+   ]
+  },
+  {
+   "about": "Pellworth retention bonus idea",
+   "status": "rejected",
+   "speaker": "assistant",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 110,
+     "value": "\u00a34,000 retention bonus",
+     "change": "introduce"
+    }
+   ],
+   "id": "F012",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    194,
+    239,
+    395
+   ]
+  },
+  {
+   "about": "Corbel line manager",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 35,
+     "value": "Helena Vance",
+     "change": "introduce"
+    },
+    {
+     "turn": 212,
+     "value": "Tomasz Wrenn after the reorg",
+     "change": "update"
+    }
+   ],
+   "id": "F013",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    153,
+    323
+   ]
+  },
+  {
+   "about": "savings before the move",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 22,
+     "value": "\u00a38,200 in the easy-access account",
+     "change": "introduce"
+    },
+    {
+     "turn": 97,
+     "value": "\u00a39,100",
+     "change": "update"
+    }
+   ],
+   "id": "F014",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    66,
+    231
+   ]
+  },
+  {
+   "about": "one-off moving costs budget",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 118,
+     "value": "\u00a32,800",
+     "change": "introduce"
+    },
+    {
+     "turn": 141,
+     "value": "\u00a33,200 (van hire I forgot)",
+     "change": "correction"
+    }
+   ],
+   "id": "F015",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    138,
+    259
+   ]
+  },
+  {
+   "about": "cash buffer after the move",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 58,
+     "value": "\u00a32,000",
+     "change": "introduce"
+    },
+    {
+     "turn": 150,
+     "value": "\u00a32,500",
+     "change": "update"
+    }
+   ],
+   "id": "F016",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    120,
+    247
+   ]
+  },
+  {
+   "about": "monthly outgoings ceiling",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 36,
+     "value": "\u00a32,100 a month",
+     "change": "introduce"
+    },
+    {
+     "turn": 113,
+     "value": "\u00a32,300 a month",
+     "change": "update"
+    }
+   ],
+   "id": "F017",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    78,
+    159
+   ]
+  },
+  {
+   "about": "furniture budget",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 195,
+     "value": "\u00a31,500",
+     "change": "introduce"
+    },
+    {
+     "turn": 229,
+     "value": "\u00a3900",
+     "change": "update"
+    }
+   ],
+   "id": "F018",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    208,
+    330
+   ]
+  },
+  {
+   "about": "Bristol bus pass",
+   "status": "hypothetical",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 220,
+     "value": "\u00a360 a month bus pass",
+     "change": "introduce"
+    },
+    {
+     "turn": 262,
+     "value": "no bus pass, cycling instead",
+     "change": "update"
+    }
+   ],
+   "id": "F019",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    231,
+    376
+   ]
+  },
+  {
+   "about": "work laptop size",
+   "status": "preference",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 100,
+     "value": "16 inch",
+     "change": "introduce"
+    },
+    {
+     "turn": 210,
+     "value": "14 inch",
+     "change": "update"
+    }
+   ],
+   "id": "F020",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    151,
+    295
+   ]
+  },
+  {
+   "about": "Corbel probation period",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Business_&_Finance",
+   "values": [
+    {
+     "turn": 99,
+     "value": "6 months",
+     "change": "introduce"
+    },
+    {
+     "turn": 360,
+     "value": "3 months, agreed with HR",
+     "change": "update"
+    }
+   ],
+   "id": "F021",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    274,
+    392
+   ]
+  },
+  {
+   "about": "destination city",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 3,
+     "value": "Bristol",
+     "change": "introduce"
+    }
+   ],
+   "id": "F022",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    203,
+    221,
+    276
+   ]
+  },
+  {
+   "about": "neighbourhood for the flat",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 72,
+     "value": "Bishopston",
+     "change": "introduce"
+    },
+    {
+     "turn": 133,
+     "value": "Southville",
+     "change": "update"
+    },
+    {
+     "turn": 161,
+     "value": "Bishopston",
+     "change": "reversal"
+    }
+   ],
+   "id": "F023",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    85,
+    135,
+    207
+   ]
+  },
+  {
+   "about": "flat size",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 85,
+     "value": "one-bed",
+     "change": "introduce"
+    },
+    {
+     "turn": 147,
+     "value": "two-bed, room for a desk",
+     "change": "update"
+    }
+   ],
+   "id": "F024",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    126,
+    213
+   ]
+  },
+  {
+   "about": "rent budget for the flat",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 34,
+     "value": "\u00a31,150 a month",
+     "change": "introduce"
+    },
+    {
+     "turn": 96,
+     "value": "\u00a31,250 a month",
+     "change": "update"
+    },
+    {
+     "turn": 121,
+     "value": "\u00a31,150 a month",
+     "change": "correction"
+    }
+   ],
+   "id": "F025",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    76,
+    102,
+    194
+   ]
+  },
+  {
+   "about": "deposit the letting agent quoted",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 124,
+     "value": "\u00a31,500",
+     "change": "introduce"
+    }
+   ],
+   "id": "F026",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    202,
+    269,
+    326
+   ]
+  },
+  {
+   "about": "lease length",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 77,
+     "value": "12 months",
+     "change": "introduce"
+    },
+    {
+     "turn": 160,
+     "value": "6 months with a break at month 4",
+     "change": "update"
+    }
+   ],
+   "id": "F027",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    85,
+    395
+   ]
+  },
+  {
+   "about": "removal company",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 80,
+     "value": "Hoyle & Sons Removals",
+     "change": "introduce"
+    },
+    {
+     "turn": 144,
+     "value": "Brightline Movers",
+     "change": "update"
+    },
+    {
+     "turn": 199,
+     "value": "Hoyle & Sons Removals",
+     "change": "reversal"
+    }
+   ],
+   "id": "F028",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    111,
+    177,
+    232
+   ]
+  },
+  {
+   "about": "moving day",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 104,
+     "value": "Saturday 30 January 2027",
+     "change": "introduce"
+    },
+    {
+     "turn": 286,
+     "value": "Saturday 13 February 2027",
+     "change": "update"
+    }
+   ],
+   "id": "F029",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    227,
+    327
+   ]
+  },
+  {
+   "about": "last day at Pellworth",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 88,
+     "value": "Friday 29 January 2027",
+     "change": "introduce"
+    },
+    {
+     "turn": 187,
+     "value": "Friday 12 February 2027",
+     "change": "update"
+    }
+   ],
+   "id": "F030",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    174,
+    191
+   ]
+  },
+  {
+   "about": "storage unit",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 140,
+     "value": "125 sq ft at BoxBox Storage",
+     "change": "introduce"
+    },
+    {
+     "turn": 306,
+     "value": "175 sq ft at BoxBox Storage",
+     "change": "update"
+    }
+   ],
+   "id": "F031",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    291,
+    335
+   ]
+  },
+  {
+   "about": "first-week hotel in Bristol",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 176,
+     "value": "3 nights at the Ashgrove Hotel",
+     "change": "introduce"
+    }
+   ],
+   "id": "F032",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    197,
+    304,
+    364
+   ]
+  },
+  {
+   "about": "commute to Corbel HQ",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 16,
+     "value": "drive, about 25 minutes",
+     "change": "introduce"
+    },
+    {
+     "turn": 173,
+     "value": "cycle, about 40 minutes",
+     "change": "update"
+    }
+   ],
+   "id": "F033",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    51,
+    285
+   ]
+  },
+  {
+   "about": "the 2014 Fiesta",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 49,
+     "value": "sell it before moving",
+     "change": "introduce"
+    },
+    {
+     "turn": 180,
+     "value": "keep it and drive it down",
+     "change": "reversal"
+    }
+   ],
+   "id": "F034",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    74,
+    197
+   ]
+  },
+  {
+   "about": "cat Biscuit",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 7,
+     "value": "Biscuit, grey tabby",
+     "change": "introduce"
+    }
+   ],
+   "id": "F035",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    169,
+    171,
+    353
+   ]
+  },
+  {
+   "about": "vet in Bristol",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 168,
+     "value": "Redland Veterinary Centre",
+     "change": "introduce"
+    }
+   ],
+   "id": "F036",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    198,
+    272,
+    349
+   ]
+  },
+  {
+   "about": "Jonah's move-out date",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 26,
+     "value": "Sunday 20 December 2026",
+     "change": "introduce"
+    },
+    {
+     "turn": 92,
+     "value": "Saturday 19 December 2026",
+     "change": "correction"
+    }
+   ],
+   "id": "F037",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    78,
+    153
+   ]
+  },
+  {
+   "about": "landlord notice on the Leeds flat",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 23,
+     "value": "1 month",
+     "change": "introduce"
+    },
+    {
+     "turn": 44,
+     "value": "2 months",
+     "change": "correction"
+    }
+   ],
+   "id": "F038",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    43,
+    197
+   ]
+  },
+  {
+   "about": "council tax band for the Bishopston flat",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 196,
+     "value": "Band C, about \u00a31,650 a year",
+     "change": "introduce"
+    },
+    {
+     "turn": 338,
+     "value": "Band B after the valuation appeal",
+     "change": "update"
+    }
+   ],
+   "id": "F039",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    280,
+    385
+   ]
+  },
+  {
+   "about": "sedative from the vet for the drive",
+   "status": "rejected",
+   "speaker": "assistant",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 108,
+     "value": "sedative from the vet",
+     "change": "introduce"
+    }
+   ],
+   "id": "F040",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    163,
+    348,
+    374
+   ]
+  },
+  {
+   "about": "removal van size suggestion",
+   "status": "suggested",
+   "speaker": "assistant",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 86,
+     "value": "book a 3-tonne van for the Friday night",
+     "change": "introduce"
+    }
+   ],
+   "id": "F041",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    93,
+    132,
+    265
+   ]
+  },
+  {
+   "about": "resident parking permit",
+   "status": "decided",
+   "speaker": "user",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 171,
+     "value": "\u00a375 a year",
+     "change": "introduce"
+    }
+   ],
+   "id": "F042",
+   "in_paste": false,
+   "component": null,
+   "mentions": [
+    259,
+    263,
+    320
+   ]
+  }
+ ],
+ "events": [
+  {
+   "id": "E01",
+   "what": "viewed the Bishopston flat with the letting agent",
+   "date": "2026-11-24",
+   "told_turn": 110,
+   "relative_phrase": "last tuesday"
+  },
+  {
+   "id": "E02",
+   "what": "verbal offer call from Corbel Energy",
+   "date": "2026-10-30",
+   "told_turn": 4,
+   "relative_phrase": "last friday"
+  },
+  {
+   "id": "E03",
+   "what": "Corbel sent the signed contract back",
+   "date": "2026-12-29",
+   "told_turn": 214,
+   "relative_phrase": "last tuesday"
+  },
+  {
+   "id": "E04",
+   "what": "storage unit booking confirmed by phone",
+   "date": "2027-01-14",
+   "told_turn": 262,
+   "relative_phrase": "thursday"
+  },
+  {
+   "id": "E05",
+   "what": "Jonah moved out of the Leeds flat",
+   "date": "2026-12-19",
+   "told_turn": 281,
+   "relative_phrase": "about five weeks ago"
+  },
+  {
+   "id": "E06",
+   "what": "the bike arrived from the shop",
+   "date": "2027-02-06",
+   "told_turn": 338,
+   "relative_phrase": "saturday"
+  },
+  {
+   "id": "E07",
+   "what": "the moving van was loaded in Leeds",
+   "date": "2027-02-13",
+   "told_turn": 392,
+   "relative_phrase": "about two weeks ago"
+  }
+ ],
+ "no_memory_turns": [
+  8,
+  18,
+  30,
+  38,
+  48,
+  52,
+  67,
+  79,
+  81,
+  87,
+  119,
+  125,
+  129,
+  139,
+  149,
+  164,
+  165,
+  178,
+  182,
+  186,
+  205,
+  216,
+  241,
+  242,
+  248,
+  256,
+  270,
+  288,
+  292,
+  294,
+  317,
+  318,
+  339,
+  340,
+  346,
+  354,
+  356,
+  379,
+  388,
+  399
+ ],
+ "derived_from": "S1"
+}

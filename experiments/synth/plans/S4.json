@@ -1,0 +1,2634 @@
+{
+ "id": "S4",
+ "persona": {
+  "name": "Ines Calloway",
+  "situation": "38, middle-school science teacher in Bramwell, lives alone with a grey cat; plays a secondhand ukulele, writes songs and paints watercolours; training back from a knee injury toward a half marathon; uses the assistant as a companion across a year of ordinary life: family, friends, health and feelings.",
+  "voice": "warm, dry and self-deprecating; writes in bursts whose shape follows her mood; drops small specific details about people, places and her body in passing, and rarely repeats them"
+ },
+ "sessions": [
+  {
+   "index": 1,
+   "date": "2025-03-03",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Introduces herself: middle-school science teacher in Bramwell, lives alone",
+    "Talks about Mothball, a penicillin hives scare, and her morning thyroid pill",
+    "Mentions growing up in Ostmere and her friend Corinne, a pharmacist",
+    "Asks for gentle ways to wind down after school"
+   ]
+  },
+  {
+   "index": 2,
+   "date": "2025-03-09",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Her sister Pell and Pell's husband in Greywick; teasing about the aunt role",
+    "Hazel the ukulele and the 24-pan watercolour set",
+    "Renata moved to Lisbon, so they write letters now",
+    "Asks for a novel like The Salt Ledger"
+   ]
+  },
+  {
+   "index": 3,
+   "date": "2025-03-20",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Ukulele lessons with Tobiah; tuning questions",
+    "Coworker Dev and the science department; end-of-term stress",
+    "Running shoes and a worry about her resting heart rate",
+    "Asks a formal question about caffeine timing and sleep"
+   ]
+  },
+  {
+   "index": 4,
+   "date": "2025-03-22",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Weekend with neighbour Marisol and her dogs",
+    "Her Carrowfield university years in biology",
+    "A cashew reaction at a restaurant; the lighthouse watercolours",
+    "Asks for a quick vegetarian dinner idea"
+   ]
+  },
+  {
+   "index": 5,
+   "date": "2025-03-29",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Rehearsal with Ezra and the band Tin Harbor",
+    "Birthday plans and the climbing gym",
+    "Memories of her father Anders and the Green Book journal",
+    "Asks what a GP checkup usually covers"
+   ]
+  },
+  {
+   "index": 6,
+   "date": "2025-04-10",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Melatonin and sleep; pottery on Tuesdays",
+    "Coworker Ruth the librarian; picking paint colours",
+    "A Kestrel Ridge hike and the Subaru Ember",
+    "Asks for a pancake tweak"
+   ]
+  },
+  {
+   "index": 7,
+   "date": "2025-04-13",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Saw Mira Hale live; the blue fountain pen from grandfather Edvard",
+    "Analysis of an Adrienne Vos poem",
+    "Room 114 at Halden Middle School; her 5K time",
+    "Talks about therapy with Dr. Feld and CBT"
+   ]
+  },
+  {
+   "index": 8,
+   "date": "2025-04-21",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Gran Ilse's kolache recipe",
+    "Daydreams of a bakery called Crumb & Chord",
+    "Mothball's vet visit and the story of her first car, Gerald",
+    "Game night with Azul; a tattoo she is happy with"
+   ]
+  },
+  {
+   "index": 9,
+   "date": "2025-05-04",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "The Ardmoor coast trip in 2019; apartment 3B",
+    "Dev's birthday plans; Ezra's amp Gravy",
+    "Pell's work as a vet nurse",
+    "Asks a factual question about tides on the Ardmoor coast"
+   ]
+  },
+  {
+   "index": 10,
+   "date": "2025-05-08",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Sunday Harbor Path loop; mouthguard for teeth grinding",
+    "Breakfast porridge, Rusty the red bike, and Marisol as emergency contact",
+    "Asks what to pack for a long run"
+   ]
+  },
+  {
+   "index": 11,
+   "date": "2025-05-17",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Left knee tendinitis after hill repeats; started three weeks ago",
+    "Physio Sunil Parekh at Oakline Physio on Tuesdays",
+    "Asks formally what tendinitis is and whether to keep running"
+   ]
+  },
+  {
+   "index": 12,
+   "date": "2025-05-31",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Quiet Pages book club at Greywick library",
+    "Physio follow-up on hip mobility",
+    "Asks casually about lifting and whether it helps the knee"
+   ]
+  },
+  {
+   "index": 13,
+   "date": "2025-06-05",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Bedtime routine: lights out at 10:30 on school nights",
+    "Knee check-in; asks what a foam roller actually does",
+    "A low mood after a week of grading"
+   ]
+  },
+  {
+   "index": 14,
+   "date": "2025-06-15",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "The assistant suggested a yoga class; she turns it down",
+    "Rehab exercises with Sunil",
+    "Book club rotation and what to read next"
+   ]
+  },
+  {
+   "index": 15,
+   "date": "2025-06-16",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Pell is expecting; due 2 November 2025",
+    "Knee check-in",
+    "Asks for a gentle 5K plan"
+   ]
+  },
+  {
+   "index": 16,
+   "date": "2025-06-22",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Pell's due date and a call with mom",
+    "Harbor Half set for 14 May 2026, goal 2:05",
+    "Bedtime routine check"
+   ]
+  },
+  {
+   "index": 17,
+   "date": "2025-07-03",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Half marathon training plan; Sunday runs",
+    "Harbor Half reminders",
+    "Asks about hydration on long runs"
+   ]
+  },
+  {
+   "index": 18,
+   "date": "2025-07-05",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Mom moved to Greywick to be near Pell",
+    "Bedtime check",
+    "Guilty about seeing mom less often"
+   ]
+  },
+  {
+   "index": 19,
+   "date": "2025-07-12",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Salt and Starling is the working title, about the Ostmere ferry",
+    "Pell's due date reminders",
+    "Asks for chord progressions for a ballad"
+   ]
+  },
+  {
+   "index": 20,
+   "date": "2025-07-24",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Ukulele only before 7am, never in the evenings",
+    "The yoga suggestion is still a no",
+    "Asks about tuning drift in the cold"
+   ]
+  },
+  {
+   "index": 21,
+   "date": "2025-07-27",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Verse feedback on Salt and Starling",
+    "Asks which key suits her voice"
+   ]
+  },
+  {
+   "index": 22,
+   "date": "2025-08-04",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Lighthouse show at Harbor Arts Co-op on 14 March 2026",
+    "Half training and the knee feels better",
+    "Asks for help with an artist statement"
+   ]
+  },
+  {
+   "index": 23,
+   "date": "2025-08-17",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Therapy every other Wednesday with Dr. Feld",
+    "Lonely evenings, talked through"
+   ]
+  },
+  {
+   "index": 24,
+   "date": "2025-08-21",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Mom's move and the Starling song",
+    "Asks how to start a letter to Renata"
+   ]
+  },
+  {
+   "index": 25,
+   "date": "2025-08-30",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Corinne's wedding on 21 June 2026 at the Tellwood Conservatory",
+    "Asks for gift ideas"
+   ]
+  },
+  {
+   "index": 26,
+   "date": "2025-09-13",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Wedding RSVP and therapy follow-up",
+    "Sunday long runs start at 8 km"
+   ]
+  },
+  {
+   "index": 27,
+   "date": "2025-09-18",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "The Harbor Half is swapped for the Ardmoor Coastal Half",
+    "Morning-only ukulele practice"
+   ]
+  },
+  {
+   "index": 28,
+   "date": "2025-09-28",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Lyric feedback rule: no pop-song comparisons",
+    "Wedding planning reminders"
+   ]
+  },
+  {
+   "index": 29,
+   "date": "2025-09-29",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Starling feedback and gallery show prep",
+    "Asks a factual question about gallery insurance"
+   ]
+  },
+  {
+   "index": 30,
+   "date": "2025-10-05",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Knee cleared to run 5K three days a week",
+    "Musing about a sabbatical to record an album"
+   ]
+  },
+  {
+   "index": 31,
+   "date": "2025-10-16",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Corinne's lemon olive oil cake recipe",
+    "Mom's move check-in"
+   ]
+  },
+  {
+   "index": 32,
+   "date": "2025-10-18",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "The assistant suggested a plant-based protein shake; she says she'd rather eat food",
+    "Asks casually about snack ideas"
+   ]
+  },
+  {
+   "index": 33,
+   "date": "2025-10-25",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Long run is now 16 km; book club",
+    "Therapy check-in"
+   ]
+  },
+  {
+   "index": 34,
+   "date": "2025-11-06",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Sabbatical idea again",
+    "Sold 14 watercolour prints; asks for pricing advice"
+   ]
+  },
+  {
+   "index": 35,
+   "date": "2025-11-09",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Wedding moved to 12 September 2026",
+    "Lyric feedback rule reminder"
+   ]
+  },
+  {
+   "index": 36,
+   "date": "2025-11-17",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Pell's baby girl, Wren, born 24 October 2025",
+    "Asks what the name Wren means"
+   ]
+  },
+  {
+   "index": 37,
+   "date": "2025-11-30",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Gallery show moved to 4 April 2026"
+   ]
+  },
+  {
+   "index": 38,
+   "date": "2025-12-04",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Bedtime moved to 10:00pm",
+    "Marisol moving to Lisbon in January 2026"
+   ]
+  },
+  {
+   "index": 39,
+   "date": "2025-12-13",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Therapy planning; asks for a CBT worksheet"
+   ]
+  },
+  {
+   "index": 40,
+   "date": "2025-12-27",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Therapy now monthly; the lemon cake and the lyric rule",
+    "Asks for help with the Starling bridge"
+   ]
+  },
+  {
+   "index": 41,
+   "date": "2026-01-01",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Salt and Starling is renamed The Starling Hour",
+    "Performed at the Bramwell open mic last Saturday"
+   ]
+  },
+  {
+   "index": 42,
+   "date": "2026-01-11",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "Dev promoted to head of the science department",
+    "Reflects on the year"
+   ]
+  },
+  {
+   "index": 43,
+   "date": "2026-01-12",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Summary of her knee rehab so far",
+    "Asks a factual question about tendinitis recovery times"
+   ]
+  },
+  {
+   "index": 44,
+   "date": "2026-01-18",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Marisol's leaving party; Lisbon in January",
+    "Asks about flights"
+   ]
+  },
+  {
+   "index": 45,
+   "date": "2026-01-29",
+   "pairs": 25,
+   "style": "terse-lowercase-typos",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Emotional_Processing"
+   ],
+   "beats": [
+    "Gallery show prep and a bad sleep week"
+   ]
+  },
+  {
+   "index": 46,
+   "date": "2026-01-31",
+   "pairs": 25,
+   "style": "rambling-runon",
+   "topics": [
+    "Creative_&_Media",
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Generation"
+   ],
+   "beats": [
+    "38 prints sold; pricing discussion"
+   ]
+  },
+  {
+   "index": 47,
+   "date": "2026-02-07",
+   "pairs": 25,
+   "style": "formal",
+   "topics": [
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Open_Exploration",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Writes a letter to Renata with help",
+    "Asks about a winter watercolour series"
+   ]
+  },
+  {
+   "index": 48,
+   "date": "2026-02-19",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Social_&_Relationships",
+    "Creative_&_Media"
+   ],
+   "intents": [
+    "Emotional_Processing",
+    "Generation"
+   ],
+   "beats": [
+    "Wrap-up conversation about the year",
+    "Asks for a recap of her year so far"
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "about": "pet cat",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 2,
+     "value": "Mothball, a grey tabby adopted from the Bramwell shelter in 2023",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F001"
+  },
+  {
+   "about": "childhood town",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 5,
+     "value": "Ostmere, a lake town up north; she moved away at age 11",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F002"
+  },
+  {
+   "about": "drug allergy",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 9,
+     "value": "penicillin, which gives her hives",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F003"
+  },
+  {
+   "about": "closest friend",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 13,
+     "value": "Corinne Ballard, a pediatric pharmacist at Tellwood General",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F004"
+  },
+  {
+   "about": "first song",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 17,
+     "value": "Paper Lanterns, written at age 19",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F005"
+  },
+  {
+   "about": "thyroid medication",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 21,
+     "value": "levothyroxine 75 mcg every morning on an empty stomach",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F006"
+  },
+  {
+   "about": "blood type",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 24,
+     "value": "O negative",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F007"
+  },
+  {
+   "about": "sister and brother-in-law",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 27,
+     "value": "Pell (Penelope) and her husband Owen, who live in Greywick",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F008"
+  },
+  {
+   "about": "ukulele",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 30,
+     "value": "Hazel, a secondhand soprano ukulele from a pawn shop",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F009"
+  },
+  {
+   "about": "watercolour set",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 33,
+     "value": "a 24-pan Halden set bought at a closing sale",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F010"
+  },
+  {
+   "about": "childhood friend",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 36,
+     "value": "Renata Oyelaran, who moved to Lisbon at 27",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F011"
+  },
+  {
+   "about": "mother",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 39,
+     "value": "Lidia Calloway, a retired bookbinder",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F012"
+  },
+  {
+   "about": "favourite book",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 44,
+     "value": "The Salt Ledger by Hanne Voss",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F013"
+  },
+  {
+   "about": "childhood home",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 48,
+     "value": "Alder Row number 14 in Ostmere",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F014"
+  },
+  {
+   "about": "ukulele teacher",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 52,
+     "value": "Tobiah Renn at Fret & Ferry studio on Mill Street, Thursdays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F015"
+  },
+  {
+   "about": "coworker",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 55,
+     "value": "Dev Malhotra, the chemistry teacher down the hall, whose favourite snack is pistachio gelato",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F016"
+  },
+  {
+   "about": "ukulele tuning",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 58,
+     "value": "low-G re-entrant tuning, G-C-E-A",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F017"
+  },
+  {
+   "about": "running shoes",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 61,
+     "value": "Stridewell Vantage 3, size 7",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F018"
+  },
+  {
+   "about": "resting heart rate",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 64,
+     "value": "61 beats per minute",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F019"
+  },
+  {
+   "about": "tea rule",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 67,
+     "value": "no caffeine after 2pm; Earl Grey with oat milk",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F020"
+  },
+  {
+   "about": "childhood pet",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 71,
+     "value": "a rabbit named Admiral, from age 8 to 14",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F021"
+  },
+  {
+   "about": "university",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 77,
+     "value": "Carrowfield University, BSc in biology, graduated 2010",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "STEM_&_Academics",
+   "id": "F022"
+  },
+  {
+   "about": "favourite ice cream",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 80,
+     "value": "salted caramel from Pemberton's Creamery on Quay Street",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F023"
+  },
+  {
+   "about": "diet",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 84,
+     "value": "vegetarian since 2019",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F024"
+  },
+  {
+   "about": "neighbour",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 88,
+     "value": "Marisol Vance, next door, who owns two dogs named Pilot and Sage",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F025"
+  },
+  {
+   "about": "food allergy",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 92,
+     "value": "cashews, which bring on throat tightness",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F026"
+  },
+  {
+   "about": "painting series",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 96,
+     "value": "twelve watercolour lighthouses, begun in 2022",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F027"
+  },
+  {
+   "about": "bandmate",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 102,
+     "value": "Ezra Quill, bassist in the band Tin Harbor",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F028"
+  },
+  {
+   "about": "birthday",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 105,
+     "value": "9 September",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F029"
+  },
+  {
+   "about": "climbing gym",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 109,
+     "value": "Northside Climbing Gym, Mondays and Wednesdays",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F030"
+  },
+  {
+   "about": "GP",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 113,
+     "value": "Dr. Hollis Maren at Riverside Clinic",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F031"
+  },
+  {
+   "about": "favourite childhood song",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 117,
+     "value": "Velvet Ferris by the Lantern Sisters",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F032"
+  },
+  {
+   "about": "father",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 120,
+     "value": "Anders Calloway, who built wooden boats in Ostmere and died in 2017",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F033"
+  },
+  {
+   "about": "journal",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 124,
+     "value": "a green notebook she calls the Green Book",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F034"
+  },
+  {
+   "about": "melatonin",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 127,
+     "value": "3 mg at bedtime",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F035"
+  },
+  {
+   "about": "pottery class",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 130,
+     "value": "Tuesday evenings at Clayhouse Studio",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F036"
+  },
+  {
+   "about": "coworker",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 133,
+     "value": "Ruth Pemberly, the school librarian, who also plays bass in a folk band",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F037"
+  },
+  {
+   "about": "favourite colour",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 136,
+     "value": "ochre",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F038"
+  },
+  {
+   "about": "hiking trail",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 139,
+     "value": "Kestrel Ridge loop, 6 km",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F039"
+  },
+  {
+   "about": "car",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 142,
+     "value": "a silver 2014 Subaru Forester named Ember",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F040"
+  },
+  {
+   "about": "pancake recipe",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 146,
+     "value": "buttermilk pancakes with lemon zest, her mom's recipe",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F041"
+  },
+  {
+   "about": "concert",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 152,
+     "value": "saw Mira Hale live at Lantern Hall in 2019",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F042"
+  },
+  {
+   "about": "fountain pen",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 155,
+     "value": "a blue pen that belonged to her grandfather Edvard",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F043"
+  },
+  {
+   "about": "favourite poet",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 158,
+     "value": "Adrienne Vos",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F044"
+  },
+  {
+   "about": "classroom",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 161,
+     "value": "room 114 at Halden Middle School",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F045"
+  },
+  {
+   "about": "5K time",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 164,
+     "value": "27:40, set last spring",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F046"
+  },
+  {
+   "about": "market stall",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 167,
+     "value": "rye bread from Stellan's stall at the Sunday market on Harbor Square",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F047"
+  },
+  {
+   "about": "therapy history",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 171,
+     "value": "CBT with Dr. Feld, started in 2021",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F048"
+  },
+  {
+   "about": "grandmother's recipe",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 177,
+     "value": "Gran Ilse's kolache with apricot filling",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F049"
+  },
+  {
+   "about": "bakery dream",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 180,
+     "value": "might open a small bakery called Crumb & Chord someday",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F050"
+  },
+  {
+   "about": "board game",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 184,
+     "value": "Azul, the game-night favourite",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F051"
+  },
+  {
+   "about": "vet",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 187,
+     "value": "Dr. Quill at Maplewood Animal Hospital",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F052"
+  },
+  {
+   "about": "first car",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 191,
+     "value": "Gerald, a dented teal hatchback",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F053"
+  },
+  {
+   "about": "tattoo",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 196,
+     "value": "a small swallow on her right wrist, done at 25",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F054"
+  },
+  {
+   "about": "summer trip",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 202,
+     "value": "a week on the Ardmoor coast in August 2019",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F055"
+  },
+  {
+   "about": "apartment",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 206,
+     "value": "3B, third floor, in Bramwell",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F056"
+  },
+  {
+   "about": "Dev's birthday",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 211,
+     "value": "14 March",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F057"
+  },
+  {
+   "about": "Ezra's amp",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 215,
+     "value": "a battered amp he calls Gravy",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F058"
+  },
+  {
+   "about": "Pell's job",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 219,
+     "value": "veterinary nurse at Greywick Animal Care",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F059"
+  },
+  {
+   "about": "Sunday run",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 227,
+     "value": "Harbor Path loop, 8 km, every Sunday morning",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F060"
+  },
+  {
+   "about": "mouthguard",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 231,
+     "value": "fitted by Dr. Yuki Sato for teeth grinding",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F061"
+  },
+  {
+   "about": "breakfast",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 234,
+     "value": "oat porridge with cinnamon and pear",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F062"
+  },
+  {
+   "about": "bike",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 237,
+     "value": "a red commuter bike she calls Rusty",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F063"
+  },
+  {
+   "about": "emergency contact",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 241,
+     "value": "Marisol Vance",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F064"
+  },
+  {
+   "about": "parking",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 245,
+     "value": "space 22 behind the apartment block",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F065"
+  },
+  {
+   "about": "left knee",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 253,
+     "value": "left knee patellar tendinitis, flared up after hill repeats",
+     "change": "introduce"
+    },
+    {
+     "turn": 733,
+     "value": "cleared by physio to run 5K, three days a week",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    310,
+    352,
+    464
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F066"
+  },
+  {
+   "about": "physio",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 257,
+     "value": "Sunil Parekh at Oakline Physio, Tuesdays at 5:30",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    279,
+    334
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F067"
+  },
+  {
+   "about": "book club",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 286,
+     "value": "Quiet Pages, the first Thursday of each month at Greywick library",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    347,
+    477,
+    807
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F068"
+  },
+  {
+   "about": "bedtime",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 301,
+     "value": "lights out at 10:30pm on school nights",
+     "change": "introduce"
+    },
+    {
+     "turn": 937,
+     "value": "lights out at 10:00pm on school nights",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    381,
+    437
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F069"
+  },
+  {
+   "about": "yoga suggestion",
+   "speaker": "assistant",
+   "status": "rejected",
+   "values": [
+    {
+     "turn": 328,
+     "value": "assistant suggested a Tuesday yoga class at Greywick Community Center",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    486
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F070"
+  },
+  {
+   "about": "Pell's baby due date",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 362,
+     "value": "due 2 November 2025",
+     "change": "introduce"
+    },
+    {
+     "turn": 889,
+     "value": "born 24 October 2025, a girl named Wren",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    377,
+    470
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F071"
+  },
+  {
+   "about": "half marathon race",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 381,
+     "value": "Harbor Half on 14 May 2026, goal finish 2:05",
+     "change": "introduce"
+    },
+    {
+     "turn": 670,
+     "value": "moved to the Ardmoor Coastal Half on 22 September 2026, goal 2:10",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    412,
+    528
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F072"
+  },
+  {
+   "about": "mom's move",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 428,
+     "value": "mom moved from Ostmere to Greywick to be near Pell",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    580,
+    765
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F073"
+  },
+  {
+   "about": "song working title",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 451,
+     "value": "Salt and Starling, a ballad about the Ostmere ferry",
+     "change": "introduce"
+    },
+    {
+     "turn": 1004,
+     "value": "renamed The Starling Hour, now with a bridge",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    509,
+    591,
+    705
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F074"
+  },
+  {
+   "about": "practice time",
+   "speaker": "user",
+   "status": "preference",
+   "values": [
+    {
+     "turn": 490,
+     "value": "ukulele only before 7am, never in the evenings",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    651
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F075"
+  },
+  {
+   "about": "lighthouse show",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 534,
+     "value": "group show at Harbor Arts Co-op, opening 14 March 2026",
+     "change": "introduce"
+    },
+    {
+     "turn": 909,
+     "value": "moved to 4 April 2026, opening 6pm",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    601,
+    721
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F076"
+  },
+  {
+   "about": "therapy schedule",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 560,
+     "value": "therapy every other Wednesday with Dr. Feld",
+     "change": "introduce"
+    },
+    {
+     "turn": 977,
+     "value": "therapy now monthly",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    642,
+    819
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F077"
+  },
+  {
+   "about": "Corinne's wedding",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 604,
+     "value": "21 June 2026 at the Tellwood Conservatory",
+     "change": "introduce"
+    },
+    {
+     "turn": 869,
+     "value": "moved to 12 September 2026, same venue",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    633,
+    686
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F078"
+  },
+  {
+   "about": "long run distance",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 626,
+     "value": "Sunday long runs start at 8 km",
+     "change": "introduce"
+    },
+    {
+     "turn": 802,
+     "value": "Sunday long run is now 16 km",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F079"
+  },
+  {
+   "about": "lyric feedback rule",
+   "speaker": "user",
+   "status": "instruction",
+   "values": [
+    {
+     "turn": 678,
+     "value": "no comparisons to pop songs when I ask for lyric feedback",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    856,
+    983
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F080"
+  },
+  {
+   "about": "sabbatical idea",
+   "speaker": "user",
+   "status": "hypothetical",
+   "values": [
+    {
+     "turn": 743,
+     "value": "might take a sabbatical in 2027 to record an album",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    836
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Creative_&_Media",
+   "id": "F081"
+  },
+  {
+   "about": "lemon cake",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 752,
+     "value": "Corinne's lemon olive oil cake",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    994
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F082"
+  },
+  {
+   "about": "protein suggestion",
+   "speaker": "assistant",
+   "status": "suggested",
+   "values": [
+    {
+     "turn": 779,
+     "value": "assistant suggested a plant-based protein shake after long runs",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "id": "F083"
+  },
+  {
+   "about": "print sales",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 847,
+     "value": "14 watercolour lighthouse prints sold so far",
+     "change": "introduce"
+    },
+    {
+     "turn": 1136,
+     "value": "38 prints sold so far",
+     "change": "update"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Business_&_Finance",
+   "id": "F084"
+  },
+  {
+   "about": "Marisol's move",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 945,
+     "value": "Marisol moving to Lisbon in January 2026",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    1078
+   ],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F085"
+  },
+  {
+   "about": "Dev's promotion",
+   "speaker": "user",
+   "status": "decided",
+   "values": [
+    {
+     "turn": 1031,
+     "value": "Dev promoted to head of the science department",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [],
+   "in_paste": false,
+   "component": null,
+   "topic": "Social_&_Relationships",
+   "id": "F086"
+  }
+ ],
+ "events": [
+  {
+   "id": "E01",
+   "what": "Ines strained her left knee on hill repeats and was diagnosed with patellar tendinitis",
+   "date": "2025-04-26",
+   "told_turn": 253,
+   "relative_phrase": "three weeks ago"
+  },
+  {
+   "id": "E02",
+   "what": "Corinne moved her wedding from June to September after the venue double-booked",
+   "date": "2025-11-06",
+   "told_turn": 869,
+   "relative_phrase": "on Sunday"
+  },
+  {
+   "id": "E03",
+   "what": "Pell gave birth to a girl named Wren",
+   "date": "2025-10-24",
+   "told_turn": 889,
+   "relative_phrase": "a few weeks back"
+  },
+  {
+   "id": "E04",
+   "what": "the Harbor Half was swapped for the Ardmoor Coastal Half after the city changed the route",
+   "date": "2025-09-08",
+   "told_turn": 670,
+   "relative_phrase": "a couple of weeks ago"
+  },
+  {
+   "id": "E05",
+   "what": "Ines performed Salt and Starling, now The Starling Hour, at the Bramwell open mic",
+   "date": "2025-12-26",
+   "told_turn": 1004,
+   "relative_phrase": "last saturday"
+  }
+ ],
+ "no_memory_turns": [
+  1,
+  12,
+  25,
+  38,
+  50,
+  63,
+  75,
+  87,
+  99,
+  111,
+  123,
+  137,
+  149,
+  162,
+  174,
+  186,
+  198,
+  209,
+  220,
+  230,
+  243,
+  254,
+  264,
+  273,
+  283,
+  293,
+  303,
+  313,
+  322,
+  332,
+  342,
+  353,
+  363,
+  372,
+  383,
+  391,
+  400,
+  409,
+  419,
+  429,
+  439,
+  448,
+  458,
+  468,
+  479,
+  489,
+  499,
+  508,
+  518,
+  527,
+  538,
+  547,
+  555,
+  565,
+  574,
+  584,
+  594,
+  605,
+  614,
+  623,
+  634,
+  644,
+  654,
+  663,
+  673,
+  683,
+  693,
+  702,
+  712,
+  720,
+  730,
+  740,
+  750,
+  760,
+  770,
+  780,
+  789,
+  798,
+  809,
+  818,
+  828,
+  838,
+  848,
+  858,
+  867,
+  877,
+  885,
+  895,
+  904,
+  914,
+  923,
+  932,
+  942,
+  952,
+  961,
+  970,
+  980,
+  990,
+  1000,
+  1010,
+  1019,
+  1028,
+  1038,
+  1046,
+  1055,
+  1064,
+  1073,
+  1083,
+  1092,
+  1101,
+  1110,
+  1119,
+  1128,
+  1138,
+  1147,
+  1156,
+  1165,
+  1174,
+  1183,
+  1192
+ ]
+}
