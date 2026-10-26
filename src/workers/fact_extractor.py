@@ -103,7 +103,7 @@ def _ask(earlier: str, newer: str) -> dict:
     from src.workers.completion_text import complete_text
     model = settings.codex_fact_reconcile_model or get_bg_model_name()
     completion = get_bg_client().chat.completions.create(
-        model=model, temperature=0.0, max_tokens=60, timeout=bg_timeout(60),
+        model=model, temperature=0.0, max_tokens=80, timeout=bg_timeout(80),
         messages=[{"role": "system", "content": facts.RECONCILE_SYSTEM},
                   {"role": "user", "content": json.dumps({"earlier": earlier, "newer": newer},
                                                          ensure_ascii=False)}],
@@ -120,7 +120,8 @@ def _ask_many(earlier: list, newer: str) -> list:
     ids = [f"E{i}" for i in range(1, len(earlier) + 1)]
     # Replies measured at 28-31 tokens per candidate, one cut needing ~38 (Z2 S0
     # r4/r5): 40 + 30 per candidate cut a reply in each run; 60 + 45 leaves room.
-    cap = 60 + 45 * len(ids)
+    # same_item (G-supersession, 2026-10-26) adds ~8 tokens per candidate.
+    cap = 60 + 55 * len(ids)
     completion = get_bg_client().chat.completions.create(
         model=model, temperature=0.0, max_tokens=cap, timeout=bg_timeout(cap),
         messages=[{"role": "system", "content": facts.RECONCILE_BATCH_SYSTEM},

@@ -172,11 +172,15 @@ RECONCILE_SYSTEM = (
     "cancelled or reversed decision, a stopped habit, a correction. Different details, extra "
     "detail, items of a list, a question, a suggestion, a possibility or a different direction "
     "of a relation can all be true together: answer true.\n"
+    "3. same_item: are both sentences about the same specific thing - the same item, file, "
+    "run, batch, test, event, decision or the same property of one thing? Two runs, two files, "
+    "two batches or two lists of the same kind are different things: answer false.\n"
     "Use only what the sentences say.")
 RECONCILE_SCHEMA = {"type": "object", "additionalProperties": False,
-                    "required": ["same_information", "both_can_be_true"],
+                    "required": ["same_information", "both_can_be_true", "same_item"],
                     "properties": {"same_information": {"type": "boolean"},
-                                   "both_can_be_true": {"type": "boolean"}}}
+                                   "both_can_be_true": {"type": "boolean"},
+                                   "same_item": {"type": "boolean"}}}
 # One call screens all of a new fact's candidates with the same two questions; only
 # the ones it calls "same" or "replaces" are re-asked alone with RECONCILE_SYSTEM,
 # whose answer decides (Z2 S0, 2026-10-18). Calls per new fact fell from one per
@@ -194,6 +198,9 @@ RECONCILE_BATCH_SYSTEM = (
     "changed value, a cancelled or reversed decision, a stopped habit, a correction. Different "
     "details, extra detail, items of a list, a question, a suggestion, a possibility or a "
     "different direction of a relation can all be true together: answer true.\n"
+    "3. same_item: are the earlier and the newer sentence about the same specific thing - the "
+    "same item, file, run, batch, test, event, decision or the same property of one thing? Two "
+    "runs, two files, two batches or two lists of the same kind are different things: answer false.\n"
     "Judge each earlier fact on its own against the newer one. Use only what the sentences say.")
 
 
@@ -201,10 +208,11 @@ def reconcile_batch_schema(ids) -> dict:
     return {"type": "object", "additionalProperties": False, "required": ["answers"],
             "properties": {"answers": {"type": "array", "minItems": len(ids), "maxItems": len(ids),
                 "items": {"type": "object", "additionalProperties": False,
-                          "required": ["id", "same_information", "both_can_be_true"],
+                          "required": ["id", "same_information", "both_can_be_true", "same_item"],
                           "properties": {"id": {"type": "string", "enum": list(ids)},
                                          "same_information": {"type": "boolean"},
-                                         "both_can_be_true": {"type": "boolean"}}}}}}
+                                         "both_can_be_true": {"type": "boolean"},
+                                         "same_item": {"type": "boolean"}}}}}}
 
 
 def screen(claim: dict, earlier: list, *, ask_many: Optional[Callable]) -> list:
@@ -218,7 +226,8 @@ def screen(claim: dict, earlier: list, *, ask_many: Optional[Callable]) -> list:
         answers = ask_many([e.text for e in earlier], claim["text"].strip())
         if len(answers) != len(earlier):
             raise ValueError(f"{len(answers)} answers for {len(earlier)} facts")
-        return [bool(a["same_information"]) or not bool(a["both_can_be_true"]) for a in answers]
+        return [bool(a["same_information"])
+                or (not bool(a["both_can_be_true"]) and bool(a.get("same_item"))) for a in answers]
     except Exception as exc:                                  # noqa: BLE001
         logger.warning("fact_reconcile_batch_failed", candidates=len(earlier),
                        error_type=type(exc).__name__)
@@ -265,12 +274,17 @@ def reconcile(claim: dict, earlier, *, ask: Callable, when) -> str:
     try:
         answer = ask(earlier.text, claim["text"].strip())
         same, compatible = bool(answer["same_information"]), bool(answer["both_can_be_true"])
+        same_item = bool(answer.get("same_item"))
     except Exception as exc:                                  # noqa: BLE001
         logger.warning("fact_reconcile_failed", error_type=type(exc).__name__)
         return "both_true"
     if same:
         return "same"
-    if (compatible or claim.get("modality") in _NO_REPLACE or earlier.modality in _NO_REPLACE
+    # Z2 S8 (2026-10-26): of 99 judged replacements 53 were wrong - restatements, extra
+    # detail, and two different runs/files/batches of the same kind. A replacement now
+    # also needs the model to say both sentences are about the same specific thing.
+    if (compatible or not same_item
+            or claim.get("modality") in _NO_REPLACE or earlier.modality in _NO_REPLACE
             or (earlier.mentioned_at and when and when < earlier.mentioned_at)):
         return "both_true"
     return "replaces"

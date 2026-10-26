@@ -183,7 +183,7 @@ def test_stage_reuses_summary_claims_and_skips_private(monkeypatch):
     from src.workers import fact_extractor
     monkeypatch.setattr(settings, "summary_assertion_method", "v4")
     monkeypatch.setattr(fact_extractor, "get_embedder", lambda: ENC)
-    monkeypatch.setattr(fact_extractor, "_ask", lambda *_a: {"same_information": False,
+    monkeypatch.setattr(fact_extractor, "_ask", lambda *_a: {"same_item": True, "same_information": False,
                                                              "both_can_be_true": True})
     monkeypatch.setattr(fact_extractor, "_claim_record",
                         lambda *_a, **_k: pytest.fail("claim pass called despite a v4 summary record"))
@@ -332,7 +332,7 @@ def _ask(same=False, compatible=True, only=""):
     (stub embeddings make every same-speaker fact a candidate)."""
     def ask(earlier, newer):
         mine = only in earlier
-        return {"same_information": same and mine, "both_can_be_true": compatible or not mine}
+        return {"same_item": True, "same_information": same and mine, "both_can_be_true": compatible or not mine}
     return ask
 
 
@@ -379,7 +379,7 @@ def test_reconcile_guards():
         seen = []
         def spy(e, n):
             seen.append(e)
-            return {"same_information": False, "both_can_be_true": False}
+            return {"same_item": True, "same_information": False, "both_can_be_true": False}
         facts.write_turn_facts(db, sugg, {"assertions": [
             _a(f"The user suggested they might switch to Go {tag}.", "I moved to Lisbon in March",
                modality="suggested")]}, embedder=ENC, ask=spy)
@@ -421,10 +421,10 @@ def test_batch_screens_candidates_and_single_pair_decides():
         asked_alone, batches = [], []
         def ask_many(earlier, newer):
             batches.append(list(earlier))
-            return [{"same_information": False, "both_can_be_true": e != flagged} for e in earlier]
+            return [{"same_item": True, "same_information": False, "both_can_be_true": e != flagged} for e in earlier]
         def ask(earlier, newer):                    # single pair overrules the batch
             asked_alone.append(earlier)
-            return {"same_information": False, "both_can_be_true": True}
+            return {"same_item": True, "same_information": False, "both_can_be_true": True}
         counts = facts.write_turn_facts(db, later, {"assertions": [
             _a(f"The user said they stopped {tag}.", "I moved to Lisbon in March")]},
             embedder=ENC, ask=ask, ask_many=ask_many)
@@ -435,7 +435,7 @@ def test_batch_screens_candidates_and_single_pair_decides():
         # the same flag confirmed alone as a change does supersede
         counts = facts.write_turn_facts(db, later, {"assertions": [
             _a(f"The user said they quit {tag}.", "I moved to Lisbon in March")]},
-            embedder=ENC, ask=lambda e, n: {"same_information": False, "both_can_be_true": e != flagged},
+            embedder=ENC, ask=lambda e, n: {"same_item": True, "same_information": False, "both_can_be_true": e != flagged},
             ask_many=ask_many)
         assert seeded[flagged].valid_until == later.timestamp and counts["superseded"] == 1
         db.rollback()
@@ -449,7 +449,7 @@ def test_failed_batch_asks_every_candidate_alone_and_warns(caplog):
         asked = []
         def ask(earlier, newer):
             asked.append(earlier)
-            return {"same_information": False, "both_can_be_true": True}
+            return {"same_item": True, "same_information": False, "both_can_be_true": True}
         def broken(earlier, newer):
             raise TimeoutError()
         with caplog.at_level(logging.WARNING):
@@ -457,7 +457,7 @@ def test_failed_batch_asks_every_candidate_alone_and_warns(caplog):
                 _a(f"The user said something new about {tag}.", "I moved to Lisbon in March")]},
                 embedder=ENC, ask=ask, ask_many=broken)
         assert set(seeded) <= set(asked)
-        short = lambda earlier, newer: [{"same_information": False, "both_can_be_true": True}]
+        short = lambda earlier, newer: [{"same_item": True, "same_information": False, "both_can_be_true": True}]
         asked.clear()
         facts.write_turn_facts(db, _turn(db), {"assertions": [
             _a(f"The user said another thing about {tag}.", "I moved to Lisbon in March")]},
@@ -473,9 +473,9 @@ def test_screen_rules_without_a_database():
     calls = []
     def ask_many(earlier, newer):
         calls.append(earlier)
-        return [{"same_information": True, "both_can_be_true": True},
-                {"same_information": False, "both_can_be_true": False},
-                {"same_information": False, "both_can_be_true": True}]
+        return [{"same_item": True, "same_information": True, "both_can_be_true": True},
+                {"same_item": True, "same_information": False, "both_can_be_true": False},
+                {"same_item": True, "same_information": False, "both_can_be_true": True}]
     assert facts.screen(claim, pool, ask_many=ask_many) == [True, True, False]
     assert facts.screen(claim, pool[:1], ask_many=ask_many) == [True] and len(calls) == 1  # one candidate: no batch
     assert facts.screen(claim, pool, ask_many=None) == [True, True, True]
@@ -514,7 +514,7 @@ def test_batch_reply_cap_leaves_room_per_candidate(monkeypatch):
     seen = {}
     def create(**kwargs):
         seen.update(kwargs)
-        answers = [{"id": f"E{i}", "same_information": False, "both_can_be_true": True} for i in (1, 2, 3, 4, 5)]
+        answers = [{"id": f"E{i}", "same_item": True, "same_information": False, "both_can_be_true": True} for i in (1, 2, 3, 4, 5)]
         return NS(choices=[NS(message=NS(content=__import__("json").dumps({"answers": answers})),
                               finish_reason="stop")])
     monkeypatch.setattr(bg_client_factory, "get_bg_client",
