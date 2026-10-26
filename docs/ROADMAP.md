@@ -106,22 +106,35 @@ needs the maintainer's approval):
   replay: 511/512 turns in one piece, 5/537 calls hit the cap. Still check C.
 
 **⚑ FIX-PASS BRANCH (maintainer, 2026-10-26).** While Z2 runs from `main`, fix-pass and
-FINAL-prep work is committed on branch `fix-pass` (worktree `.claude/worktrees/fix-pass`,
-venv linked to main's) — real commits, not yet GPU-tested. `main` keeps the frozen
-system Z2 measures; **nothing merges before Z2's S12 reads finish (~2026-11-02/03)**.
-An exception to "work on main, no task branches" for this phase only. On the branch:
-- `561250a` G79 batch summaries — test: a replay that writes batch notes + the
-  source-support check.
-- `1b4b79b` G60 same-item supersession guard — test: `logs/fix-pass/reconcile_eval.py`
-  (thresholds in the script), then `tests/test_codex_facts.py` (DB).
-- `8f8a4a9` S8 part-wise judge failure → error, not "no" — **cherry-pick to main
-  before the cloud phase**, then re-judge S8 C (clear `s8-C/status.json` and
-  `bg-audit.json` so the stage reruns; failed parts were never cached, so only
-  they are re-asked).
-- Merge order after S12 reads: run the quick + db smoke groups on the branch, the
-  tests above, then merge to main.
-Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
-non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
+FINAL-prep work is committed on branch **`fix-pass`**, worktree
+**`~/Programs/ice-worktrees/fix-pass`** (`.venv` and `.env` are symlinks to main's; both
+excluded in `.git/info/exclude`). Real commits, not yet GPU-tested. `main` keeps the frozen
+system Z2 measures; **no `src/` change reaches `main` before Z2's S12 reads finish
+(~2026-11-02/03)**. Docs-only and experiment-tooling commits that Z2's remaining local
+stages never import may be cherry-picked to `main` earlier (done: the S8 fix and this block).
+A new session resumes the work with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
+
+*Checklist (✅ done on the branch · ⏳ test later on GPU/DB · ☐ open):*
+- ✅⏳ `561250a` **G79** batch summaries never written (model call rejected `schema`) —
+  test: a replay that writes batch notes + the source-support check.
+- ✅⏳ `1b4b79b` **G60** fact replacements 53/99 wrong → `same_item` question required —
+  test: `logs/fix-pass/reconcile_eval.py` (thresholds inside), then `tests/test_codex_facts.py`.
+- ✅ `8f8a4a9` S8 part-wise judge failure counted as "not faithful" → error. On `main`
+  too. In the cloud phase: re-judge S8 C (clear `s8-C/status.json` + `bg-audit.json`;
+  failed parts were never cached, so only they are re-asked).
+- ☐ Entity links 20% wrong (S8 B 79/99, C 80/99 valid) — check the judge, find the cause.
+- ☐ Turn summaries C 15% unfaithful (B 5%) and fold notes B 9% / C ~17% unfaithful — the
+  claim + NLI trust gate (G75) admits them; read the failures.
+- ☐ Session summaries (faithful B 8/44, C 3/12) reach 0/208 prompts; procedures B 26%
+  unfaithful, ~0.7 per prompt — decide fix vs. leave.
+- ☐ Codex fact recall vs the ledger B 0.42 / C 0.51 — what is missed and why.
+- ☐ **B7** classifier init/input-scaling variants — code on the branch, train later (GPU).
+- ☐ **Z3** decision sheet for FINAL (roster, synthetic set, LongMemEval-S slice, ablations,
+  baselines, answerer) — maintainer decides.
+- ☐ FINAL prep after Z3: synthetic seeds, dataset adapters, runner parameters (Z2 D13).
+- Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
+  non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
+- Merge after S12 reads: quick + db smoke groups on the branch, the ⏳ tests, then merge.
 
 **AFTER Z2, from its evidence (the fix pass):**
 graph — [G63](#g63) wrong speaker/direction, [G76](#g76) assistant suggestion stored
