@@ -277,9 +277,12 @@ def extra_history(history):
     rows = json.loads((ROOT / path).read_text())
     if len(rows) != expected or [r["turn_number"] for r in rows] != list(range(1, expected + 1)):
         raise ValueError(f"{history}: expected turns 1..{expected}")
+    from experiments.z2.clock import SOURCE_CLOCK
     return [dict(turn_number=r["turn_number"],
                  timestamp=datetime.fromisoformat(r["timestamp"].replace("Z", "+00:00")),
-                 ts_provenance=r["timestamp_provenance"], prompt=r["prompt"], response=r["response"])
+                 # a source-clock history's times are kept as given (seed_v3 sees them as original)
+                 ts_provenance="original" if r["timestamp_provenance"] in SOURCE_CLOCK else r["timestamp_provenance"],
+                 prompt=r["prompt"], response=r["response"])
             for r in rows]
 
 
@@ -308,7 +311,8 @@ def run_replay(args) -> int:
             conversations, probes, quarantined, ineligible = original_load(**kwargs)
         if args.history in EXTRA_HISTORIES:
             conversations[slug] = extra_history(args.history)
-        retime(conversations, slug, args.history)
+        if {r["ts_provenance"] for r in conversations[slug]} == {"synthetic_raw_import"}:
+            retime(conversations, slug, args.history)       # Z2's declared clock (D3)
         turn_at.update({row["timestamp"]: row["turn_number"] for row in conversations[slug]})
         return conversations, probes, quarantined, ineligible
 
@@ -324,8 +328,9 @@ def run_replay(args) -> int:
     with ExitStack() as stack:
         if args.history in EXTRA_HISTORIES:
             stack.enter_context(patch.dict(seed_v3.EXPECTED, {slug: EXTRA_HISTORIES[args.history][1]}))
+            source = {r["ts_provenance"] for r in extra_history(args.history)}
             stack.enter_context(patch.dict(seed_v3.SOURCE_TIMESTAMP_PROVENANCE,
-                                           {slug: "synthetic_raw_import"}))
+                                           {slug: source.pop() if len(source) == 1 else "synthetic_raw_import"}))
         log = EventLog(args.out / "events.jsonl")
         log.write(event="run_start", policy=POLICY, clock_policy=clock["policy"], argv=argv,
                   resume=bool(args.resume))

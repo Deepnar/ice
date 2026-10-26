@@ -52,6 +52,23 @@ def declared_times(history: str, count: int, anchor: datetime) -> list:
     return times
 
 
+# FINAL (Z3): histories that carry their own real calendar — synthetic plans (session dates
+# are part of what S5 tests) and BEAM (its session anchors). Their times are kept and a
+# session is a run of turns without a gap of SOURCE_SESSION_GAP or more.
+SOURCE_CLOCK = {"synthetic_plan", "beam_time_anchor"}
+SOURCE_SESSION_GAP = timedelta(hours=6)
+
+
+def source_sessions(times):
+    sessions, first = [], 0
+    for i in range(1, len(times) + 1):
+        if i == len(times) or times[i] - times[i - 1] >= SOURCE_SESSION_GAP:
+            sessions.append(dict(session=len(sessions) + 1, first_turn=first + 1, last_turn=i,
+                                 start=times[first].isoformat(), end=times[i - 1].isoformat()))
+            first = i
+    return sessions
+
+
 def table(history: str, rows: list) -> dict:
     """The clock table for one history's original pairs (turn order as given)."""
     provenance = {r["timestamp_provenance"] for r in rows}
@@ -66,10 +83,12 @@ def table(history: str, rows: list) -> dict:
         basis = "declared"
     elif kind == "original":
         times, basis = originals, "original_unchanged"
+    elif kind in SOURCE_CLOCK:
+        times, basis = originals, "source_clock"
     else:
         raise ValueError(f"{history}: unknown timestamp provenance {kind!r}")
-    sessions = []
-    for start in range(0, len(rows), SESSION_PAIRS):
+    sessions = source_sessions(times) if kind in SOURCE_CLOCK else []
+    for start in (range(0, len(rows), SESSION_PAIRS) if kind not in SOURCE_CLOCK else ()):
         span = times[start:start + SESSION_PAIRS]
         sessions.append(dict(session=len(sessions) + 1, first_turn=start + 1,
                              last_turn=start + len(span), start=span[0].isoformat(),

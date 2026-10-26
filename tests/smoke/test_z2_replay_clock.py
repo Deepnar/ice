@@ -40,3 +40,14 @@ def test_boundary_moves_python_and_sql_clocks_then_restores():
             assert sql_now(engine).startswith("2025-01-04 01:00")
         assert decay.datetime.now(timezone.utc) == TURN and sql_now(engine).startswith("2025-01-01 20:00")
     event.remove(engine, "before_execute", outer)
+
+
+def test_source_clock_histories_keep_their_times_and_cut_sessions_at_real_gaps():
+    from experiments.z2 import clock as C
+    stamps = ["2025-03-03T19:00:00Z", "2025-03-03T19:03:00Z", "2025-03-07T19:00:00Z", "2025-03-07T19:03:00Z",
+              "2025-03-07T19:06:00Z"]
+    rows = [dict(turn_number=i + 1, timestamp=s, timestamp_provenance="synthetic_plan", prompt="p", response="r")
+            for i, s in enumerate(stamps)]
+    t = C.table("S5", rows)
+    assert t["basis"] == "source_clock" and t["turn_times"][2].startswith("2025-03-07T19:00")
+    assert [(s["first_turn"], s["last_turn"]) for s in t["sessions"]] == [(1, 2), (3, 5)]
