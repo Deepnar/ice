@@ -107,8 +107,11 @@ needs the maintainer's approval):
 
 **⚑ FIX-PASS BRANCH (maintainer, 2026-10-26).** While Z2 runs from `main`, fix-pass and
 FINAL-prep work is committed on branch **`fix-pass`**, worktree
-**`~/Programs/ice-worktrees/fix-pass`** (`.venv` and `.env` are symlinks to main's; both
-excluded in `.git/info/exclude`). Real commits, not yet GPU-tested. `main` keeps the frozen
+**`~/Programs/ice-worktrees/fix-pass`**. Gitignored inputs are symlinks to main's: `.venv`,
+`.env`, `.python-version`, `models`, `logs`, `data/{labeled,synthetic,simulation,archive,
+curated_fixes.jsonl}`, `experiments/lme/data`, `docs/{SESSION,PRIVATE_CONTEXT}.md` — all
+listed in `.git/info/exclude`. Shell commands reset to main's folder between calls: `cd`
+into the worktree in every command. Real commits, not yet GPU-tested. `main` keeps the frozen
 system Z2 measures. **Nothing from this branch reaches `main` until the GPU is free
 (after Z2's local stages, ~2026-11-02/03), each item is tested, and then the branch is
 merged (maintainer, 2026-10-26).** Meanwhile the branch also collects everything Z2 has
@@ -150,7 +153,11 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   100-instance slice with the oracle evidence as a read-time control; + a long-context
   baseline; leave-one-out only; local answerer; Haiku 5.5 as second judge. **⚑ Maintainer
   decides D1–D5, D7.**
-- ☐ FINAL prep after Z3: synthetic seeds, dataset adapters, runner parameters (Z2 D13).
+- ✅ `26791d5` FINAL machinery: one history registry (`experiments/z2/histories.py`) replaces
+  the B/C constants in replay/clock/ledger/questions/run_z2 — a FINAL history is an entry.
+- ☐ FINAL prep **after the maintainer's Z3 decisions**: multi-conversation replay for chat
+  groups (D1), synthetic seeds + generator (D2), LongMemEval-S slice selection (D3), the
+  long-context baseline condition (D4), second-judge profile (D7).
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
   non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
 - Merge after S12 reads: quick + db smoke groups on the branch, the ⏳ tests, then merge.
