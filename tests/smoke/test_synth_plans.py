@@ -47,3 +47,12 @@ def test_each_impossibility_is_named():
         p = copy.deepcopy(plan())
         break_it(p)
         assert problems(p), name
+
+
+def test_style_twin_changes_only_the_style():
+    src = plan()
+    twin = P.style_twin(src, "T2", "polished")
+    assert twin["id"] == "T2" and all(s["style"] == "polished" for s in twin["sessions"])
+    assert twin["facts"] == src["facts"] and twin["events"] == src["events"]
+    assert [s["date"] for s in twin["sessions"]] == [s["date"] for s in src["sessions"]]
+    assert src["sessions"][0]["style"] == "casual"                    # the source is untouched

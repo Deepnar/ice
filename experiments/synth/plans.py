@@ -8,6 +8,7 @@ key is computed from the plan, so a plan that is internally impossible would cor
 key silently — every plan passes `validate` before generation.
 
     uv run --no-sync python experiments/synth/plans.py            # validate all plans
+    uv run --no-sync python experiments/synth/plans.py --twins    # also derive S8 from a valid S1
 """
 
 import json
@@ -218,8 +219,34 @@ def quota_problems(plan, brief, days):
     return p
 
 
+def style_twin(plan, twin_id="S8", style="polished"):
+    """S8 from S1: every fact, turn, date and beat unchanged; only the writing style (and
+    the persona's voice line) differ, so an S1-vs-S8 score difference is style alone."""
+    import copy
+    twin = copy.deepcopy(plan)
+    twin["id"] = twin_id
+    twin["derived_from"] = plan["id"]
+    twin["persona"]["voice"] = STYLES[style]
+    for session in twin["sessions"]:
+        session["style"] = style
+    return twin
+
+
+def write_twins():
+    """Write every derived plan whose source plan validates (S8 from S1)."""
+    for twin_id, brief in BRIEFS.items():
+        source = brief.get("derived_from")
+        path = PLANS / f"{source}.json"
+        if source and path.exists():
+            plan = json.loads(path.read_text())
+            if not validate(plan):
+                (PLANS / f"{twin_id}.json").write_text(json.dumps(style_twin(plan, twin_id), indent=1) + "\n")
+
+
 def main() -> int:
     tags, bad = labels(), 0
+    if "--twins" in sys.argv:
+        write_twins()
     for path in sorted(PLANS.glob("S*.json")):
         plan = json.loads(path.read_text())
         problems = validate(plan, tags=tags)
