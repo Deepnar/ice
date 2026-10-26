@@ -24,7 +24,7 @@ import torch
 from common import TRAIN_SPLIT, VAL_SPLIT, ensure_data_dir
 
 from src.classifier.dataset import ICEClassifierDataset
-from src.classifier.model import (DEFAULT_POS_WEIGHT_CAP, ICEClassifier,
+from src.classifier.model import (DEFAULT_POS_WEIGHT_CAP, INITS, INPUT_NORMS, ICEClassifier,
                                   compute_pos_weights, head_losses)
 from src.classifier.schema import load_schema
 
@@ -87,6 +87,10 @@ def main():
                     help="ceiling on each label's neg/pos loss weight. THE "
                          "calibration knob: too high and every head learns to "
                          "say yes (run 1 at cap 20). Sweep with sweep_cap.sh.")
+    ap.add_argument("--input-norm", choices=INPUT_NORMS, default="none",
+                    help="B7: input standardisation / LayerNorm variants (shipped: none)")
+    ap.add_argument("--init", choices=INITS, default="default",
+                    help="B7: weight init (shipped: PyTorch default fan-in uniform)")
     args = ap.parse_args()
 
     torch.manual_seed(SEED)
@@ -105,7 +109,10 @@ def main():
     pos_weights = compute_pos_weights(y_train, schema, cap=args.pos_weight_cap)
     print(f"[train] pos-weight cap {args.pos_weight_cap}")
     model = ICEClassifier(schema=schema, input_dim=x_train.shape[1],
-                          trunk_dims=args.trunk or (512, 256))
+                          trunk_dims=args.trunk or (512, 256),
+                          input_norm=args.input_norm, init=args.init)
+    model.fit_input_stats(x_train.cpu())
+    print(f"[train] input_norm={args.input_norm} init={args.init}")
     print(f"[train] {sum(p.numel() for p in model.parameters()):,} parameters")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=0.01)

@@ -46,6 +46,11 @@ from .schema import LabelSchema, load_schema, load_v1_schema
 CHECKPOINT_FORMAT = "ice-classifier"
 DEFAULT_TRUNK: Tuple[int, ...] = (512, 256)
 DEFAULT_DROPOUT = 0.2
+# B7 (2026-10-26): the input is the encoder's L2-normalised vector (~±0.03 per
+# feature), ~30× smaller than a fan-in init assumes. "none"/"default" is the
+# shipped model; the other options exist to be measured, not assumed.
+INPUT_NORMS = ("none", "standardize", "layernorm")
+INITS = ("default", "kaiming")
 
 
 class ICEClassifier(nn.Module):
@@ -55,13 +60,23 @@ class ICEClassifier(nn.Module):
                  input_dim: Optional[int] = None,
                  trunk_dims: Sequence[int] = DEFAULT_TRUNK,
                  dropout: float = DEFAULT_DROPOUT,
-                 head_widths: Optional[Dict[str, int]] = None):
+                 head_widths: Optional[Dict[str, int]] = None,
+                 input_norm: str = "none", init: str = "default"):
         super().__init__()
+        if input_norm not in INPUT_NORMS or init not in INITS:
+            raise ValueError(f"input_norm {input_norm!r} / init {init!r} not in {INPUT_NORMS} / {INITS}")
         self.schema = schema if schema is not None else load_schema()
         self.input_dim = int(input_dim or self.schema.input_dim)
         self.trunk_dims = tuple(trunk_dims)
         self.dropout_p = float(dropout)
         self.template_version = self.schema.template_version
+        self.input_norm, self.init = input_norm, init
+        if input_norm == "standardize":
+            # Train-split statistics, set by fit_input_stats and saved with the weights.
+            self.register_buffer("in_mean", torch.zeros(self.input_dim))
+            self.register_buffer("in_std", torch.ones(self.input_dim))
+        elif input_norm == "layernorm":
+            self.in_norm = nn.LayerNorm(self.input_dim)
 
         layers = []
         prev = self.input_dim
@@ -74,11 +89,33 @@ class ICEClassifier(nn.Module):
         # ModuleDict keys must be valid identifiers; head names already are.
         self.heads = nn.ModuleDict({name: nn.Linear(prev, widths[name])
                                     for name in self.schema.head_names})
+        if init == "kaiming":
+            for layer in self.trunk:
+                if isinstance(layer, nn.Linear):
+                    nn.init.kaiming_normal_(layer.weight, nonlinearity="relu")
+                    nn.init.zeros_(layer.bias)
+            for head in self.heads.values():
+                nn.init.xavier_uniform_(head.weight)
+                nn.init.zeros_(head.bias)
+
+    def fit_input_stats(self, x: torch.Tensor) -> None:
+        """Per-feature mean/std of the training inputs (input_norm="standardize")."""
+        if self.input_norm != "standardize":
+            return
+        self.in_mean.copy_(x.mean(dim=0))
+        self.in_std.copy_(x.std(dim=0).clamp_min(1e-6))
+
+    def _normalise(self, x):
+        if self.input_norm == "standardize":
+            return (x - self.in_mean) / self.in_std
+        if self.input_norm == "layernorm":
+            return self.in_norm(x)
+        return x
 
     # ── forward ──────────────────────────────────────────────────────────
     def forward_heads(self, x) -> Dict[str, torch.Tensor]:
         """Per-head logits. Training reads this (each head gets its own loss)."""
-        z = self.trunk(x)
+        z = self.trunk(self._normalise(x))
         return {name: head(z) for name, head in self.heads.items()}
 
     def forward(self, x) -> torch.Tensor:
@@ -105,6 +142,8 @@ class ICEClassifier(nn.Module):
             "input_dim": self.input_dim,
             "trunk_dims": list(self.trunk_dims),
             "dropout": self.dropout_p,
+            "input_norm": self.input_norm,
+            "init": self.init,
             "head_labels": {h.name: list(h.labels) for h in self.schema.heads},
             "state_dict": self.state_dict(),
             "trained_at": datetime.now(timezone.utc).isoformat(),
@@ -211,6 +250,7 @@ def load_checkpoint(path: str, map_location="cpu",
         input_dim=blob.get("input_dim"),
         trunk_dims=blob.get("trunk_dims", DEFAULT_TRUNK),
         dropout=blob.get("dropout", DEFAULT_DROPOUT),
+        input_norm=blob.get("input_norm", "none"),
         head_widths=head_widths,
     )
     model.load_state_dict(blob["state_dict"])
