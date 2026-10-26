@@ -419,6 +419,24 @@ that need no memory (`General_Reference_&_Trivia` / `Casual_Banter` / `Null_Nois
 | S7 | topic hopping — four interleaved projects with same-shaped facts (scoping, distractors) | 600 | casual | Software_&_Tech, Creative_&_Media, Business_&_Finance, Lifestyle_&_Health (+ Meta_AI, World_&_Current_Events) | mixed, incl. Analysis_&_Summarization | Needs_Memory |
 | S8 | **style twin of S1** — the same fact plan written formally and polished; S1 vs S8 measures style invariance directly | 400 | formal, polished | as S1 | as S1 | as S1 |
 
+**⚑ How the simulated assistant knows the conversation — decided by the maintainer,
+2026-10-26.** Every conversation is far larger than any window (S3 ~163K … S4 ~977K tokens at
+B's ~814 tokens per pair; real chats such as B, ~911K, outgrow real chatbots' windows too), so
+the assistant never gets the whole history. Each turn it gets a short **briefing built from the
+flow plan — never from the probes** (questions must not steer the conversation, and answers
+re-said just before a question would make recency alone look as good as memory): only the
+**local** facts — already said (nothing ahead), current value only (nothing outdated), marked
+by who said them (the user decided / the assistant suggested / the user turned down), active in
+this or the previous session or due again in this session; a fact the plan never touches again
+(S4's retention facts) drops out once said. It also gets this session's beats, the last 8
+exchanges word for word, the user's new message and any suggestion the plan schedules for the
+turn, and is told to use the briefing for consistency, not to recap it. The simulated user gets
+the plan, the style card, the last 5 exchanges and the items due. Checks per turn: every planted
+value present on its side; no outdated value of a briefed fact in the reply; a never-again fact
+never reappears; a failing turn is regenerated. The prompt stays a few thousand tokens, so the
+assistant runs on whatever free or cheap cloud model is available at the time, else locally
+(Mistral-family models, ~1–1.5 GPU days for all nine).
+
 About 3,900 pairs, ~2 days of replay. **Build:** (1) a structured plan per conversation —
 persona, timeline, every planted fact with its introduce / change / correct turns, speaker,
 and decided / suggested / hypothetical status — drafted by a fast model and checked by a
