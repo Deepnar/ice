@@ -1,0 +1,1443 @@
+{
+ "id": "S5",
+ "persona": {
+  "name": "Imogen Reyes",
+  "situation": "38, operations manager at a small architecture practice in Tucson, Arizona. Training for the Desert Sun Half Marathon on 22 June 2025 with a 1h55 goal; planning a May trip to Oaxaca with her sister Hana and a September work trip to Toronto; juggling physio for an ITB problem, a dentist, a car service, a passport renewal, a plumber, her dog Pemberton's vet booster, and the quarterly estimated tax.",
+  "voice": "casual, mostly lowercase, medium-length messages with slang ('ok so', 'lol', 'idk'); gives dates loosely and corrects herself when she notices a wrong one."
+ },
+ "sessions": [
+  {
+   "index": 1,
+   "date": "2025-03-03",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Imogen starts the plan: half marathon on the race day she gets wrong (saturday 21 june, corrected later).",
+    "Lists the spring block: first 10k ran in 1h06, then the first physio visit for ITB irritation.",
+    "Physio is tuesdays 9:30; passport renewal appointment booked (the date is wrong, fixed later).",
+    "Oaxaca trip with her sister Hana in May, budget 2400 usd; asks to be reminded before every appointment."
+   ]
+  },
+  {
+   "index": 2,
+   "date": "2025-03-06",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Tells the 12 km long run from last sunday, 1h21 with a shoelace stop.",
+    "Books the Oaxaca apartment in Jalatlaco for seven nights; the flight deposit is still open.",
+    "Dentist cleaning on 14 march; she plans the peak long run at 19 km and gives her resting heart rate.",
+    "Asks whether a swim day could replace an easy run; the assistant suggests wednesdays."
+   ]
+  },
+  {
+   "index": 3,
+   "date": "2025-03-13",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Corrects the race date to sunday 22 june and the goal to 1h55 (1h45 was a typo).",
+    "Reports the 14 km long run that took 1h52 last saturday.",
+    "Car dent from a shopping cart, insurance claim filed; dentist is tomorrow.",
+    "Asks how to split the next four weeks of training around the dentist and the car."
+   ]
+  },
+  {
+   "index": 4,
+   "date": "2025-03-18",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "The 16 km long run last sunday flared the ITB; she walked the last 3 km.",
+    "Physio follow-up today: pain 4 out of 10 after taping; long runs capped at 16 km.",
+    "Asks whether she can still race on the 22nd, and what sleep target makes sense.",
+    "Wants the weekly plan rewritten around the cap."
+   ]
+  },
+  {
+   "index": 5,
+   "date": "2025-03-20",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "The car came back from the body shop yesterday with the new door panel.",
+    "Flight deposit for Oaxaca is due tomorrow; she asks how much it will be.",
+    "Physio moved to thursdays 8:15 from 27 march; Honda service is planned for 22 april.",
+    "Asks what the sleep target should be on weeknights."
+   ]
+  },
+  {
+   "index": 6,
+   "date": "2025-03-29",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Recovery run in the new shoes, 6 km, a week ago.",
+    "Physio hip exercises from thursday's visit; she asks for the schedule.",
+    "Plumber for the faucet: she first wrote thursday 3 april, then corrects it to wednesday 2 april.",
+    "Asks for the April mileage total and whether the taper is still needed."
+   ]
+  },
+  {
+   "index": 7,
+   "date": "2025-04-04",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Car insurance renewed on tuesday, premium rose to 1086 usd for six months.",
+    "The plumber fixed the faucet on wednesday for 186 usd.",
+    "The passport appointment is 17 april, not the 10th; she copied the wrong date.",
+    "The assistant suggests a three-week taper from 1 june; she is not sure yet."
+   ]
+  },
+  {
+   "index": 8,
+   "date": "2025-04-08",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "The 15 km long run took 1h58 last saturday, pace 7:52 per km.",
+    "Sent the passport renewal form and photos yesterday.",
+    "She rejects the three-week taper; she wants ten days, 12 to 21 june.",
+    "Asks what to do about the Pemberton booster coming up on the 29th."
+   ]
+  },
+  {
+   "index": 9,
+   "date": "2025-04-19",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "The 10 km race at Saguaro Park a week ago, finished in 1h03.",
+    "ITB pain was 3 out of 10 on the stairs on monday, first day without ice.",
+    "Passport agency appointment was on thursday, took 40 minutes.",
+    "Asks if saturday long runs clash with anything coming up."
+   ]
+  },
+  {
+   "index": 10,
+   "date": "2025-04-26",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "She started a saturday pilates class a week ago, which clashes with the long run.",
+    "Car service at Ridgeway Auto on thursday; the appointment moved to 24 april.",
+    "Long runs are moving to sundays at 6:30 from now on.",
+    "Today's 16 km hill-loop run took 1h58; sleep target is now 7h45."
+   ]
+  },
+  {
+   "index": 11,
+   "date": "2025-04-29",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Asks about a possible 15k in august if the calf holds (hypothetical).",
+    "Physio appointments are tuesdays again, back to the 9:30 slot.",
+    "Wants a heat-training plan for june and the taper dates confirmed.",
+    "Asks whether the Oaxaca budget is still realistic."
+   ]
+  },
+  {
+   "index": 12,
+   "date": "2025-05-07",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Factual_Retrieval",
+    "Strategic_Planning"
+   ],
+   "beats": [
+    "The dog's booster was last tuesday at the vet, 65 usd.",
+    "Dentist check-in on tuesday 6 may: no cavities; next cleaning is booked for 4 november.",
+    "Oaxaca trip moves a day: now 17 to 24 may, and the apartment check-in moves too.",
+    "Asks what to pack for the trip given the weather."
+   ]
+  },
+  {
+   "index": 13,
+   "date": "2025-05-12",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Physio cleared 18 km last friday; the 16 km run last saturday took 1h50 with negative splits.",
+    "Outbound flight is on saturday the 17th, connecting through Dallas.",
+    "Long run cap is now 18 km peak.",
+    "Asks how to plan the week of the flight."
+   ]
+  },
+  {
+   "index": 14,
+   "date": "2025-05-24",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Cooking class in Oaxaca on monday, three hours, mole negro.",
+    "Day trip to Hierve el Agua on thursday, four hours on the bus each way.",
+    "Standup moved to 9; earliest weekday run is now 6:30am.",
+    "Asks what time the first run back should be."
+   ]
+  },
+  {
+   "index": 15,
+   "date": "2025-05-30",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Flew back from Oaxaca last saturday, landed at 9:40pm.",
+    "Sent the expense report to finance on wednesday, 1942 usd total.",
+    "Quarterly estimated tax is 1240 usd due monday 16 june.",
+    "Asks whether the trip budget of 2800 is what she spent."
+   ]
+  },
+  {
+   "index": 16,
+   "date": "2025-06-03",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "14 km long run last sunday, 1h47, first run back after the trip.",
+    "Booked the Toronto flights yesterday: 612 usd for two seats.",
+    "Toronto conference is 8 to 11 september; she asks for the hotel name.",
+    "Asks whether the Toronto trip gets its own budget line."
+   ]
+  },
+  {
+   "index": 17,
+   "date": "2025-06-12",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Tempo run a week ago, 8 km at 6:45 per km, took 54 minutes.",
+    "12 km long run last saturday, 1h26, legs felt flat.",
+    "Paid the estimated tax on monday, 1355 usd after the recalculation.",
+    "Asks how the taper should look for the last two weeks."
+   ]
+  },
+  {
+   "index": 18,
+   "date": "2025-06-19",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Physio cleared her for the race last sunday, 0 out of 10 on the test.",
+    "Packed the race kit yesterday: bib, gels, blue shoes.",
+    "Race start is 7:15am, corral C.",
+    "Asks for the race-morning plan and whether the taper is still 10 days."
+   ]
+  },
+  {
+   "index": 19,
+   "date": "2025-06-24",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health"
+   ],
+   "intents": [
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "Ran the Desert Sun Half last sunday in 2h02, seven minutes over the 1h55 target.",
+    "Physio race-recovery check yesterday, calf tight, nothing torn.",
+    "Asks for the recovery schedule for the next two weeks."
+   ]
+  },
+  {
+   "index": 20,
+   "date": "2025-07-07",
+   "pairs": 25,
+   "style": "casual",
+   "topics": [
+    "Lifestyle_&_Health",
+    "Admin_&_Productivity"
+   ],
+   "intents": [
+    "Strategic_Planning",
+    "Factual_Retrieval"
+   ],
+   "beats": [
+    "First post-race long run, 10 km, took 1h12, last friday, no pain.",
+    "Paid the Toronto hotel deposit of 220 usd last saturday.",
+    "Asks to recap the key dates so far and what to decide about the august 15k.",
+    "Sleep target and the new long-run day are both still in place."
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "id": "F001",
+   "about": "Desert Sun Half race day",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 3,
+     "value": "saturday 21 june 2025, Desert Sun Half",
+     "change": "introduce"
+    },
+    {
+     "turn": 58,
+     "value": "sunday 22 june 2025, Desert Sun Half",
+     "change": "correction"
+    }
+   ],
+   "mentions": [
+    66,
+    140,
+    260,
+    420
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F002",
+   "about": "long run day of the week",
+   "speaker": "user",
+   "status": "preference",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 6,
+     "value": "saturday mornings, 7am start",
+     "change": "introduce"
+    },
+    {
+     "turn": 230,
+     "value": "sunday mornings, 6:30am start from late april",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    20,
+    92,
+    150,
+    260
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F003",
+   "about": "physio appointment slot",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 9,
+     "value": "tuesdays 9:30am at Tanner Street Physio",
+     "change": "introduce"
+    },
+    {
+     "turn": 116,
+     "value": "thursdays 8:15am from thursday 27 march 2025",
+     "change": "update"
+    },
+    {
+     "turn": 256,
+     "value": "back to tuesdays 9:30am, the thursday slot clashed with standup",
+     "change": "reversal"
+    }
+   ],
+   "mentions": [
+    40,
+    70,
+    180,
+    260
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F004",
+   "about": "passport renewal agency appointment",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 14,
+     "value": "thursday 10 april 2025 at 9:10am, passport agency",
+     "change": "introduce"
+    },
+    {
+     "turn": 168,
+     "value": "thursday 17 april 2025 at 9:10am, passport agency, the 10th was my misread of the email",
+     "change": "correction"
+    }
+   ],
+   "mentions": [
+    60,
+    190
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F005",
+   "about": "Oaxaca trip dates",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 5,
+     "value": "friday 16 may 2025 to friday 23 may 2025",
+     "change": "introduce"
+    },
+    {
+     "turn": 288,
+     "value": "saturday 17 may 2025 to saturday 24 may 2025, the flights moved a day",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    30,
+    230,
+    330
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F006",
+   "about": "Oaxaca trip budget",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 12,
+     "value": "2400 usd all in, flights included",
+     "change": "introduce"
+    },
+    {
+     "turn": 270,
+     "value": "2800 usd, flight prices went up",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    48,
+    200,
+    300
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F007",
+   "about": "Honda service appointment",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 110,
+     "value": "tuesday 22 april 2025 8am drop-off at Ridgeway Auto",
+     "change": "introduce"
+    },
+    {
+     "turn": 228,
+     "value": "thursday 24 april 2025 8am, no tuesday slot left",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    118,
+    240
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F008",
+   "about": "dentist appointments",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 38,
+     "value": "cleaning friday 14 march 2025 at 2pm",
+     "change": "introduce"
+    },
+    {
+     "turn": 282,
+     "value": "check-in tuesday 6 may 2025 at 2pm, next cleaning tuesday 4 november 2025",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    64
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F009",
+   "about": "long run distance cap",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 44,
+     "value": "19 km peak long run",
+     "change": "introduce"
+    },
+    {
+     "turn": 92,
+     "value": "16 km cap until the ITB settles",
+     "change": "update"
+    },
+    {
+     "turn": 306,
+     "value": "18 km peak, physio cleared it",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    70,
+    98,
+    320
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F010",
+   "about": "half marathon goal time",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 7,
+     "value": "sub 1h45",
+     "change": "introduce"
+    },
+    {
+     "turn": 60,
+     "value": "1h55, the 1h45 was a typo",
+     "change": "correction"
+    }
+   ],
+   "mentions": [
+    95,
+    200,
+    380,
+    440
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F011",
+   "about": "resting heart rate",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 46,
+     "value": "54 bpm resting",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    120,
+    260
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F012",
+   "about": "sleep target",
+   "speaker": "user",
+   "status": "preference",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 17,
+     "value": "7h30 in bed on weeknights",
+     "change": "introduce"
+    },
+    {
+     "turn": 243,
+     "value": "7h45 now, the tired weeks are real",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    72,
+    160,
+    350
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F013",
+   "about": "earliest weekday run start",
+   "speaker": "user",
+   "status": "preference",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 22,
+     "value": "no runs before 6am, standup is at 8",
+     "change": "introduce"
+    },
+    {
+     "turn": 340,
+     "value": "no runs before 6:30am on weekdays, standup moved to 9",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    86,
+    210
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F014",
+   "about": "taper suggestion for the race",
+   "speaker": "assistant",
+   "status": "rejected",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 172,
+     "value": "three-week taper starting sunday 1 june 2025",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    186
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F015",
+   "about": "taper actually planned",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 188,
+     "value": "10-day taper, thursday 12 june 2025 to saturday 21 june 2025",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    250,
+    414,
+    430
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F016",
+   "about": "car insurance premium",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 159,
+     "value": "1086 usd per six months from tuesday 1 april 2025",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    166
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F017",
+   "about": "quarterly estimated tax payment",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 356,
+     "value": "1240 usd due monday 16 june 2025",
+     "change": "introduce"
+    },
+    {
+     "turn": 418,
+     "value": "1355 usd after the recalculation, paying early on monday 9 june 2025",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    364,
+    380
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F018",
+   "about": "plumber visit for the kitchen faucet",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 66,
+     "value": "thursday 3 april 2025, 1 to 3pm",
+     "change": "introduce"
+    },
+    {
+     "turn": 146,
+     "value": "wednesday 2 april 2025, 1 to 3pm, the scheduler had the wrong day",
+     "change": "correction"
+    }
+   ],
+   "mentions": [
+    149
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F019",
+   "about": "ITB pain score",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 11,
+     "value": "6 out of 10 on long runs",
+     "change": "introduce"
+    },
+    {
+     "turn": 78,
+     "value": "7 out of 10 after the flare",
+     "change": "update"
+    },
+    {
+     "turn": 84,
+     "value": "4 out of 10 after taping",
+     "change": "update"
+    },
+    {
+     "turn": 207,
+     "value": "3 out of 10 on the stairs",
+     "change": "update"
+    },
+    {
+     "turn": 432,
+     "value": "0 out of 10 on the physio test",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    102,
+    226
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F020",
+   "about": "Toronto work conference dates",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 380,
+     "value": "toronto, monday 8 september 2025 to thursday 11 september 2025, work conference",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    392,
+    410
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F021",
+   "about": "Toronto hotel deposit",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 487,
+     "value": "220 usd deposit paid saturday 5 july 2025",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    495
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F022",
+   "about": "cross-training suggestion",
+   "speaker": "assistant",
+   "status": "suggested",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 48,
+     "value": "45 minute swim on wednesdays instead of an easy run",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    128,
+    205
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F023",
+   "about": "reminder instruction for appointments",
+   "speaker": "user",
+   "status": "instruction",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 23,
+     "value": "remind me the day before any appointment",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    102,
+    230,
+    377
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F024",
+   "about": "dog Pemberton's rabies booster",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 158,
+     "value": "booster tuesday 29 april 2025 at 4pm, Sonoran Animal Clinic",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    185,
+    270
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F025",
+   "about": "Oaxaca apartment stay",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 33,
+     "value": "Jalatlaco apartment, 7 nights, check-in friday 16 may 2025",
+     "change": "introduce"
+    },
+    {
+     "turn": 289,
+     "value": "check-in moved to saturday 17 may 2025, still 7 nights",
+     "change": "update"
+    }
+   ],
+   "mentions": [
+    41,
+    300
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F026",
+   "about": "race start time",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 430,
+     "value": "7:15am start, corral C",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    440
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F027",
+   "about": "Toronto flights cost",
+   "speaker": "user",
+   "status": "decided",
+   "topic": "Admin_&_Productivity",
+   "values": [
+    {
+     "turn": 383,
+     "value": "612 usd total for two seats",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    399
+   ],
+   "in_paste": false,
+   "component": null
+  },
+  {
+   "id": "F028",
+   "about": "possible August 15k race",
+   "speaker": "user",
+   "status": "hypothetical",
+   "topic": "Lifestyle_&_Health",
+   "values": [
+    {
+     "turn": 262,
+     "value": "mesa ridge 15k in august if the calf holds",
+     "change": "introduce"
+    }
+   ],
+   "mentions": [
+    330,
+    425
+   ],
+   "in_paste": false,
+   "component": null
+  }
+ ],
+ "events": [
+  {
+   "id": "E01",
+   "what": "first 10k of the spring block, the run took 1h06 on the riverside loop",
+   "date": "2025-02-22",
+   "told_turn": 2,
+   "relative_phrase": "on the 22nd of february"
+  },
+  {
+   "id": "E02",
+   "what": "first physio visit at Tanner Street Physio, the physio said it's ITB irritation",
+   "date": "2025-02-25",
+   "told_turn": 12,
+   "relative_phrase": "last tuesday"
+  },
+  {
+   "id": "E03",
+   "what": "passport photos at the pharmacy, the first set was the wrong size",
+   "date": "2025-03-01",
+   "told_turn": 20,
+   "relative_phrase": "last saturday"
+  },
+  {
+   "id": "E04",
+   "what": "12 km long run that took 1h21, stopped once to fix a loose shoelace",
+   "date": "2025-03-02",
+   "told_turn": 29,
+   "relative_phrase": "last sunday"
+  },
+  {
+   "id": "E05",
+   "what": "booked the Oaxaca apartment in Jalatlaco for seven nights",
+   "date": "2025-03-04",
+   "told_turn": 33,
+   "relative_phrase": "on tuesday"
+  },
+  {
+   "id": "E06",
+   "what": "14 km long run, the run took 1h52, my longest so far",
+   "date": "2025-03-08",
+   "told_turn": 53,
+   "relative_phrase": "last saturday"
+  },
+  {
+   "id": "E07",
+   "what": "a shopping cart rolled into the Honda door in the parking lot",
+   "date": "2025-03-11",
+   "told_turn": 55,
+   "relative_phrase": "on tuesday"
+  },
+  {
+   "id": "E08",
+   "what": "filed the insurance claim for the door dent",
+   "date": "2025-03-12",
+   "told_turn": 62,
+   "relative_phrase": "yesterday"
+  },
+  {
+   "id": "E09",
+   "what": "dentist cleaning at 2pm",
+   "date": "2025-03-14",
+   "told_turn": 68,
+   "relative_phrase": "tomorrow"
+  },
+  {
+   "id": "E10",
+   "what": "16 km long run, ITB flared at km 13 and I walked the last 3 km",
+   "date": "2025-03-16",
+   "told_turn": 77,
+   "relative_phrase": "last sunday"
+  },
+  {
+   "id": "E11",
+   "what": "physio follow-up, pain rated 4 out of 10 after the taping",
+   "date": "2025-03-18",
+   "told_turn": 84,
+   "relative_phrase": "today"
+  },
+  {
+   "id": "E12",
+   "what": "the car came back from the body shop with the new door panel",
+   "date": "2025-03-19",
+   "told_turn": 104,
+   "relative_phrase": "yesterday"
+  },
+  {
+   "id": "E13",
+   "what": "paid the Oaxaca flight deposit, 380 usd, on the travel card",
+   "date": "2025-03-21",
+   "told_turn": 112,
+   "relative_phrase": "tomorrow"
+  },
+  {
+   "id": "E14",
+   "what": "6 km recovery run in the new shoes, took 39 minutes",
+   "date": "2025-03-22",
+   "told_turn": 131,
+   "relative_phrase": "a week ago"
+  },
+  {
+   "id": "E15",
+   "what": "physio visit three, given hip strengthening exercises",
+   "date": "2025-03-27",
+   "told_turn": 140,
+   "relative_phrase": "on thursday"
+  },
+  {
+   "id": "E16",
+   "what": "renewed car insurance, premium went up 14 percent to 1086 usd for six months",
+   "date": "2025-04-01",
+   "told_turn": 157,
+   "relative_phrase": "on tuesday"
+  },
+  {
+   "id": "E17",
+   "what": "plumber fixed the kitchen faucet, worn cartridge, 186 usd",
+   "date": "2025-04-02",
+   "told_turn": 162,
+   "relative_phrase": "on wednesday"
+  },
+  {
+   "id": "E18",
+   "what": "15 km long run that took 1h58, pace 7:52 per km",
+   "date": "2025-04-05",
+   "told_turn": 178,
+   "relative_phrase": "last saturday"
+  },
+  {
+   "id": "E19",
+   "what": "sent the passport renewal form and photos to the agency",
+   "date": "2025-04-07",
+   "told_turn": 183,
+   "relative_phrase": "yesterday"
+  },
+  {
+   "id": "E20",
+   "what": "10 km race at Saguaro Park, finished in 1h03",
+   "date": "2025-04-12",
+   "told_turn": 204,
+   "relative_phrase": "a week ago"
+  },
+  {
+   "id": "E21",
+   "what": "ITB pain 3 out of 10 on the stairs, first day without ice",
+   "date": "2025-04-14",
+   "told_turn": 207,
+   "relative_phrase": "on monday"
+  },
+  {
+   "id": "E22",
+   "what": "passport agency appointment at 9:10am, took 40 minutes",
+   "date": "2025-04-17",
+   "told_turn": 215,
+   "relative_phrase": "on thursday"
+  },
+  {
+   "id": "E23",
+   "what": "started a saturday 8am pilates class at the studio on 4th street",
+   "date": "2025-04-19",
+   "told_turn": 229,
+   "relative_phrase": "a week ago"
+  },
+  {
+   "id": "E24",
+   "what": "car service at Ridgeway Auto, new brake pads, 412 usd",
+   "date": "2025-04-24",
+   "told_turn": 230,
+   "relative_phrase": "on thursday"
+  },
+  {
+   "id": "E25",
+   "what": "16 km long run on the hill loop, the run took 1h58, legs heavy",
+   "date": "2025-04-26",
+   "told_turn": 240,
+   "relative_phrase": "today"
+  },
+  {
+   "id": "E26",
+   "what": "dog Pemberton's rabies booster at the vet, 65 usd",
+   "date": "2025-04-29",
+   "told_turn": 280,
+   "relative_phrase": "last tuesday"
+  },
+  {
+   "id": "E27",
+   "what": "dentist check-in, no cavities, next cleaning booked for 2025-11-04",
+   "date": "2025-05-06",
+   "told_turn": 284,
+   "relative_phrase": "yesterday"
+  },
+  {
+   "id": "E28",
+   "what": "physio cleared me up to 18 km long runs",
+   "date": "2025-05-09",
+   "told_turn": 303,
+   "relative_phrase": "last friday"
+  },
+  {
+   "id": "E29",
+   "what": "16 km long run that took 1h50, negative splits",
+   "date": "2025-05-10",
+   "told_turn": 306,
+   "relative_phrase": "last saturday"
+  },
+  {
+   "id": "E30",
+   "what": "outbound flight to Oaxaca, connecting through Dallas",
+   "date": "2025-05-17",
+   "told_turn": 312,
+   "relative_phrase": "on saturday"
+  },
+  {
+   "id": "E31",
+   "what": "cooking class in Oaxaca, three hours, learned mole negro",
+   "date": "2025-05-19",
+   "told_turn": 330,
+   "relative_phrase": "on monday"
+  },
+  {
+   "id": "E32",
+   "what": "day trip to Hierve el Agua, four hours on the bus each way",
+   "date": "2025-05-22",
+   "told_turn": 334,
+   "relative_phrase": "on thursday"
+  },
+  {
+   "id": "E33",
+   "what": "flew back from Oaxaca, landed in Tucson at 9:40pm",
+   "date": "2025-05-24",
+   "told_turn": 355,
+   "relative_phrase": "last saturday"
+  },
+  {
+   "id": "E34",
+   "what": "sent the Oaxaca expense report to finance, 1942 usd total",
+   "date": "2025-05-28",
+   "told_turn": 360,
+   "relative_phrase": "on wednesday"
+  },
+  {
+   "id": "E35",
+   "what": "14 km long run, the run took 1h47, first run back after the trip",
+   "date": "2025-06-01",
+   "told_turn": 379,
+   "relative_phrase": "last sunday"
+  },
+  {
+   "id": "E36",
+   "what": "booked the Toronto flights, 612 usd for two seats",
+   "date": "2025-06-02",
+   "told_turn": 381,
+   "relative_phrase": "yesterday"
+  },
+  {
+   "id": "E37",
+   "what": "tempo run, 8 km at 6:45 per km, took 54 minutes",
+   "date": "2025-06-05",
+   "told_turn": 404,
+   "relative_phrase": "a week ago"
+  },
+  {
+   "id": "E38",
+   "what": "12 km long run that took 1h26, legs felt flat",
+   "date": "2025-06-07",
+   "told_turn": 408,
+   "relative_phrase": "last saturday"
+  },
+  {
+   "id": "E39",
+   "what": "paid the quarterly estimated tax, 1355 usd, a day early",
+   "date": "2025-06-09",
+   "told_turn": 417,
+   "relative_phrase": "on monday"
+  },
+  {
+   "id": "E40",
+   "what": "physio clearance for the race, pain 0 out of 10 on the test",
+   "date": "2025-06-15",
+   "told_turn": 432,
+   "relative_phrase": "last sunday"
+  },
+  {
+   "id": "E41",
+   "what": "packed the race kit: bib, gels and the blue shoes",
+   "date": "2025-06-18",
+   "told_turn": 435,
+   "relative_phrase": "yesterday"
+  },
+  {
+   "id": "E42",
+   "what": "ran the Desert Sun Half in 2h02, missed the 1h55 target by seven minutes",
+   "date": "2025-06-22",
+   "told_turn": 453,
+   "relative_phrase": "last sunday"
+  },
+  {
+   "id": "E43",
+   "what": "physio race-recovery check, calf tight but nothing torn",
+   "date": "2025-06-23",
+   "told_turn": 458,
+   "relative_phrase": "yesterday"
+  },
+  {
+   "id": "E44",
+   "what": "first post-race long run, 10 km, took 1h12, no pain",
+   "date": "2025-07-04",
+   "told_turn": 480,
+   "relative_phrase": "last friday"
+  },
+  {
+   "id": "E45",
+   "what": "paid the Toronto hotel deposit, 220 usd",
+   "date": "2025-07-05",
+   "told_turn": 486,
+   "relative_phrase": "last saturday"
+  }
+ ],
+ "no_memory_turns": [
+  10,
+  19,
+  28,
+  39,
+  49,
+  59,
+  69,
+  79,
+  89,
+  99,
+  109,
+  119,
+  129,
+  139,
+  148,
+  161,
+  169,
+  179,
+  189,
+  199,
+  209,
+  219,
+  231,
+  239,
+  249,
+  259,
+  269,
+  279,
+  290,
+  299,
+  309,
+  319,
+  329,
+  339,
+  349,
+  359,
+  369,
+  378,
+  389,
+  400,
+  409,
+  419,
+  429,
+  439,
+  449,
+  459,
+  469,
+  479,
+  489,
+  499
+ ]
+}
