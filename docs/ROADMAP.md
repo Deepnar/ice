@@ -190,8 +190,9 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ✅ grading stages in `run_final.py` (cloud last); cloud-answerer subset (`cloud_subset.py`); FINAL
     report (`report.py`); blind human check (`human_sample.py`); S1 replayed twice (runner stages).
   - ✅ pre-registration DRAFT (`docs/specs/FINAL_PREREGISTRATION.md`) — ⚑ maintainer approves.
-  - ☐ memory-system baseline adapter (Graphiti and/or Mem0, open source, local; needs the
-    maintainer's OK to install the package).
+  - ✅ memory-system baselines: Graphiti + Mem0 in an isolated env (`experiments/final/baselines/`,
+    adapter `run_baseline.py`, runner stages); live run needs `nomic-embed-text` pulled (⚑ OK) + GPU.
+  - ✅ S9 build-up decided yes (preset final_main+final_ablation+final_buildup).
   - ☐ live trials when free: generator on 20 measured cloud calls; replay/read slices on GPU.
   - ⚑ Open: additive build-up ablation on S9 too (recommended; ~2 GPU days).
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
