@@ -193,6 +193,11 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ✅ memory-system baselines: Graphiti + Mem0 in an isolated env (`experiments/final/baselines/`,
     adapter `run_baseline.py`, runner stages); live run needs `nomic-embed-text` pulled (⚑ OK) + GPU.
   - ✅ S9 build-up decided yes (preset final_main+final_ablation+final_buildup).
+  - **Next, in order (2026-10-26):** (1) Z2 local stages finish (~Nov 3–4); (2) GPU free: ~20 generated
+    S1 turns for the maintainer to read, fix-pass GPU tests, short BEAM/LME-S/baseline trials; (3) plan
+    renews (~Nov 8): Z2 grading, the 20-call cost check, private question chain + review; (4) Z2
+    results → D9 clean-up and the fold decision → freeze; (5) pre-registration approved; (6) merge,
+    then FINAL. Open decisions: pre-registration approval, second judge (benched).
   - ☐ live trials when free: generator on 20 measured cloud calls; replay/read slices on GPU.
   - ⚑ Open: additive build-up ablation on S9 too (recommended; ~2 GPU days).
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
