@@ -523,7 +523,11 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
 headline, Z2 D6e), wired through grade.py / report.py / FINAL's report; plus the r2 analyses: the
 cross-family judge (`crossjudge-*` stages), the cloud-answerer subset as a stage, the fidelity
 audit's local inventory before the read passes, and the ground-truth chain without Muse
-(`--tie-breaker none`, `--verifier mimo`). **15, 16, 17 not built yet.**
+(`--tie-breaker none`, `--verifier mimo`). **15, 16, 17 built 2026-10-27** — A-Mem (the paper's
+memory layer, pinned; `experiments/final/baselines/`), LoCoMo (`experiments/locomo/`, data pinned by
+sha256), the full-history runner (`experiments/final/full_history.py`; waits for `UPPER_BOUND`).
+Cloud volume added by LoCoMo: ~1,986 questions × (4 ICE conditions + 3 memory systems) ≈ 13,900
+answers, graded.
 
 17. Full-history upper bound on BEAM 128K: a cloud model with a ≥ 256K window answers every
     question from the whole conversation (one cached prefix per conversation, questions

@@ -334,6 +334,8 @@ histories A, D, SW, LAP.
 inventory locally before any read pass (the read passes restore checkpoints into the replay's
 database, so a later inventory would see a checkpoint, not the final store); the private ground
 truth runs with `--tie-breaker none` and `--verifier mimo`; the cross-family judge and the
-cloud-answerer subset are runner stages (GLM-5.3-Flash; default LongCat-2.0). Not built: A-Mem,
-LoCoMo, the full-history upper bound (FINAL_experiments.md §2.1 items 15–17).
+cloud-answerer subset are runner stages (GLM-5.3-Flash; default LongCat-2.0). Also built the same
+day: A-Mem (the memory layer its paper evaluated — the library skips note construction), the LoCoMo
+adapter, and the full-history upper-bound runner (FINAL_experiments.md §2.1 items 15–17). The
+upper-bound model is the one choice left open (pre-registration §6).
 

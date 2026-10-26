@@ -202,10 +202,10 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     `run_final.py`; audit inventory before reads; ground truth without Muse; scoring r2 + paper-1
     measures (update accuracy, context precision, TUR, fidelity audit) + cross-family judge +
     subset stage — `46349ed`..`afd7b47`. Main has the same scoring as Z2's headline (Z2 D6e).
-  - ☐ still to build: A-Mem adapter, LoCoMo adapter (download needs OK), BEAM 128K full-history
-    upper-bound runner (§2.1 items 15–17).
-  - ◐ r2 machinery (FINAL_experiments.md §2.1 items 14–17): scoring r2 ✅ (item 14); A-Mem, LoCoMo,
-    full-history upper bound ☐ (see the next line but one).
+  - ✅ A-Mem (paper memory layer, pinned), LoCoMo (pinned, exported), BEAM 128K full-history runner —
+    `585e3d3`, `bfcb962`, `c6002ac`, `6d0a950` (§2.1 items 15–17). ⚑ Open: the upper-bound model
+    (≥ 256K window) — set `UPPER_BOUND` in run_final.py after the cost check.
+  - ✅ r2 machinery (FINAL_experiments.md §2.1 items 14–17) built 2026-10-27.
   - ✅ memory-system baselines: Graphiti + Mem0 in an isolated env (`experiments/final/baselines/`,
     adapter `run_baseline.py`, runner stages); live run needs `nomic-embed-text` pulled (⚑ OK) + GPU.
   - ✅ S9 build-up decided yes (preset final_main+final_ablation+final_buildup).

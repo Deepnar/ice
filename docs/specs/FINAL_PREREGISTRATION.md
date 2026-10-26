@@ -35,7 +35,7 @@ used an outdated value, made an unsupported claim, or abstained.
 *correct* (partial counts as wrong; the judge's *uncertain* is never credited and its rate is
 reported), as LongMemEval, LoCoMo-J, Zep and Mem0 report it; per dataset
 and question type. Benchmarks also keep their own native score beside it: BEAM's nugget mean
-(Kendall tau-b for ordering), LongMemEval's upstream yes/no, LoCoMo's judge. *Misses:* whether a
+(Kendall tau-b for ordering), LongMemEval's upstream yes/no, LoCoMo's token F1. *Misses:* whether a
 correct answer also carried an invented or outdated claim, and how hard the question was.
 
 **M2 — Supported current accuracy against distance (the paper's measure; LSREP- and
@@ -75,9 +75,18 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   model with a **≥ 256K window** answers from the **entire** conversation; ICE's own contexts are
   answered by the **same cloud model**, so ICE vs full history compares memory, not answerers.
 - **Other memory systems,** run by us in the same setup (same answerer, judge, data):
-  Graphiti (Zep), Mem0, A-Mem — on the LongMemEval-S slice; also LoCoMo (below).
+  Graphiti (Zep), Mem0, A-Mem — on the LongMemEval-S slice and on LoCoMo. Each ingests through
+  its own write path with FINAL's background model (gemma4:e4b) at temperature 0 and its own
+  documented embedder, is searched with the raw question, and its top 10 results sit in exactly
+  bare_vector's evidence position. A-Mem is the memory layer its paper evaluated (pinned in
+  `experiments/final/baselines/AMEM.json`) — its library package skips note construction; its
+  fallback rate (a failed model call becoming an empty note analysis) is reported.
 - **LoCoMo** as a small, clearly labelled extra table (its known answer-key errors and lenient
-  common judge stated); it is the common ground of most memory papers.
+  common judge stated; every history fits the long-context window, so it cannot show
+  out-of-window behaviour): all 10 conversations under `full`, `recent_only`, `bare_vector`,
+  `long_context` and the three memory systems; M1/M2 on categories 1–4 (the comparable number),
+  category 5 (never said) as confident-answer rate, and LoCoMo's token F1. It is the common
+  ground of most memory papers.
 - **Evidence recall (turn-cited):** is every current cited turn a prompt fragment's source or
   inside the recent window? Separates "memory did not find it" from "the model misread it".
   Literal by design — a summary or fact carrying the content without citing every turn is not
@@ -124,4 +133,5 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 - The cloud-answerer subset's model, picked at the time from a non-Meta family (default
   LongCat-2.0); recorded here before use.
 - The cloud model for the full-history upper bound (≥ 256K window), picked at the time after the
-  per-call cost check; recorded here before it answers.
+  per-call cost check; recorded here — and in `UPPER_BOUND` in experiments/final/run_final.py,
+  whose stages wait until it is set — before it answers.
