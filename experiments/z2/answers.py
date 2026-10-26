@@ -312,15 +312,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--units", type=Path, required=True, help="an S9 output directory")
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--answerer", choices=("local", "luna"), default="local")
+    parser.add_argument("--answerer", default="local",
+                        help="local | luna | cloud:<role> (FINAL's cloud-answerer subset, Z3 D6)")
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("answers are private: keep them under logs/")
-    if args.answerer == "luna":
+    if args.answerer == "luna" or args.answerer.startswith("cloud:"):
         from experiments.z2.profiles import metadata
-        answerer = Answerer()
-        status = run(args.units, args.out, generate=answerer.generate, meta=metadata("luna"),
-                     reload_env=answerer.refresh, workers=WORKERS["luna"], pace=True,
+        role = "luna" if args.answerer == "luna" else args.answerer.split(":", 1)[1]
+        answerer = Answerer(role)
+        status = run(args.units, args.out, generate=answerer.generate, meta=metadata(role),
+                     reload_env=answerer.refresh, workers=WORKERS["luna"], pace=role == "luna",
                      output_tokens=OUTPUT_TOKENS["luna"])
     else:
         answerer = LocalAnswerer()
