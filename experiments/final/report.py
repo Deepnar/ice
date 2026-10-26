@@ -128,6 +128,63 @@ def cross_judge(run):
     return judge_family_check(muse_main, other_main, muse_sub, other_sub)
 
 
+def locomo(run, exports=ROOT / "logs/final-locomo"):
+    """LoCoMo (an extra table, prereg r2 §4): pooled over its 10 conversations, per ICE condition
+    and per memory system — M1/M2 on categories 1–4 (comparable with other papers), confident
+    answers to category 5 (never said), and LoCoMo's own token F1 on categories 1–4."""
+    from experiments.locomo.adapter import native
+    from experiments.z2 import scoring as S
+    comparable = ("multi_hop", "temporal", "open_domain", "single_hop")
+    run, rows, f1 = Path(run), {}, {}
+    for grades in sorted(run.glob("grade-*LOCOMO-*/grades.json")):
+        name = grades.parent.name                  # grade-LOCOMO-<id> | grade-baseline-<system>-LOCOMO-<id>
+        sid = name.split("LOCOMO-", 1)[1]
+        occ_path = Path(exports) / sid / "occurrences.json"
+        occ = {f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}": o for o in json.loads(occ_path.read_text())}
+        for key, g in json.loads(grades.read_text())["graded"].items():
+            cond, ask = key.split("|", 1)
+            if ask in occ:
+                rows.setdefault(cond, []).append((occ[ask], S.outcome(g, occ[ask]["type"])))
+        units = run / (f"local-read-LOCOMO-{sid}" if name.startswith("grade-LOCOMO") else name.replace("grade-", "local-", 1))
+        answers = run / name.replace("grade-", "cloud-answers-", 1)
+        if (answers / "index.json").exists():
+            for cond, cells in native(units, answers, occ_path).items():
+                acc = f1.setdefault(cond, [0.0, 0])
+                for c in cells.values():
+                    acc[0] += c["token_f1"] * c["n"]
+                    acc[1] += c["n"]
+    out = {}
+    for cond, pairs in rows.items():
+        main = S.summary([r for o, r in pairs if o["type"] in comparable])
+        never = S.summary([r for o, r in pairs if o["type"] == "adversarial"])
+        out[cond] = dict(graded=main["graded"], m1_categories_1_4=main["m1"], m2_categories_1_4=main["m2"],
+                         confident_on_never_said=never["confident_never_said"],
+                         token_f1_categories_1_4=round(f1[cond][0] / f1[cond][1], 4) if f1.get(cond, [0, 0])[1] else None)
+    return out or None
+
+
+def upper_bound(run):
+    """Full history vs ICE's own `full` contexts, answered by the same model, BEAM's 128K tier:
+    nugget means, and the paired difference (ICE minus full history) per question with a 95%
+    interval over questions."""
+    from experiments.z2.scoring import family_interval
+    by_cond, paired = {}, {}
+    for store in sorted(Path(run).glob("upper-grade-*/beam-grades.jsonl")):
+        for line in store.read_text().splitlines():
+            row = json.loads(line) if line.strip() else None
+            if not row or row["status"] != "graded":
+                continue
+            cond, ask = row["key"].split("|", 1)
+            by_cond.setdefault(cond, []).append(row["nugget_mean"])
+            paired.setdefault(ask, {})[cond] = row["nugget_mean"]
+    if not by_cond:
+        return None
+    diffs = {a: v["full"] - v["full_history"] for a, v in paired.items() if "full" in v and "full_history" in v}
+    return dict(mean_nugget={c: round(statistics.fmean(v), 4) for c, v in by_cond.items()},
+                questions=len(diffs), ice_minus_full_history=round(statistics.fmean(diffs.values()), 4) if diffs else None,
+                ci95=family_interval(diffs) if len(diffs) > 1 else None)
+
+
 def build(run):
     run = Path(run)
     histories = sorted(p.name.removeprefix("grade-") for p in run.glob("grade-*")
@@ -146,7 +203,7 @@ def build(run):
     return dict(label="FINAL — one table per dataset; never pooled", histories=tables, beam=beam(run),
                 longmemeval_s=_load(run / "grade-lmes" / "oracle-report.json"),
                 run_to_run_variance_S1=variance, cloud_answerer_subset=subset or None,
-                cross_family_judge=cross_judge(run),
+                cross_family_judge=cross_judge(run), locomo=locomo(run), full_history_upper_bound=upper_bound(run),
                 judge_vs_human=_load(run / "human-sample" / "agreement.json"))
 
 
@@ -195,6 +252,18 @@ def markdown(report):
                 if test.get("pairs"):
                     lines.append(f"- {h} {name}: {test['verdict']} ({_pct(test['diff'])} points, {test['pairs']} pairs)")
         lines.append("")
+    if report.get("locomo"):
+        lines += ["## LoCoMo (extra table; histories fit one window; answer-key errors and lenient common judge noted)", "",
+                  "| condition | graded (cat. 1–4) | M1 | M2 | confident on never-said (cat. 5) | token F1 |", "|---|---|---|---|---|---|"]
+        for c, v in report["locomo"].items():
+            lines.append(f"| {c} | {v['graded']} | {_pct(v['m1_categories_1_4'])} | {_pct(v['m2_categories_1_4'])} | "
+                         f"{_pct(v['confident_on_never_said'])} | {v['token_f1_categories_1_4']} |")
+        lines.append("")
+    if report.get("full_history_upper_bound"):
+        u = report["full_history_upper_bound"]
+        lines += ["## Full-history upper bound (BEAM 128K tier, same model for both)", "",
+                  f"- mean nugget: " + ", ".join(f"{c} {v}" for c, v in u["mean_nugget"].items()),
+                  f"- ICE minus full history: {u['ice_minus_full_history']} over {u['questions']} questions, 95% CI {u['ci95']}", ""]
     if report["cross_family_judge"]:
         j = report["cross_family_judge"]
         lines += ["## Cross-family judge (does Muse 1.3 favour Muse 1.2's answers?)", "",

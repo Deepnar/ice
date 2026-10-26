@@ -64,3 +64,29 @@ def test_subset_and_cross_family_judge_stages():
         args = main.cmd_args(ctx, ctx.dir / main.key)
         assert "--verdicts-only" in args and f"subset-read-{h}" in " ".join(args) and f"cloud-answers-{h}" in " ".join(args)
         assert f"subset-answers-{h}" in " ".join(sub.cmd_args(ctx, ctx.dir / sub.key))
+
+
+def test_upper_bound_waits_for_its_model_and_never_answers_with_muse():
+    stages = {s.key: s for s in F.final_stages()}
+    ctx = type("C", (), {"dir": F.ROOT / "logs/final-run-x", "name": "x"})()
+    build = stages["upper-build-BEAM"].members[0]
+    if not (F.UPPER_BOUND["answerer"] and F.UPPER_BOUND["window"]):
+        assert build.missing(ctx) and "UPPER_BOUND" in build.missing(ctx)[0]
+    answers = stages["upper-answers-BEAM"].members[0]
+    assert answers.answerer != "muse12"
+    assert len(stages["upper-build-BEAM"].members) == 20
+
+
+def test_locomo_and_amem_are_wired_local_then_cloud():
+    stages = {s.key: s for s in F.final_stages()}
+    keys = list(stages)
+    assert len(stages["local-read-LOCOMO"].members) == 10
+    assert stages["local-read-LOCOMO"].members[0].preset == "final_locomo"
+    assert "prep-amem-vendor" in stages["local-baseline-amem"].needs
+    assert "prep-amem-vendor" in stages["local-baseline-amem-LOCOMO"].needs
+    for k in ("local-baseline-amem-LOCOMO", "local-replay-LOCOMO"):
+        assert keys.index(k) < keys.index("cloud-answers-LOCOMO") < keys.index("grade-LOCOMO")
+    member = stages["grade-baseline-mem0-LOCOMO"].members[0]
+    ctx = type("C", (), {"dir": F.ROOT / "logs/final-run-x", "name": "x"})()
+    args = " ".join(member.cmd_args(ctx, ctx.dir / member.key))
+    assert "--occurrences logs/final-locomo/" in args and "--replay" not in args and "local-baseline-mem0-LOCOMO-" in args

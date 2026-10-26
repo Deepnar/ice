@@ -62,3 +62,26 @@ def test_cross_family_judge_section(tmp_path):
     write(tmp_path / "crossjudge-S9-subset/grades.json", dict(graded=both))
     j = F.cross_judge(tmp_path)
     assert j["family_effect"] == 0.5 and j["on_other_family_answers"]["agreement"] == 1.0
+
+
+def test_locomo_and_upper_bound_sections(tmp_path):
+    exports = tmp_path / "exports"
+    occ = [dict(family=f"LOCOMO-conv-x:Q{i:03d}", checkpoint_turn=9, repeat_index=0, type=t, expected_abstention=t == "adversarial",
+                reference=dict(required=[] if t == "adversarial" else ["Tofu"], answer="Tofu", citations=[]))
+           for i, t in enumerate(["single_hop", "single_hop", "temporal", "adversarial"])]
+    write(exports / "conv-x/occurrences.json", occ)
+    ask = lambda i: f"LOCOMO-conv-x:Q{i:03d}@9#0"
+    write(tmp_path / "run/grade-LOCOMO-conv-x/grades.json", dict(graded={
+        f"full|{ask(0)}": verdict("correct"), f"full|{ask(1)}": verdict("correct"), f"full|{ask(2)}": verdict("incorrect"),
+        f"full|{ask(3)}": dict(verdict("correct"), abstention_expected=True, abstained=True)}))
+    write(tmp_path / "run/grade-baseline-mem0-LOCOMO-conv-x/grades.json", dict(graded={
+        f"mem0|{ask(0)}": verdict("incorrect"), f"mem0|{ask(3)}": dict(verdict("incorrect"), abstention_expected=True, abstained=False)}))
+    out = F.locomo(tmp_path / "run", exports=exports)
+    assert out["full"]["m1_categories_1_4"] == round(2 / 3, 4) and out["full"]["confident_on_never_said"] == 0.0
+    assert out["mem0"]["m1_categories_1_4"] == 0.0 and out["mem0"]["confident_on_never_said"] == 1.0
+    rows = [dict(key=f"{c}|q{i}", condition=c, status="graded", nugget_mean=v)
+            for i in range(4) for c, v in (("full", 0.5), ("full_history", 0.75))]
+    (tmp_path / "run/upper-grade-BEAM-100K-1").mkdir(parents=True)
+    (tmp_path / "run/upper-grade-BEAM-100K-1/beam-grades.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    up = F.upper_bound(tmp_path / "run")
+    assert up["mean_nugget"] == {"full": 0.5, "full_history": 0.75} and up["ice_minus_full_history"] == -0.25 and up["questions"] == 4

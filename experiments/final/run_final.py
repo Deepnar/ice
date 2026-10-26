@@ -14,6 +14,10 @@ ALL LOCAL FIRST, THEN ALL CLOUD (Z3 D13) — each stage key starts with its phas
   subset-*  the cloud-answerer subset (a non-Meta answerer), graded by Muse 1.3
   crossjudge-*  the cross-family judge (GLM-5.3-Flash): verdicts on the subset contexts'
             Muse 1.2 answers and non-Meta answers — measures the judge's family leniency
+  upper-*   the full-history upper bound on BEAM's 128K tier: prompts built for the chosen
+            ≥ 256K-window model, answered by it — whole conversations and ICE's own contexts
+LoCoMo (an extra table) and the three memory systems (Graphiti, Mem0, A-Mem) run through the
+same phases.
 
     uv run --no-sync python experiments/final/run_final.py run                    # everything, in order
     uv run --no-sync python experiments/final/run_final.py run --only <keys>      # some stages
@@ -29,16 +33,22 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from experiments.z2 import run_z2 as Z  # noqa: E402
-from experiments.z2.histories import BEAM, HISTORIES, SYNTHETIC  # noqa: E402
+from experiments.z2.histories import BEAM, HISTORIES, LOCOMO, SYNTHETIC  # noqa: E402
 
 PRIVATE = ["B", "A", "D", "SW", "LAP"]
 AUDITED = ("B", "S9")                       # fidelity audit (pre-registration r2 §4)
 SUBSET = ("S9", "B", "S5")                  # experiments/final/cloud_subset.py HISTORIES
 SUBSET_ANSWERER = "cloud:longcat"           # a non-Meta family; picked at the time (prereg §6)
 CROSS_JUDGE = "glm"                         # GLM-5.3-Flash (Z3 D13)
-MEMORY_SYSTEMS = ("graphiti", "mem0")       # A-Mem joins when its adapter exists (§2.1 item 15)
+MEMORY_SYSTEMS = ("graphiti", "mem0", "amem")
+# Pre-registration §6: the full-history model (a window of at least 256K tokens) is picked at the
+# time, after the per-call cost check, and recorded there; until it is set here its stages wait.
+# e.g. UPPER_BOUND = dict(answerer="cloud:<role>", window=262_144)
+UPPER_BOUND = dict(answerer=None, window=None)
+UPPER_TIER = "100K"                         # BEAM's 128K tier (~100K–225K tokens per conversation)
 PRESET = {"B": "final_main+final_ablation",                                       # D5
           "S9": "final_main+final_ablation+final_buildup"}                         # D5 + D10 (yes, 2026-10-26)
+PRESET.update({k: "final_locomo" for k in LOCOMO})                               # prereg r2 §4
 REPLAY_SECONDS = {"B": 35.0, "S3": 120.0}          # per pair; long pastes are slower (Z2's C ran ~160 s)
 
 
@@ -122,6 +132,9 @@ def references(history):
         plans = ROOT / "experiments/synth/plans"
         return dict(questions=["--occurrences", rel(plans / f"{history}.final-occurrences.json")],
                     ledger=["--ledger", rel(plans / f"{history}.ledger.json")])
+    if history in LOCOMO:
+        d = f"logs/final-locomo/{history.removeprefix('LOCOMO-')}"
+        return dict(questions=["--occurrences", f"{d}/occurrences.json"], ledger=["--ledger", f"{d}/ledger.json"])
     if history == "B":
         return dict(questions=["--questions", "logs/z2-questions-final"],
                     ledger=["--ledger", "logs/z2-ledger-detail-2026-10-18-r2/B/ledger.json",
@@ -363,7 +376,7 @@ class FinalGrade(Z.Stage):
 
 
 def grade_stage(history, repeat="", judge="muse", *, units=None, answers_dir=None, key=None, verdicts_only=False,
-                needs=None):
+                needs=None, replay=True):
     """grade.py with the references and ledger each kind of history uses; the scoring report
     gets the replay's timings and, for B and S9, the background audit (fidelity)."""
     rel = lambda path: str(Z._rel(path))
@@ -372,7 +385,8 @@ def grade_stage(history, repeat="", judge="muse", *, units=None, answers_dir=Non
     audited = history in AUDITED and not repeat and not verdicts_only
 
     def args(ctx, out):
-        extra = ["--replay", rel(ctx.dir / f"local-replay-{history}{repeat}" / "progress.jsonl"), "--no-ranking"]
+        extra = (["--replay", rel(ctx.dir / f"local-replay-{history}{repeat}" / "progress.jsonl")] if replay else []) \
+            + ["--no-ranking"]
         if audited:
             extra += ["--audit", rel(ctx.dir / f"audit-{history}" / "bg-audit.json")]
         if verdicts_only:
@@ -384,13 +398,53 @@ def grade_stage(history, repeat="", judge="muse", *, units=None, answers_dir=Non
                       judge)
 
 
-def beam_grade(key, judge="muse"):
+def beam_grade(key, judge="muse", *, units=None, answers_dir=None, out_key=None):
     tier, cid = key.split("-")[1], key.split("-")[2]
     rel = lambda path: str(Z._rel(path))
-    args = lambda ctx, out: ["experiments/beam/grade.py", "--units", rel(ctx.dir / f"local-read-{key}"),
-                             "--answers", rel(ctx.dir / f"cloud-answers-{key}"),
+    units, answers_dir = units or f"local-read-{key}", answers_dir or f"cloud-answers-{key}"
+    args = lambda ctx, out: ["experiments/beam/grade.py", "--units", rel(ctx.dir / units),
+                             "--answers", rel(ctx.dir / answers_dir),
                              "--asks", f"logs/final-beam/{tier}/{cid}/asks.json", "--out", rel(out)]
-    return FinalGrade(f"grade-{key}", f"grade {key}", args, (), judge)
+    out_key = out_key or f"grade-{key}"
+    return FinalGrade(out_key, out_key.replace("-", " "), args, (), judge)
+
+
+class UpperBuild(Z.Stage):
+    """Full-history prompts for one BEAM 128K-tier conversation (experiments/final/full_history.py),
+    built for the chosen model's window; waits until UPPER_BOUND names it."""
+
+    def __init__(self, key):
+        super().__init__(key=f"upper-build-{key}", title=f"full-history prompts {key}", unit="files",
+                         needs=(f"local-read-{key}",))
+        self.history = key
+
+    def out(self, ctx):
+        return ctx.dir / f"upper-read-{self.history}"
+
+    def missing(self, ctx):
+        return [] if UPPER_BOUND["answerer"] and UPPER_BOUND["window"] else \
+            ["UPPER_BOUND in experiments/final/run_final.py — the ≥ 256K-window model and its window (prereg §6)"]
+
+    def total(self, ctx):
+        return 1
+
+    def done(self, ctx):
+        return int(self.complete(ctx))
+
+    def complete(self, ctx):
+        summary = self.out(ctx) / "summary.json"
+        return summary.exists() and json.loads(summary.read_text()).get("window") == UPPER_BOUND["window"]
+
+    def run(self, ctx):
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = [sys.executable, "experiments/final/full_history.py", "--history", self.history,
+                   "--read", str(Z._rel(ctx.dir / f"local-read-{self.history}")), "--out", str(Z._rel(self.out(ctx))),
+                   "--window", str(UPPER_BOUND["window"])]
+            return ctx.run_child(cmd, log_path), Z._tail(log_path)
+
+        return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
 class Baseline(Z.Stage):
@@ -416,13 +470,16 @@ class Baseline(Z.Stage):
     def complete(self, ctx):
         return self.done(ctx) >= self.total(ctx)
 
+    def args(self, ctx):
+        return ["--ice-units", str(ctx.dir / "local-lmes")]
+
     def run(self, ctx):
         import os
         log_path = ctx.dir / f"{self.key}.log"
 
         def attempt():
             cmd = ["uv", "run", "--no-sync", "--project", str(self.BASE), "python", str(self.BASE / "run_baseline.py"),
-                   "--system", self.system, "--ice-units", str(ctx.dir / "local-lmes"), "--out", str(self.out(ctx))]
+                   "--system", self.system, *self.args(ctx), "--out", str(self.out(ctx))]
             os.environ.setdefault("MEM0_TELEMETRY", "False")
             env_before = os.environ.get("UV_PROJECT_ENVIRONMENT")
             os.environ["UV_PROJECT_ENVIRONMENT"] = str(self.BASE / ".venv")
@@ -435,6 +492,43 @@ class Baseline(Z.Stage):
                     os.environ["UV_PROJECT_ENVIRONMENT"] = env_before
 
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
+class LoCoMoBaseline(Baseline):
+    """A memory system on one LoCoMo conversation: one store, every question searched."""
+
+    def __init__(self, system, history):
+        Z.Stage.__init__(self, key=f"local-baseline-{system}-{history}", title=f"baseline {system} {history}",
+                         needs=(f"local-read-{history}",), unit="questions", estimate=60.0)
+        self.system, self.history = system, history
+
+    def total(self, ctx):
+        return HISTORIES[self.history].planned_asks
+
+    def done(self, ctx):
+        return len(list((self.out(ctx) / "units" / self.system).glob("*.json")))
+
+    def complete(self, ctx):
+        return (self.out(ctx) / "instances" / self.history / "done.json").exists()
+
+    def args(self, ctx):
+        return ["--dataset", "locomo", "--history", self.history, "--ice-units", str(ctx.dir / f"local-read-{self.history}")]
+
+
+def amem_target():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("amem_vendor", ROOT / "experiments/final/baselines/vendor.py")
+    vendor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vendor)
+    return vendor.TARGET
+
+
+def fetch_amem():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("amem_vendor", ROOT / "experiments/final/baselines/vendor.py")
+    vendor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vendor)
+    vendor.fetch()
 
 
 def final_stages(limit=None):
@@ -450,6 +544,10 @@ def final_stages(limit=None):
         from experiments.beam.adapter import export
         export(ROOT / "logs/final-beam")
 
+    def export_locomo():
+        from experiments.locomo.adapter import export
+        export(ROOT / "logs/final-locomo")
+
     def derive_synth():
         import subprocess
         subprocess.run([sys.executable, "experiments/synth/derive.py"], check=True, cwd=ROOT)
@@ -461,6 +559,9 @@ def final_stages(limit=None):
                 inputs=[z2q / "split/final-sealed.json", z2q / "occurrences.json"]),
            Once("prep-beam-export", "BEAM export (40 conversations)",
                 [HISTORIES[k].path("asks") for k in BEAM], export_beam),
+           Once("prep-locomo-export", "LoCoMo export (10 conversations)",
+                [HISTORIES[k].path("asks") for k in LOCOMO], export_locomo),
+           Once("prep-amem-vendor", "A-Mem's pinned memory layer (AMEM.json)", [amem_target()], fetch_amem),
            *[SynthGenerate(s) for s in SYNTHETIC],
            *[WaitFor(f"prep-questions-{k}", f"questions {k} (Z2 S1-S6 chain + review)", HISTORIES[k].path("asks"))
              for k in PRIVATE if k != "B"]]
@@ -495,11 +596,31 @@ def final_stages(limit=None):
                         needs=(rk,))]
         cloud.append(Group(f"cloud-answers-BEAM{tier}", f"answers BEAM {tier}", [answers(k, planned=120) for k in keys],
                            "answers", needs=(dk,)))
+    lk = sorted(LOCOMO)
+    loco_replays = [FinalReplay(k, limit) for k in lk]
+    local += [Group("local-replay-LOCOMO", f"replay LoCoMo ({len(lk)})", loco_replays, "turns", needs=("prep-locomo-export",)),
+              Group("local-read-LOCOMO", "read passes LoCoMo",
+                    [FinalRead(k, HISTORIES[k].path("asks"), r) for k, r in zip(lk, loco_replays)], "contexts",
+                    needs=("local-replay-LOCOMO",))]
+    cloud.append(Group("cloud-answers-LOCOMO", "answers LoCoMo", [answers(k, planned=HISTORIES[k].planned_asks * 4) for k in lk],
+                       "answers", needs=("local-read-LOCOMO",)))
+    for system in MEMORY_SYSTEMS:
+        local.append(Group(f"local-baseline-{system}-LOCOMO", f"baseline {system} LoCoMo",
+                           [LoCoMoBaseline(system, k) for k in lk], "questions",
+                           needs=("local-read-LOCOMO",) + (("prep-amem-vendor",) if system == "amem" else ())))
+        cloud.append(Group(f"cloud-answers-baseline-{system}-LOCOMO", f"answers baseline {system} LoCoMo",
+                           [Z.Answers(f"baseline-{system}-{k}", key=f"cloud-answers-baseline-{system}-{k}",
+                                      title=f"answers baseline {system} {k}", units_key=f"local-baseline-{system}-{k}",
+                                      needs=(f"local-baseline-{system}-{k}",), planned=HISTORIES[k].planned_asks)
+                            for k in lk], "answers", needs=(f"local-baseline-{system}-LOCOMO",)))
     local.append(LongMemEvalS())
     cloud.append(Z.Answers("lmes", key="cloud-answers-lmes", title="answers LongMemEval-S", units_key="local-lmes",
                            needs=("local-lmes",), planned=600))
     for system in MEMORY_SYSTEMS:                  # their ingestion is local (gemma4:e4b); answers Muse 1.2
-        local.append(Baseline(system))
+        stage = Baseline(system)
+        if system == "amem":
+            stage.needs = stage.needs + ("prep-amem-vendor",)
+        local.append(stage)
         cloud.append(Z.Answers(f"baseline-{system}", key=f"cloud-answers-baseline-{system}",
                                title=f"answers baseline {system}", units_key=f"local-baseline-{system}",
                                needs=(f"local-baseline-{system}",), planned=100))
@@ -512,6 +633,24 @@ def final_stages(limit=None):
         keys = [k for k in BEAM if k.startswith(f"BEAM-{tier}-")]
         cloud.append(Group(f"grade-BEAM{tier}", f"grade BEAM {tier}", [beam_grade(k) for k in keys], "conversations",
                            needs=(f"cloud-answers-BEAM{tier}",)))
+    cloud.append(Group("grade-LOCOMO", "grade LoCoMo", [grade_stage(k) for k in lk], "conversations",
+                       needs=("cloud-answers-LOCOMO",)))
+    for system in MEMORY_SYSTEMS:
+        cloud.append(Group(f"grade-baseline-{system}-LOCOMO", f"grade baseline {system} LoCoMo",
+                           [grade_stage(k, units=f"local-baseline-{system}-{k}", answers_dir=f"cloud-answers-baseline-{system}-{k}",
+                                        key=f"grade-baseline-{system}-{k}", replay=False, needs=())
+                            for k in lk], "conversations", needs=(f"cloud-answers-baseline-{system}-LOCOMO",)))
+    upper = sorted(k for k in BEAM if k.startswith(f"BEAM-{UPPER_TIER}-"))
+    cloud += [Group("upper-build-BEAM", f"full-history prompts BEAM {UPPER_TIER}", [UpperBuild(k) for k in upper], "files",
+                    needs=(f"local-read-BEAM{UPPER_TIER}",)),
+              Group("upper-answers-BEAM", f"full-history answers BEAM {UPPER_TIER}",
+                    [Z.Answers(k, key=f"upper-answers-{k}", title=f"full-history answers {k}", units_key=f"upper-read-{k}",
+                               needs=(f"upper-build-{k}",), planned=40,
+                               answerer=UPPER_BOUND["answerer"] or "unset-upper-bound-model") for k in upper],
+                    "answers", needs=("upper-build-BEAM",)),
+              Group("upper-grade-BEAM", f"grade full history BEAM {UPPER_TIER}",
+                    [beam_grade(k, units=f"upper-read-{k}", answers_dir=f"upper-answers-{k}", out_key=f"upper-grade-{k}")
+                     for k in upper], "conversations", needs=("upper-answers-BEAM",))]
     lmes = lambda ctx, out: ["experiments/z2/oracle.py", "grade", "--dataset", "s",
                              "--units", str(Z._rel(ctx.dir / "local-lmes")), "--answers",
                              str(Z._rel(ctx.dir / "cloud-answers-lmes")), "--out", str(Z._rel(out))]
