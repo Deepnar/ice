@@ -123,6 +123,14 @@ show whether the conclusions depend on the answerer.
 
 ## D7 ⚑ Judges
 
+**Benched 2026-10-26 (maintainer):** no second judge is fixed yet — no cheap model at hand
+(Claude Haiku on OpenCode costs about as much as Luna; no Anthropic API key). The machinery is
+ready (`grade.py --judge`, `qualify.py --judge`). The "writers never judge" rule may be relaxed
+for the second judge if that is what the limits allow — e.g. DeepSeek, which co-wrote the
+private ledgers — with the overlap stated in the paper; the synthetic answer keys come from
+the plans, not from DeepSeek. Decided before FINAL's grading. The text below is the original
+proposal.
+
 Muse 1.3 (as Z2) plus a **second, untuned judge** (Z2 D13). It must share a family with
 neither the answerer (Qwen), the writers (DeepSeek, MiMo) nor Muse (Meta). **Pick:** Claude
 Haiku 5.5 on the plan (3,850 per 5 h by the table — check the real per-call cost first).
@@ -186,7 +194,7 @@ bare system and adds one part at a time in Z2's frozen order, showing what each 
 of the earlier ones (order-dependent: the first parts get the easy credit). Cost on S9:
 9 more conditions × 260 asks ≈ 2,300 local answers ≈ 2 GPU days. Recommended: yes.
 
-## D11 Research-paper gaps to close before or with FINAL (proposed 2026-10-26)
+## D11 Research-paper gaps — when each is done (maintainer, 2026-10-26)
 
 What a reviewer will look for that the current plan does not yet give:
 1. **Other memory systems as baselines.** FINAL compares ICE with our own baselines (bare
@@ -209,3 +217,22 @@ What a reviewer will look for that the current plan does not yet give:
    addresses part of it); possible benchmark contamination of public sets.
 8. **Reproducibility package:** code, synthetic plans and conversations, BEAM/LongMemEval
    selections and seeds, model ids and settings — everything except the private histories.
+
+**When each item happens:**
+| Item | When |
+|---|---|
+| 3 Pre-registration note | **before FINAL runs** — and it includes the hallucination measures: invented claims per answer (Z2's claim chain: confirmed_invented), wrong answers to never-said questions (abstention accuracy on negatives), use of a superseded value, attribution mix-ups (assistant suggestion reported as the user's decision) |
+| 1 A published memory system as a baseline | **in FINAL**, on the LongMemEval-S slice (its native benchmark); system chosen below |
+| 4 Run-to-run variance | **in FINAL**: replay one history twice (S1, ~4 h) |
+| 5 Cost and speed | **in FINAL**: logged per run, reported beside scores |
+| 2 Judge vs a human | **during FINAL grading**: ~100 answers blind-graded by the maintainer |
+| 6 Error analysis | **after FINAL**, from the graded answers |
+| 7 Threats to validity, 8 reproducibility package | **after FINAL**, with the paper |
+
+**Memory-system baseline — candidates (no independent leaderboard exists; every headline score
+is self-reported under different reader/judge models):** Graphiti (Zep's open-source temporal
+knowledge graph — the closest design to ICE: bi-temporal facts that supersede each other, an
+entity graph; Zep's paper reports 71.2% on LongMemEval with GPT-4o) and Mem0 (the most-cited;
+its open-source SDK, not its managed platform). Both must run entirely in our setup: same
+LongMemEval-S slice, same local answerer, same judge. Cost: their ingestion makes several model
+calls per session — on the 100-instance slice roughly 2–4 GPU days each with a local model.

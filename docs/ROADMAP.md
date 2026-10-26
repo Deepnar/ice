@@ -187,6 +187,8 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     (fifth families), qualified on the planted controls after the plan renews; pick the cheapest
     that passes. The haiku role stays in profiles.py unused until decided.
   - ☐ cloud-answerer subset (~200 answers), FINAL report, grading stages in `run_final.py`.
+  - ☐ D11 in-FINAL items: pre-registration (incl. hallucination measures), memory-system baseline
+    on the LME-S slice, S1 replayed twice, cost/speed logging, human-graded judge sample.
   - ☐ live trials when free: generator on 20 measured cloud calls; replay/read slices on GPU.
   - ⚑ Open: additive build-up ablation on S9 too (recommended; ~2 GPU days).
 - Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
