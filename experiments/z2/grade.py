@@ -103,8 +103,9 @@ class Errors:
         return self.counts.get(key, {}).get("n", 0) >= MAX_ERRORS
 
 
-def load(units_dir, answers_dir, questions_dir, history):
-    """[(unit, answer row, occurrence or None)] for every answered context."""
+def load(units_dir, answers_dir, questions_dir, history, occurrences=None):
+    """[(unit, answer row, occurrence or None)] for every answered context. *occurrences*
+    (a file) replaces questions_dir/<history>/occurrences.json (FINAL synthetic sets)."""
     answers_dir = Path(answers_dir)
     index = json.loads((answers_dir / "index.json").read_text())["index"]
     rows = {}
@@ -113,7 +114,7 @@ def load(units_dir, answers_dir, questions_dir, history):
             r = json.loads(line)
             rows[r["prompt_sha256"]] = r
     occ = {f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}": o
-           for o in json.loads((Path(questions_dir) / history / "occurrences.json").read_text())}
+           for o in json.loads(Path(occurrences or Path(questions_dir) / history / "occurrences.json").read_text())}
     out = []
     for path in sorted(Path(units_dir).glob("units/*/*.json")):
         unit = json.loads(path.read_text())
@@ -359,12 +360,12 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
     return result, pending
 
 
-def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None):
+def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None, occurrences=None):
     from experiments.z2 import bg_audit
     from experiments.z2.ledger import load_history
     from experiments.z2.questions import originals_index
     out.mkdir(parents=True, exist_ok=True)
-    contexts = load(units, answers, questions, history)
+    contexts = load(units, answers, questions, history, occurrences)
     graded, p1 = grade_answers(contexts, out, ask)
     ledger = bg_audit.load_ledger(ledger_path, changes)
     originals = load_history(history)
@@ -387,10 +388,11 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     return pending
 
 
-def judge_caller(calls, generate, meta, history):
+def judge_caller(calls, generate, meta, history, role=JUDGE):
     from experiments.z2.questions import ask_object
-    session = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{POLICY}|{history}"))
-    return lambda system, prompt: ask_object(calls, JUDGE, meta, generate, system, prompt, session,
+    # Z2's judge keeps its original session id (cached calls stay valid); another judge its own.
+    session = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{POLICY}|{history}" if role == JUDGE else f"{POLICY}|{history}|{role}"))
+    return lambda system, prompt: ask_object(calls, role, meta, generate, system, prompt, session,
                                              max_output_tokens=OUTPUT_TOKENS)
 
 
@@ -399,7 +401,9 @@ def main() -> int:
     parser.add_argument("--history", required=True)
     parser.add_argument("--units", type=Path, required=True)
     parser.add_argument("--answers", type=Path, required=True)
-    parser.add_argument("--questions", type=Path, required=True)
+    parser.add_argument("--questions", type=Path, help="Z2 questions root (<root>/<history>/occurrences.json)")
+    parser.add_argument("--occurrences", type=Path, help="FINAL: an occurrence file instead of --questions")
+    parser.add_argument("--judge", default=JUDGE, help="judge role (FINAL's second judge writes its own --out)")
     parser.add_argument("--ledger", type=Path, required=True)
     parser.add_argument("--changes", type=Path)
     parser.add_argument("--out", type=Path, required=True)
@@ -411,9 +415,12 @@ def main() -> int:
     from experiments.z2.profiles import generator, metadata
     load_selected_env()
     args.out.mkdir(parents=True, exist_ok=True)
-    ask = judge_caller(M.Calls(args.out / "grade-raw.jsonl"), generator(JUDGE).generate, metadata(JUDGE), args.history)
+    if not (args.questions or args.occurrences):
+        parser.error("one of --questions / --occurrences is required")
+    ask = judge_caller(M.Calls(args.out / "grade-raw.jsonl"), generator(args.judge).generate, metadata(args.judge),
+                       args.history, role=args.judge)
     pending = run(args.history, args.units, args.answers, args.questions, args.ledger, args.out, ask=ask,
-                  changes=args.changes)
+                  changes=args.changes, occurrences=args.occurrences)
     print(json.dumps(dict(pending_errors=pending)))
     return 3 if pending else 0
 

@@ -79,6 +79,39 @@ def asks(plan, occurrences, phrasing):
     return out
 
 
+def final_occurrences(plan, occurrences, phrasing):
+    """Occurrences with their question text, plus the never-said negatives — the
+    grader's reference file for this conversation (grade.py --occurrences)."""
+    out = [dict(o, question=phrasing["questions"][key(o)]) for o in occurrences]
+    last = checkpoints(plan)[-1]
+    for i, n in enumerate(phrasing.get("negatives") or []):
+        out.append(dict(family=f"{plan['id']}:NEG{i:02d}", type="negative", checkpoint_turn=last, repeat_index=0,
+                        question=n["question"], ask=dict(about=n["about"]),
+                        reference=dict(required=[], superseded=[], citations=[]), expected_abstention=True))
+    return out
+
+
+def plan_ledger(plan):
+    """The plan as a Z2-shaped ledger (one entry per planted value, each change superseding
+    the previous) so the grader's invented-content check works on synthetic answers."""
+    entries = []
+    for f in plan["facts"]:
+        prev = None
+        for i, v in enumerate(f["values"]):
+            eid = f"{plan['id']}:{f['id']}.{i}"
+            entries.append(dict(id=eid, members=[eid], supersedes_raw=[prev] if prev else [],
+                                value=f"{f['about']}: {v['value']}", speaker=f["speaker"], kind=f["status"],
+                                valid_from_turn=v["turn"], usable_for_questions=True,
+                                citations=[dict(turn=v["turn"], role=f["speaker"])]))
+            prev = eid
+    for e in plan.get("events") or []:
+        eid = f"{plan['id']}:{e['id']}"
+        entries.append(dict(id=eid, members=[eid], supersedes_raw=[], value=f"{e['what']} on {e['date']}",
+                            speaker="user", kind="event", valid_from_turn=e["told_turn"], usable_for_questions=True,
+                            citations=[dict(turn=e["told_turn"], role="user")]))
+    return dict(policy="ice-final-synth-plan-ledger-1", history=plan["id"], entries=entries)
+
+
 def main() -> int:
     bad = 0
     for path in sorted(PLANS.glob("S*.questions.json")):
@@ -93,6 +126,9 @@ def main() -> int:
             print("   -", x)
         if not problems:
             (PLANS / f"{pid}.asks.json").write_text(json.dumps(asks(plan, occ, phrasing), indent=1, ensure_ascii=False) + "\n")
+            (PLANS / f"{pid}.final-occurrences.json").write_text(
+                json.dumps(final_occurrences(plan, occ, phrasing), indent=1, ensure_ascii=False) + "\n")
+            (PLANS / f"{pid}.ledger.json").write_text(json.dumps(plan_ledger(plan), indent=1, ensure_ascii=False) + "\n")
     return 1 if bad else 0
 
 

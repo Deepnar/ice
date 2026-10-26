@@ -1,0 +1,1906 @@
+[
+ {
+  "family": "S3:F001",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "What is the stack for manifest-sync, including the language and the database it writes to?",
+  "ask": {
+   "about": "manifest-sync stack",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Python 3.11 service writing to Postgres 15"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 2,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F002",
+  "type": "update",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "What encoding does the HLX block in the config.yaml I pasted specify?",
+  "ask": {
+   "about": "HLX encoding in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "utf-8"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F003",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Which encoding does the BWC section of the config.yaml I pasted declare?",
+  "ask": {
+   "about": "BWC encoding in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "latin-1"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F004",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "How does the BWC section of the pasted config.yaml structure its delimiter and header rows?",
+  "ask": {
+   "about": "BWC delimiter and header rows in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "semicolon delimiter, 2 header rows"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F005",
+  "type": "update",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "What read timeout does the pasted config.yaml set for ingest?",
+  "ask": {
+   "about": "ingest read timeout in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "30 seconds"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F006",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "How many rows does the pasted config.yaml put in each insert batch?",
+  "ask": {
+   "about": "insert batch size in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "500 rows per insert batch"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F007",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Which file and line does the traceback I pasted point to, and what error does it raise?",
+  "ask": {
+   "about": "failing line in the pasted traceback",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "ingest/parser.py line 84 raises UnicodeDecodeError"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F008",
+  "type": "attribution",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Which suggestion did I decline when we discussed the decoding failures?",
+  "ask": {
+   "about": "chardet per-file encoding detection",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "detect each file's encoding with chardet"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 8,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F002",
+  "type": "update",
+  "checkpoint_turn": 75,
+  "repeat_index": 1,
+  "question": "Still on the HLX side of the config, what encoding is declared right now?",
+  "ask": {
+   "about": "HLX encoding in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "utf-8"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F009",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "Where do the rejected rows end up, and at what granularity?",
+  "ask": {
+   "about": "where rejected rows are written",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "table ingest_failures, one row per rejected line"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 12,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F010",
+  "type": "preference",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "Could you draft this week's per-carrier summary so it matches the format I prefer for these reports?",
+  "ask": {
+   "about": "weekly summary table layout",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "markdown table, carrier as first column, then rows_ok and rows_failed"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 20,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F011",
+  "type": "update",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "What fuzzy match threshold does the design-doc excerpt I pasted give?",
+  "ask": {
+   "about": "fuzzy match threshold in the pasted design doc",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "0.82"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 30,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F012",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "How large is the labelled sample I am using for the coursework, and how is it split?",
+  "ask": {
+   "about": "record-linkage evaluation sample for coursework",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "STEM_&_Academics",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "400 hand-labelled pairs: 180 matches, 220 non-matches"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F015",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "What chunk size is set in the decode.py file I pasted?",
+  "ask": {
+   "about": "chunk size in decode.py",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "CHUNK = 8192 bytes"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 28,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F025",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "How did we decide to parse the BWC files in the end?",
+  "ask": {
+   "about": "BWC parsing approach",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": [],
+   "status": "decided",
+   "speaker": "user"
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:F005",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 1,
+  "question": "What ingest read timeout is set in the config.yaml I pasted most recently?",
+  "ask": {
+   "about": "ingest read timeout in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "30 seconds"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F013",
+  "type": "attribution",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "What blocking idea did you put forward for the record-linkage pairs?",
+  "ask": {
+   "about": "postcode-prefix blocking",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "block candidate pairs on the first 3 characters of the postcode"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 36,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F014",
+  "type": "hypothetical",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "Did I settle on a point at which we should add a blocking index to the database?",
+  "ask": {
+   "about": "when to add a blocking index",
+   "status": "hypothetical",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "add a Postgres blocking index once active carriers exceed 12"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 44,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F016",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "What does the most recent pytest run I pasted report?",
+  "ask": {
+   "about": "pytest result of the decoder test run",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "44 passed, 1 failed"
+   ],
+   "superseded": [
+    "42 passed, 3 failed"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 47,
+     "role": "user"
+    },
+    {
+     "turn": 66,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F017",
+  "type": "fact_recall",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "What date format does the HLX vendor spec excerpt I pasted require?",
+  "ask": {
+   "about": "HLX vendor spec date format",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "DD/MM/YYYY"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 52,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F018",
+  "type": "fact_recall",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "What unit and precision does the HLX vendor spec give for weight?",
+  "ask": {
+   "about": "HLX vendor spec weight unit",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "kilograms, two decimal places"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 53,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F019",
+  "type": "fact_recall",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "What maximum length does the HLX spec set for consignee postcodes?",
+  "ask": {
+   "about": "consignee postcode max length in HLX spec",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "10 characters"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 54,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F020",
+  "type": "fact_recall",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "How did the nightly reconciliation run tally in the log I pasted?",
+  "ask": {
+   "about": "nightly reconciliation match count",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "18,402 rows matched, 137 unmatched"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 56,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F021",
+  "type": "preference",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "Please write the migration for a new scans table that records when each scan happened.",
+  "ask": {
+   "about": "UTC rule for stored timestamps",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "every stored timestamp is UTC, typed timestamptz"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 58,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F022",
+  "type": "attribution",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "Which weight storage suggestion did I reject in our conversation?",
+  "ask": {
+   "about": "integer-grams weight storage proposal",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "store weight as integer grams"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 60,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:E01",
+  "type": "temporal",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "When was the staging database rebuilt?",
+  "ask": {
+   "about": "staging database rebuilt after a failed migration",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "staging database rebuilt after a failed migration on 2026-08-17"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 62,
+     "role": "user"
+    }
+   ],
+   "date": "2026-08-17"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F002",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 2,
+  "question": "Which encoding is declared for HLX in the latest config.yaml I pasted?",
+  "ask": {
+   "about": "HLX encoding in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "utf-8-sig"
+   ],
+   "superseded": [
+    "utf-8"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    },
+    {
+     "turn": 83,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F016",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 1,
+  "question": "Could you tell me the outcome of the decoder tests in the rerun I pasted?",
+  "ask": {
+   "about": "pytest result of the decoder test run",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "44 passed, 1 failed"
+   ],
+   "superseded": [
+    "42 passed, 3 failed"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 47,
+     "role": "user"
+    },
+    {
+     "turn": 66,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F023",
+  "type": "fact_recall",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "What type did we settle on for storing weight, and in which unit?",
+  "ask": {
+   "about": "weight storage choice",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "numeric(10,3) in kilograms"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 64,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F024",
+  "type": "preference",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Summarise the failures from last night's batch for me, following the ordering I prefer.",
+  "ask": {
+   "about": "order of the failure summary",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "lead with the carrier that has the most failed rows"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F025",
+  "type": "fact_recall",
+  "checkpoint_turn": 125,
+  "repeat_index": 1,
+  "question": "Which approach did I choose for reading BWC carrier files?",
+  "ask": {
+   "about": "BWC parsing approach",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "parse BWC with the csv module, QUOTE_MINIMAL"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 80,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F027",
+  "type": "attribution",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "What did you propose for rows that cannot be decoded?",
+  "ask": {
+   "about": "dead-letter file proposal",
+   "status": "suggested",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "send undecodable rows to a dead-letter file instead of failing the batch"
+   ],
+   "superseded": [],
+   "status": "suggested",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 82,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F011",
+  "type": "update",
+  "checkpoint_turn": 150,
+  "repeat_index": 1,
+  "question": "What is the threshold the latest design doc I pasted sets for fuzzy matching?",
+  "ask": {
+   "about": "fuzzy match threshold in the pasted design doc",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "0.85"
+   ],
+   "superseded": [
+    "0.82"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 30,
+     "role": "user"
+    },
+    {
+     "turn": 95,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F026",
+  "type": "fact_recall",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": "Which carrier code appears in the fixture of the test file I pasted?",
+  "ask": {
+   "about": "carrier code in the test fixture",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "TST-9"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 88,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F028",
+  "type": "fact_recall",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": "Which alembic revision handles the weight column in the migration I pasted?",
+  "ask": {
+   "about": "alembic revision for the weight column",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "revision a41c9e adds weight_kg"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 104,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F029",
+  "type": "fact_recall",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": "When is the production migration window scheduled?",
+  "ask": {
+   "about": "production migration window",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "02:00 UTC on Sunday 2026-09-06"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 103,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F030",
+  "type": "fact_recall",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": "What key do we use to deduplicate rows?",
+  "ask": {
+   "about": "row dedup key",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "carrier_code + waybill_no + scan_date"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 110,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F036",
+  "type": "attribution",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": "What did you suggest for the writer connection pool, and which option did I turn down?",
+  "ask": {
+   "about": "pool size 40 proposal",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": [],
+   "status": "rejected",
+   "speaker": "assistant"
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:E02",
+  "type": "temporal",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": "When did the production migration actually run?",
+  "ask": {
+   "about": "production migration ran in the Sunday window",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "production migration ran in the Sunday window on 2026-09-06"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 124,
+     "role": "user"
+    }
+   ],
+   "date": "2026-09-06"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F005",
+  "type": "update",
+  "checkpoint_turn": 175,
+  "repeat_index": 2,
+  "question": "Which read timeout applies to ingest in the newest config.yaml I shared?",
+  "ask": {
+   "about": "ingest read timeout in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "90 seconds"
+   ],
+   "superseded": [
+    "30 seconds"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    },
+    {
+     "turn": 118,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F031",
+  "type": "preference",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": "Please add a retry helper for the carrier loader, using whichever package is quickest.",
+  "ask": {
+   "about": "dependency rule",
+   "status": "instruction",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "no new third-party dependency without asking first"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 128,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F032",
+  "type": "update",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": "What match window do my colleague's review notes give?",
+  "ask": {
+   "about": "match window in the pasted review notes",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "match_window_days 14"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 130,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F034",
+  "type": "update",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": "How many ruff findings are in the most recent lint output I pasted?",
+  "ask": {
+   "about": "ruff issue count in the pasted lint output",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "2 issues"
+   ],
+   "superseded": [
+    "9 issues"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 135,
+     "role": "user"
+    },
+    {
+     "turn": 160,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:E03",
+  "type": "temporal",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "When did the on-call pager last go off?",
+  "ask": {
+   "about": "on-call pager fired during the pool exhaustion",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "on-call pager fired during the pool exhaustion on 2026-09-18"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 153,
+     "role": "user"
+    }
+   ],
+   "date": "2026-09-18"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F001",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "Remind me what manifest-sync is built on and where its data lands.",
+  "ask": {
+   "about": "manifest-sync stack",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Python 3.11 service writing to Postgres 15"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 2,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F003",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "For the BWC carrier, what character encoding is listed in the config I pasted earlier?",
+  "ask": {
+   "about": "BWC encoding in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "latin-1"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F004",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "What separator and how many header lines does BWC use according to the config I pasted?",
+  "ask": {
+   "about": "BWC delimiter and header rows in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "semicolon delimiter, 2 header rows"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F006",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "What batch size for inserts is written in the config file I shared?",
+  "ask": {
+   "about": "insert batch size in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "500 rows per insert batch"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F007",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "Where did the crash originate according to the traceback I shared?",
+  "ask": {
+   "about": "failing line in the pasted traceback",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "ingest/parser.py line 84 raises UnicodeDecodeError"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F008",
+  "type": "attribution",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "What idea did I say no to during the encoding discussion?",
+  "ask": {
+   "about": "chardet per-file encoding detection",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "detect each file's encoding with chardet"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 8,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F033",
+  "type": "preference",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Could you reformat this module so it fits the usual line limit?",
+  "ask": {
+   "about": "ruff line length",
+   "status": "preference",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "110 characters"
+   ],
+   "superseded": [
+    "100 characters"
+   ],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 140,
+     "role": "user"
+    },
+    {
+     "turn": 172,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F034",
+  "type": "update",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "Tell me the current count of lint problems flagged in the output I shared.",
+  "ask": {
+   "about": "ruff issue count in the pasted lint output",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "2 issues"
+   ],
+   "superseded": [
+    "9 issues"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 135,
+     "role": "user"
+    },
+    {
+     "turn": 160,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F035",
+  "type": "update",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "What pool size does the latest config.yaml I pasted set?",
+  "ask": {
+   "about": "pool size in the pasted config.yaml",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "30 connections"
+   ],
+   "superseded": [
+    "20 connections"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 152,
+     "role": "user"
+    },
+    {
+     "turn": 158,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F036",
+  "type": "attribution",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "Which proposal about the connection pool did I reject during the incident?",
+  "ask": {
+   "about": "pool size 40 proposal",
+   "status": "rejected",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "raise the pool to 40 connections"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 155,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:F037",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "What exception and location does the production traceback I pasted report?",
+  "ask": {
+   "about": "error site in the pasted incident traceback",
+   "status": "decided",
+   "project": null,
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "psycopg OperationalError at writer/bulk.py line 212"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 154,
+     "role": "user"
+    }
+   ],
+   "in_paste": true
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S3:NEG00",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Does manifest-sync also consume carrier events from a Kafka stream, or only the manifest files?",
+  "ask": {
+   "about": "Kafka event streaming"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG01",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Is the Postgres host for manifest-sync provisioned with Terraform?",
+  "ask": {
+   "about": "Terraform infrastructure"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG02",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Which Grafana dashboards show the ingest latency for manifest-sync?",
+  "ask": {
+   "about": "Grafana dashboards"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG03",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "When is the Quaylight office relocation taking place?",
+  "ask": {
+   "about": "office relocation"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG04",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Should I add a Redis cache in front of the carrier lookups?",
+  "ask": {
+   "about": "Redis cache"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG05",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "How should manifest-sync handle XML carrier files from a new vendor?",
+  "ask": {
+   "about": "XML carrier files"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG06",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Can you help me plan a holiday in Lisbon this December?",
+  "ask": {
+   "about": "holiday in Lisbon"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG07",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Could you draft a marathon training schedule for the spring?",
+  "ask": {
+   "about": "marathon training"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG08",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "What settings would I need for Kubernetes autoscaling of the writer?",
+  "ask": {
+   "about": "Kubernetes autoscaling"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG09",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "How would I expose the reconciliation results through a GraphQL API?",
+  "ask": {
+   "about": "GraphQL API"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S3:NEG10",
+  "type": "negative",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Could you help me outline a PyCon talk on record linkage?",
+  "ask": {
+   "about": "PyCon talk"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ }
+]

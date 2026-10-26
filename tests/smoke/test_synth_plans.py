@@ -129,3 +129,16 @@ def test_phrasing_check_catches_missing_leaking_and_said_negatives():
     assert any("does say" in x for x in Q.check(p, occ, said))
     asks = Q.asks(p, occ, good)
     assert sum(a["type"] == "negative" for a in asks) == 8 and all(a["expected_abstention"] for a in asks if a["type"] == "negative")
+
+
+def test_plan_ledger_chains_changes_and_final_occurrences_add_negatives():
+    from experiments.synth import keys as K, phrase as Q
+    from experiments.z2 import ledger_merge as M
+    p = plan()
+    chained = {e["id"]: e for e in M.chain(Q.plan_ledger(p)["entries"])}
+    assert chained["T1:F1.0"]["valid_until_turn"] == 30 and chained["T1:F1.0"]["superseded_by"] == "T1:F1.1"
+    occ = K.occurrences(p)
+    phr = {"questions": {Q.key(o): "how's that going" for o in occ},
+           "negatives": [{"question": "boat?", "about": f"boat {i}"} for i in range(8)]}
+    final = Q.final_occurrences(p, occ, phr)
+    assert sum(o["type"] == "negative" for o in final) == 8 and all(o["question"] for o in final)

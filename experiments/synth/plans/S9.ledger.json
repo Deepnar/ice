@@ -1,0 +1,5046 @@
+{
+ "policy": "ice-final-synth-plan-ledger-1",
+ "history": "S9",
+ "entries": [
+  {
+   "id": "S9:F001.0",
+   "members": [
+    "S9:F001.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln controller fault ERR-K417-3B: ERR-K417-3B on the Corvane KX-220 means the lid thermocouple is loose; reseat the plug and retighten the clamp",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 65,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 65,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F002.0",
+   "members": [
+    "S9:F002.0"
+   ],
+   "supersedes_raw": [],
+   "value": "shelf order ORD-58213: order ORD-58213: 40 kiln shelves from Corvane Ceramics Supply, due 2026-03-12",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 34,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 34,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F002.1",
+   "members": [
+    "S9:F002.1"
+   ],
+   "supersedes_raw": [
+    "S9:F002.0"
+   ],
+   "value": "shelf order ORD-58213: order ORD-58213: 40 kiln shelves from Corvane Ceramics Supply, now due 2026-04-09 after the supplier slipped",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 330,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 330,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F003.0",
+   "members": [
+    "S9:F003.0"
+   ],
+   "supersedes_raw": [],
+   "value": "delivery van plate HB24 TQN: van plate HB24 TQN is the white 2019 Citroen Berlingo, insured with Ardell Mutual under AM-88120",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 142,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 142,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F004.0",
+   "members": [
+    "S9:F004.0"
+   ],
+   "supersedes_raw": [],
+   "value": "glaze Vellum Dusk Cobalt 9B: Vellum Dusk Cobalt 9B fires to cone 6 in oxidation, held 15 minutes at top temperature",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 220,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 220,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F005.0",
+   "members": [
+    "S9:F005.0"
+   ],
+   "supersedes_raw": [],
+   "value": "replica lag alarm ledger-replica-07.internal: ledger-replica-07.internal pages on-call when lag passes 90 seconds for three checks in a row",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 298,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 298,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F006.0",
+   "members": [
+    "S9:F006.0"
+   ],
+   "supersedes_raw": [],
+   "value": "invoice INV-2026-0931-K: INV-2026-0931-K from Harrow & Pike is 1,284.50 GBP for the year-end filing, paid 2026-04-02",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 423,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 423,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F007.0",
+   "members": [
+    "S9:F007.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ticket CFS-22981 webhook signatures: ticket CFS-22981 is the freight webhook signature bug, blocked until the header rename ships",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 99,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 99,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F007.1",
+   "members": [
+    "S9:F007.1"
+   ],
+   "supersedes_raw": [
+    "S9:F007.0"
+   ],
+   "value": "ticket CFS-22981 webhook signatures: ticket CFS-22981 is unblocked: the header rename shipped in build 4.8.1",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 464,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 464,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F008.0",
+   "members": [
+    "S9:F008.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln serial KX220-44107-B: kiln serial KX220-44107-B, bought 2025-11, warranty runs to 2027-11",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 504,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 504,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F009.0",
+   "members": [
+    "S9:F009.0"
+   ],
+   "supersedes_raw": [],
+   "value": "parcel GB-TRK-7730-QWZ: parcel GB-TRK-7730-QWZ holds the cobalt stain from Corvane, signed for on 2026-05-20",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 575,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 575,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F010.0",
+   "members": [
+    "S9:F010.0"
+   ],
+   "supersedes_raw": [],
+   "value": "running shoes KS5-0929-GRN: Kestrel Stride 5 shoes, SKU KS5-0929-GRN, size 9.5 wide, bought to replace the worn pair",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 649,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 649,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F011.0",
+   "members": [
+    "S9:F011.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln insurance PX-449-020817: kiln equipment is covered under policy PX-449-020817 with Ardell Mutual up to 3,000 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 235,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 235,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F012.0",
+   "members": [
+    "S9:F012.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Lisbon booking QJ7MRT: Lisbon trip booking reference QJ7MRT, outbound 2026-11-14, return 2026-11-18",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 764,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 764,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F013.0",
+   "members": [
+    "S9:F013.0"
+   ],
+   "supersedes_raw": [],
+   "value": "branch hotfix/tz-offset-QR9: branch hotfix/tz-offset-QR9 fixes the UTC offset bug in the ETA service, merged 2026-03-30",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 375,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 375,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F014.0",
+   "members": [
+    "S9:F014.0"
+   ],
+   "supersedes_raw": [],
+   "value": "uvicorn pin 0.31.7: pin uvicorn to exactly 0.31.7; 0.32 breaks the websocket shim on the tracking feed",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 159,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 159,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F015.0",
+   "members": [
+    "S9:F015.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Ardenne W-12 motor part AW12-MTR-220V: the Ardenne W-12 wheel motor part number is AW12-MTR-220V",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 427,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 427,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F016.0",
+   "members": [
+    "S9:F016.0"
+   ],
+   "supersedes_raw": [],
+   "value": "physio routine Bannister 4x30: physio routine 'Bannister 4x30': four sets of thirty-second isometric holds, twice a day",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 478,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 478,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F017.0",
+   "members": [
+    "S9:F017.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mileage claim MC-2291-HV: mileage claim MC-2291-HV covers 1,140 business miles in June at 45p, so 513 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 691,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 691,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F018.0",
+   "members": [
+    "S9:F018.0"
+   ],
+   "supersedes_raw": [],
+   "value": "staging image freight-eta:rc-2026.06.3: staging runs the release candidate image freight-eta:rc-2026.06.3",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 675,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 675,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F019.0",
+   "members": [
+    "S9:F019.0"
+   ],
+   "supersedes_raw": [],
+   "value": "film order FP-0613-R3: film order FP-0613-R3 from Lenscraft: 10 rolls of Fomapan 100",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 804,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 804,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F020.0",
+   "members": [
+    "S9:F020.0"
+   ],
+   "supersedes_raw": [],
+   "value": "error FRT-CONFLICT-17: the freight API returns FRT-CONFLICT-17 when two bookings claim the same lane slot",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 876,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 876,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F021.0",
+   "members": [
+    "S9:F021.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Corvane trade account CV-554092: Corvane trade account number CV-554092 goes on every purchase order",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 311,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 311,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F022.0",
+   "members": [
+    "S9:F022.0"
+   ],
+   "supersedes_raw": [],
+   "value": "wholesale glaze supplier, deepest bulk discount: the wholesale glaze house I picked ships in 48-hour boxes and gives 14 percent off once an order passes 50 kg: Halden Glaze Works",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 118,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 118,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F023.0",
+   "members": [
+    "S9:F023.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Corvane wholesale terms: Corvane's wholesale terms are 9 percent off above 40 kg with five-day shipping",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 176,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 176,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F024.0",
+   "members": [
+    "S9:F024.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Ardenne Clay wholesale terms: Ardenne Clay's wholesale terms are 12 percent off above 60 kg, but collection only",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 217,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 217,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F025.0",
+   "members": [
+    "S9:F025.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA production deploy window: the freight ETA service goes to production on Thursdays at 16:30, after the change freeze lifts",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 253,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 253,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F026.0",
+   "members": [
+    "S9:F026.0"
+   ],
+   "supersedes_raw": [],
+   "value": "analytics export job timing: the analytics export job runs nightly at 02:10 UTC",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 320,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 320,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F027.0",
+   "members": [
+    "S9:F027.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA cache flush timing: the ETA cache flush runs every night at 03:40 UTC",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 392,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 392,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F028.0",
+   "members": [
+    "S9:F028.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bedtime on workdays: on workdays I try to be in bed with the lights off by 22:40 since the blackout blinds went up",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 593,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 593,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F029.0",
+   "members": [
+    "S9:F029.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bedtime at weekends: weekend bedtime drifts to 23:50 when Saturday plans run late",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 608,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 608,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F030.0",
+   "members": [
+    "S9:F030.0"
+   ],
+   "supersedes_raw": [],
+   "value": "wake-up time on workdays: I wake around 06:10 on weekdays so I can get the commute in before stand-up",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 714,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 714,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F031.0",
+   "members": [
+    "S9:F031.0"
+   ],
+   "supersedes_raw": [],
+   "value": "rent-share claim: the studio gets 18 percent of rent and utilities under the rent-share method, claimed through Dana",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 728,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 728,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F032.0",
+   "members": [
+    "S9:F032.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln electricity claim share: the kiln's electricity is claimed at 22 percent of the bill",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 838,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 838,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F033.0",
+   "members": [
+    "S9:F033.0"
+   ],
+   "supersedes_raw": [],
+   "value": "home broadband claim share: home broadband is claimed at 15 percent for the spare-room desk",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 933,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 933,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F034.0",
+   "members": [
+    "S9:F034.0"
+   ],
+   "supersedes_raw": [],
+   "value": "warehouse analytics Postgres (frozen): the warehouse analytics database runs Postgres 14.9 and can't be upgraded until Q4",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 547,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 547,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F035.0",
+   "members": [
+    "S9:F035.0"
+   ],
+   "supersedes_raw": [],
+   "value": "staging Postgres version: staging Postgres is on 15.7 since the May patch",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 553,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 553,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F036.0",
+   "members": [
+    "S9:F036.0"
+   ],
+   "supersedes_raw": [],
+   "value": "production Postgres version: production Postgres is on 16.2 with pgvector 0.7",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 648,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 648,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F037.0",
+   "members": [
+    "S9:F037.0"
+   ],
+   "supersedes_raw": [],
+   "value": "film for overcast days: on overcast days I load Kodak Portra 400 and push it one stop",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 869,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 869,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F038.0",
+   "members": [
+    "S9:F038.0"
+   ],
+   "supersedes_raw": [],
+   "value": "film for street walks: street walks get Ilford HP5 shot at box speed",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 881,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 881,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F039.0",
+   "members": [
+    "S9:F039.0"
+   ],
+   "supersedes_raw": [],
+   "value": "film for architecture walks: architecture walks use Fomapan 100 on a tripod",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 906,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 906,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F040.0",
+   "members": [
+    "S9:F040.0"
+   ],
+   "supersedes_raw": [],
+   "value": "basil watering: the basil on the south sill drowns if I water it more than twice a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 970,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 970,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F041.0",
+   "members": [
+    "S9:F041.0"
+   ],
+   "supersedes_raw": [],
+   "value": "rosemary watering: the rosemary wants a drink only once a fortnight",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 1000,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 1000,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F042.0",
+   "members": [
+    "S9:F042.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mint watering: the mint gets watered daily through summer and hosed down on Sundays",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 452,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 452,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F043.0",
+   "members": [
+    "S9:F043.0"
+   ],
+   "supersedes_raw": [],
+   "value": "accountant Dana Whitfield: my accountant is Dana Whitfield, the person I deal with on everything tax",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 77,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 77,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F044.0",
+   "members": [
+    "S9:F044.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Dana Whitfield's firm: Dana Whitfield works at Harrow & Pike LLP, the firm that handles my returns",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 209,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 209,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F045.0",
+   "members": [
+    "S9:F045.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Harrow & Pike office location: Harrow & Pike's office is on Quayside Row in Port Ardell",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 395,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 395,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F046.0",
+   "members": [
+    "S9:F046.0"
+   ],
+   "supersedes_raw": [],
+   "value": "physio Tom Abara: my physio is Tom Abara",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 123,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 123,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F047.0",
+   "members": [
+    "S9:F047.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Tom Abara's clinic: Tom Abara practises at Riverside Physio Clinic",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 295,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 295,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F048.0",
+   "members": [
+    "S9:F048.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Riverside Physio Clinic street: Riverside Physio Clinic is on Mill Lane, next to the bakery",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 482,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 482,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F049.0",
+   "members": [
+    "S9:F049.0"
+   ],
+   "supersedes_raw": [],
+   "value": "garage conversion builder Mo Farrell: Mo Farrell did the garage conversion for the studio",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 150,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 150,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F050.0",
+   "members": [
+    "S9:F050.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Mo Farrell's company: Mo Farrell runs Farrell & Sons Joinery",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 309,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 309,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F051.0",
+   "members": [
+    "S9:F051.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Farrell & Sons shutter quote: Farrell & Sons Joinery quoted 2,300 GBP for the roller shutter door",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 669,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 669,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F052.0",
+   "members": [
+    "S9:F052.0"
+   ],
+   "supersedes_raw": [],
+   "value": "web designer Lotte Ferreira: Lotte Ferreira built the shop site",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 178,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 178,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F053.0",
+   "members": [
+    "S9:F053.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Lotte's Shopify theme: Lotte Ferreira designed the Shopify theme called Clay Row",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 354,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 354,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F054.0",
+   "members": [
+    "S9:F054.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Clay Row theme yearly cost: the Clay Row theme costs 180 GBP a year to keep",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 574,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 574,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F055.0",
+   "members": [
+    "S9:F055.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Corvane rep Gwen Mistry: Gwen Mistry is my rep at Corvane Ceramics Supply",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 239,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 239,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F056.0",
+   "members": [
+    "S9:F056.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Gwen Mistry's territory: Gwen Mistry covers the Midlands and the north-west",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 434,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 434,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F057.0",
+   "members": [
+    "S9:F057.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Corvane regional carrier: Corvane deliveries to my region are carried by Hartwell Haulage",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 781,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 781,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F058.0",
+   "members": [
+    "S9:F058.0"
+   ],
+   "supersedes_raw": [],
+   "value": "pottery teacher Ellis: the evening wheel class is taught by Ellis at Mudlark Studio",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 171,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 171,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F059.0",
+   "members": [
+    "S9:F059.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Mudlark Studio location: Mudlark Studio is in the old tannery on Vale Street",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 343,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 343,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F060.0",
+   "members": [
+    "S9:F060.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Mudlark Thursday beginners class: Mudlark's Thursday beginners class starts at 19:00",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 702,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 702,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F061.0",
+   "members": [
+    "S9:F061.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Tarrant API lead Sam Oyelaran: Sam Oyelaran is the API lead at Tarrant Logistics",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 63,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 63,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F062.0",
+   "members": [
+    "S9:F062.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Tarrant sandbox key rotation: Tarrant Logistics rotates its sandbox keys every Wednesday",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 523,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 523,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F063.0",
+   "members": [
+    "S9:F063.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Sam Oyelaran on leave: Sam Oyelaran is on leave until 2026-08-03; route Tarrant sandbox questions to Priyanka Nair meanwhile",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 843,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 843,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F064.0",
+   "members": [
+    "S9:F064.0"
+   ],
+   "supersedes_raw": [],
+   "value": "10k race date and target: I'm running a 10k on 2026-09-27 on the Harbour Loop route, aiming under 55 minutes",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 120,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 120,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F065.0",
+   "members": [
+    "S9:F065.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bisque firing hold: the kiln's bisque schedule is six hours to 1000C with a 20-minute hold at the top",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 170,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 170,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F066.0",
+   "members": [
+    "S9:F066.0"
+   ],
+   "supersedes_raw": [],
+   "value": "liability insurance renewal date: I need the studio's public liability insurance renewed before 2026-04-01",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 274,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 274,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F067.0",
+   "members": [
+    "S9:F067.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA off the cron box: the migration plan moves the ETA service off the old cron box by the end of March",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 278,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 278,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F068.0",
+   "members": [
+    "S9:F068.0"
+   ],
+   "supersedes_raw": [],
+   "value": "coffee before noon: I've cut coffee to one cup before noon since the reflux started",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 412,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 412,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F069.0",
+   "members": [
+    "S9:F069.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mug range glazes: the mug range has four glazes: oat, teal, ink and rust",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 379,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 379,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F070.0",
+   "members": [
+    "S9:F070.0"
+   ],
+   "supersedes_raw": [],
+   "value": "price list review cadence: the studio's price list is reviewed on the first working day of every quarter",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 472,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 472,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F071.0",
+   "members": [
+    "S9:F071.0"
+   ],
+   "supersedes_raw": [],
+   "value": "SRE-West on-call handover: the on-call rotation for SRE-West changes hands on Mondays at 09:00 BST",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 537,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 537,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F072.0",
+   "members": [
+    "S9:F072.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ferritin target: my ferritin came back at 22 and my GP wants it above 30 by autumn",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 590,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 590,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F073.0",
+   "members": [
+    "S9:F073.0"
+   ],
+   "supersedes_raw": [],
+   "value": "photo walk meeting place: the photo walks run on the first Saturday of each month, meeting at Castle Steps",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 632,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 632,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F074.0",
+   "members": [
+    "S9:F074.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Companies House deadline: the year-end accounts must reach Companies House by 2026-09-30",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 688,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 688,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F075.0",
+   "members": [
+    "S9:F075.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA retrain window: the ETA model retrains every second Sunday on the last 90 days of data",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 733,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 733,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F076.0",
+   "members": [
+    "S9:F076.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kettlebell return date: the shoulder rehab says I can lift the 5 kg kettlebell again from 2026-05-04",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 446,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 446,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F077.0",
+   "members": [
+    "S9:F077.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln element replacement: the kiln's electric element gets replaced every 400 firings",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 775,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 775,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F078.0",
+   "members": [
+    "S9:F078.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Lotte retainer: the retainer with Lotte is 240 GBP a month for updates",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 801,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 801,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F079.0",
+   "members": [
+    "S9:F079.0"
+   ],
+   "supersedes_raw": [],
+   "value": "standup time: our team's standup moved to 09:20 because the Berlin folks start late",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 863,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 863,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F080.0",
+   "members": [
+    "S9:F080.0"
+   ],
+   "supersedes_raw": [],
+   "value": "dentist appointment: I've booked the dentist for 2026-05-14 at 08:30",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 498,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 498,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F081.0",
+   "members": [
+    "S9:F081.0"
+   ],
+   "supersedes_raw": [],
+   "value": "workshop open day: the workshop open day is 2026-10-04 from 10 to 4",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 912,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 912,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F082.0",
+   "members": [
+    "S9:F082.0"
+   ],
+   "supersedes_raw": [],
+   "value": "overdraft limit: the overdraft limit is 2,500 GBP and I want to keep under 1,000 drawn",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 877,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 877,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F083.0",
+   "members": [
+    "S9:F083.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA latency budget: the ETA p95 latency budget is 350 ms and we're at 290 now",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 964,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 964,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F084.0",
+   "members": [
+    "S9:F084.0"
+   ],
+   "supersedes_raw": [],
+   "value": "hiking boots fit: the hiking boots I'm breaking in are a half size too big, so I wear two pairs of socks",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 980,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 980,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F085.0",
+   "members": [
+    "S9:F085.0"
+   ],
+   "supersedes_raw": [],
+   "value": "shop goal: first paid order: goal: take the first paid order on Halloran Kiln Studio by 2026-06-30",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 7,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 7,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F085.1",
+   "members": [
+    "S9:F085.1"
+   ],
+   "supersedes_raw": [
+    "S9:F085.0"
+   ],
+   "value": "shop goal: first paid order: goal moved to 2026-08-15 after the kiln delivery slipped",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 559,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 559,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F086.0",
+   "members": [
+    "S9:F086.0"
+   ],
+   "supersedes_raw": [],
+   "value": "sell from own site, drop Etsy: decided: sell only from my own Shopify site and drop the Etsy shop",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 87,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 87,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F086.1",
+   "members": [
+    "S9:F086.1"
+   ],
+   "supersedes_raw": [
+    "S9:F086.0"
+   ],
+   "value": "sell from own site, drop Etsy: reversal: keep one Etsy listing for the mugs only, for the search traffic",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 378,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 378,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F087.0",
+   "members": [
+    "S9:F087.0"
+   ],
+   "supersedes_raw": [],
+   "value": "freight ETA v2 target: working towards: freight ETA v2 live in production before the October audit",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 36,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 36,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F088.0",
+   "members": [
+    "S9:F088.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln upgrade budget: the kiln upgrade budget ceiling is 3,500 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 214,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 214,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F088.1",
+   "members": [
+    "S9:F088.1"
+   ],
+   "supersedes_raw": [
+    "S9:F088.0"
+   ],
+   "value": "kiln upgrade budget: the kiln upgrade budget ceiling is raised to 4,200 GBP for the bigger chamber",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 668,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 668,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F089.0",
+   "members": [
+    "S9:F089.0"
+   ],
+   "supersedes_raw": [],
+   "value": "no climbing until rehab ends: decided: no climbing until the shoulder rehab finishes; swimming instead",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 143,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 143,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F090.0",
+   "members": [
+    "S9:F090.0"
+   ],
+   "supersedes_raw": [],
+   "value": "no pop-up market stall this year: decided: no pop-up market stall this year, the travel costs outweigh it",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 284,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 284,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F091.0",
+   "members": [
+    "S9:F091.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Postgres on managed host: decided: keep Postgres on the managed host rather than self-hosting, after the February outage",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 153,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 153,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F092.0",
+   "members": [
+    "S9:F092.0"
+   ],
+   "supersedes_raw": [],
+   "value": "stop evening freelance work: decided: I stop taking evening freelance gigs from May 2026 to focus on the studio",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 486,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 486,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F093.0",
+   "members": [
+    "S9:F093.0"
+   ],
+   "supersedes_raw": [],
+   "value": "planter collection for September fair: working towards: a 12-piece collection of planters for the September fair",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 338,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 338,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F094.0",
+   "members": [
+    "S9:F094.0"
+   ],
+   "supersedes_raw": [],
+   "value": "12-week rehab start: decided: 12-week rehab before resuming climbing, starting 2026-02-02",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 119,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 119,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F095.0",
+   "members": [
+    "S9:F095.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bookkeeping review cadence: rejected: the assistant's monthly bookkeeping review; keep it quarterly",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 249,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 249,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S9:F096.0",
+   "members": [
+    "S9:F096.0"
+   ],
+   "supersedes_raw": [],
+   "value": "audit trail goal before Tarrant go-live: working towards: a clean audit trail for the ETA service before the Tarrant go-live",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 802,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 802,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F097.0",
+   "members": [
+    "S9:F097.0"
+   ],
+   "supersedes_raw": [],
+   "value": "grey backdrop for shop photos: decided: all shop photos use the grey backdrop only",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 360,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 360,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F098.0",
+   "members": [
+    "S9:F098.0"
+   ],
+   "supersedes_raw": [],
+   "value": "owner pay from studio account: decided: pay myself 1,800 GBP a month from the studio account from July 2026",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 629,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 629,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F098.1",
+   "members": [
+    "S9:F098.1"
+   ],
+   "supersedes_raw": [
+    "S9:F098.0"
+   ],
+   "value": "owner pay from studio account: pay myself 2,100 GBP a month from the studio account from August",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 922,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 922,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F099.0",
+   "members": [
+    "S9:F099.0"
+   ],
+   "supersedes_raw": [],
+   "value": "weekday swim time: decided: the 6am swim becomes a 7am swim on weekdays",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 692,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 692,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F100.0",
+   "members": [
+    "S9:F100.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Go for the tracking gateway: the thread so far: we chose Go for the tracking gateway after the Python timeouts",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 448,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 448,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F101.0",
+   "members": [
+    "S9:F101.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mug size standard: decided: mugs move to a 350 ml standard after the 300 ml ones cracked",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 755,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 755,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F102.0",
+   "members": [
+    "S9:F102.0"
+   ],
+   "supersedes_raw": [],
+   "value": "glaze test wall before September fair: working towards: finish the glaze test wall before the September fair",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 584,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 584,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F103.0",
+   "members": [
+    "S9:F103.0"
+   ],
+   "supersedes_raw": [],
+   "value": "weekly ETA error dashboard review: decided: a weekly 30-minute review of the ETA error dashboard, Thursdays at 15:00",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 861,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 861,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F104.0",
+   "members": [
+    "S9:F104.0"
+   ],
+   "supersedes_raw": [],
+   "value": "sugar in tea trial: decided: cut sugar in tea entirely from 2026-03-01 as a trial",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 254,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 254,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F104.1",
+   "members": [
+    "S9:F104.1"
+   ],
+   "supersedes_raw": [
+    "S9:F104.0"
+   ],
+   "value": "sugar in tea trial: reversal: back to one sugar, the trial failed by week three",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 616,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 616,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F105.0",
+   "members": [
+    "S9:F105.0"
+   ],
+   "supersedes_raw": [],
+   "value": "spring trade fair skipped, then booked: decided: skip the spring trade fair",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 471,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 471,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F105.1",
+   "members": [
+    "S9:F105.1"
+   ],
+   "supersedes_raw": [
+    "S9:F105.0"
+   ],
+   "value": "spring trade fair skipped, then booked: reversal: booking the stand at the September trade fair after all",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 940,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 940,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F106.0",
+   "members": [
+    "S9:F106.0"
+   ],
+   "supersedes_raw": [],
+   "value": "deploy checklist: deploy checklist: run the test suite, tag the release, deploy to staging, smoke-test the tracking feed, then prod at 16:30 on Thursdays",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 56,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 56,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F107.0",
+   "members": [
+    "S9:F107.0"
+   ],
+   "supersedes_raw": [],
+   "value": "rollback steps: rollback steps: pin the previous image tag, scale ETA workers to 0 then back to 4, post in #freight-incidents",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 186,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 186,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F108.0",
+   "members": [
+    "S9:F108.0"
+   ],
+   "supersedes_raw": [],
+   "value": "morning routine: morning routine: 10 minutes foam roll, 30-second isometric hold, filter coffee, then the 7am swim",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 323,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 323,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F109.0",
+   "members": [
+    "S9:F109.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln loading steps: kiln loading: wash shelves, space posts, place cones 04 and 6 at the peephole, record in the firing log",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 355,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 355,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F110.0",
+   "members": [
+    "S9:F110.0"
+   ],
+   "supersedes_raw": [],
+   "value": "month-end close: month-end close: export bank CSV, match Shopify payouts, tag mileage, send to Dana by the 3rd",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 286,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 286,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F111.0",
+   "members": [
+    "S9:F111.0"
+   ],
+   "supersedes_raw": [],
+   "value": "desk stretch routine: desk stretch: 3 minutes every 50 minutes, chin tucks x10, doorway stretch 30 seconds each side",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 707,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 707,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F112.0",
+   "members": [
+    "S9:F112.0"
+   ],
+   "supersedes_raw": [],
+   "value": "glaze mixing steps: glaze mixing: weigh dry first, sieve through 80 mesh twice, add water to 1.6 specific gravity",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 503,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 503,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F113.0",
+   "members": [
+    "S9:F113.0"
+   ],
+   "supersedes_raw": [],
+   "value": "new service checklist: new service checklist: health endpoint, metrics, runbook page and on-call tag before the first deploy",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 407,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 407,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F114.0",
+   "members": [
+    "S9:F114.0"
+   ],
+   "supersedes_raw": [],
+   "value": "weekly invoice chase: weekly invoice chase: Monday list, email at 14 days overdue, phone at 30 days",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 545,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 545,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F115.0",
+   "members": [
+    "S9:F115.0"
+   ],
+   "supersedes_raw": [],
+   "value": "packing order for trips: packing: passport in the blue wallet, chargers in the grey pouch, gym kit goes in last",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 828,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 828,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F116.0",
+   "members": [
+    "S9:F116.0"
+   ],
+   "supersedes_raw": [],
+   "value": "HP5 developing times: film developing for HP5: 9 minutes at 20C, agitate 30 seconds in the first minute then 10 seconds every minute",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 736,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 736,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F117.0",
+   "members": [
+    "S9:F117.0"
+   ],
+   "supersedes_raw": [],
+   "value": "backup restore drill: backup drill: restore the latest dump to the scratch host, run a row-count diff, log the restore time",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 899,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 899,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F118.0",
+   "members": [
+    "S9:F118.0"
+   ],
+   "supersedes_raw": [],
+   "value": "fair setup routine: fair setup: shelves first, price tags 2 cm from the edge, card reader tested the day before",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 888,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 888,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F119.0",
+   "members": [
+    "S9:F119.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Sunday reset: Sunday reset: plan the week, shopping list, prep two lunches, charge the watch",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 95,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 95,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F120.0",
+   "members": [
+    "S9:F120.0"
+   ],
+   "supersedes_raw": [],
+   "value": "code review merge rule: code review rule: no merge before one approval and green CI; I always squash",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 228,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 228,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F121.0",
+   "members": [
+    "S9:F121.0"
+   ],
+   "supersedes_raw": [],
+   "value": "photo editing order: photo editing order: cull, white balance the whole roll, crop, export at 2400 px on the long edge",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 622,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 622,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F122.0",
+   "members": [
+    "S9:F122.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mug shipping steps: mug shipping: wrap in paper, bubble-wrap base, check the inventory sheet, print label, collect at 16:00",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 461,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 461,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F123.0",
+   "members": [
+    "S9:F123.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA retrain procedure: ETA retrain: freeze features, evaluate on last 90 days, compare to baseline, promote only if MAE drops 3 percent",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 779,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 779,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F124.0",
+   "members": [
+    "S9:F124.0"
+   ],
+   "supersedes_raw": [],
+   "value": "night routine: night routine: lights out, blinds down, phone charging in the kitchen",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 152,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 152,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F125.0",
+   "members": [
+    "S9:F125.0"
+   ],
+   "supersedes_raw": [],
+   "value": "wedging clay, rejected wire-cutter idea: rejected: the assistant suggested wedging only with a wire cutter; I keep the hand-wedging method",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 699,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 699,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S9:F126.0",
+   "members": [
+    "S9:F126.0"
+   ],
+   "supersedes_raw": [],
+   "value": "tax-day steps: tax day: gather receipts, export mileage, call Dana by the 20th, pay on the portal",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 925,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 925,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F127.0",
+   "members": [
+    "S9:F127.0"
+   ],
+   "supersedes_raw": [],
+   "value": "no ibuprofen, kidney bloods: I can't take ibuprofen because the kidney blood test flagged creatinine; paracetamol only",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 213,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 213,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F128.0",
+   "members": [
+    "S9:F128.0"
+   ],
+   "supersedes_raw": [],
+   "value": "gluten-free since March: I'm gluten-free since March after the coeliac screen came back positive",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 285,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 285,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F129.0",
+   "members": [
+    "S9:F129.0"
+   ],
+   "supersedes_raw": [],
+   "value": "UK-only shipping: I don't ship outside the UK; overseas buyers get a refund instead",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 469,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 469,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F130.0",
+   "members": [
+    "S9:F130.0"
+   ],
+   "supersedes_raw": [],
+   "value": "wool itches: wool makes my wrists itch, so I only buy merino or cotton jumpers",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 560,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 560,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F131.0",
+   "members": [
+    "S9:F131.0"
+   ],
+   "supersedes_raw": [],
+   "value": "tracking feed on Python 3.11: the tracking feed is pinned to Python 3.11; the 3.12 build breaks the ORM",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 365,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 365,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F132.0",
+   "members": [
+    "S9:F132.0"
+   ],
+   "supersedes_raw": [],
+   "value": "van can't do motorways: the Berlingo can't do motorways above 60 because the gearbox is tired",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 646,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 646,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F133.0",
+   "members": [
+    "S9:F133.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln top element faulty: the kiln's top element is faulty, so I only fire up to cone 6",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 772,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 772,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F134.0",
+   "members": [
+    "S9:F134.0"
+   ],
+   "supersedes_raw": [],
+   "value": "penicillin allergy: I'm allergic to penicillin",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 116,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 116,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F135.0",
+   "members": [
+    "S9:F135.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Tarrant timestamps need Z: Tarrant's API only accepts ISO 8601 timestamps with a Z, never offsets",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 487,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 487,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F136.0",
+   "members": [
+    "S9:F136.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mum is vegetarian, no lamb: my mum is vegetarian and doesn't eat lamb",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 852,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 852,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F137.0",
+   "members": [
+    "S9:F137.0"
+   ],
+   "supersedes_raw": [],
+   "value": "studio lease notice: the studio lease ends 2026-11-30 and the landlord needs 60 days' written notice",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 654,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 654,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F138.0",
+   "members": [
+    "S9:F138.0"
+   ],
+   "supersedes_raw": [],
+   "value": "lactose intolerant, oat milk: I'm lactose intolerant, so only oat milk goes in the studio fridge",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 400,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 400,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F139.0",
+   "members": [
+    "S9:F139.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Tarrant retry limit: Tarrant's sandbox stops retrying webhooks after 3 attempts",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 704,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 704,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F140.0",
+   "members": [
+    "S9:F140.0"
+   ],
+   "supersedes_raw": [],
+   "value": "below VAT threshold: the shop is below the 90,000 GBP VAT threshold, so I'm not VAT registered",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 818,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 818,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F141.0",
+   "members": [
+    "S9:F141.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Monday kiln room shared: the kiln room is shared with the Monday ceramics class, so no firing that day",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 591,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 591,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F142.0",
+   "members": [
+    "S9:F142.0"
+   ],
+   "supersedes_raw": [],
+   "value": "no stairs with the cast: cast on my left foot, so no stairs until 2026-03-30",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 197,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 197,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F143.0",
+   "members": [
+    "S9:F143.0"
+   ],
+   "supersedes_raw": [],
+   "value": "platform team in Berlin: the platform team is in Berlin, so no meetings before 10:00 my time",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 505,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 505,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F144.0",
+   "members": [
+    "S9:F144.0"
+   ],
+   "supersedes_raw": [],
+   "value": "cleaner paid in cash: I pay the cleaner in cash on the first Friday of the month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 880,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 880,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F145.0",
+   "members": [
+    "S9:F145.0"
+   ],
+   "supersedes_raw": [],
+   "value": "clay delivery days: my clay supplier only delivers on Tuesdays",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 259,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 259,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F146.0",
+   "members": [
+    "S9:F146.0"
+   ],
+   "supersedes_raw": [],
+   "value": "no lifting over 10 kg: I'm not allowed to lift over 10 kg until the physio clears me",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 327,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 327,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F147.0",
+   "members": [
+    "S9:F147.0"
+   ],
+   "supersedes_raw": [],
+   "value": "prod DB only via bastion: our production database is only reachable through the bastion host",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 450,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 450,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F148.0",
+   "members": [
+    "S9:F148.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA cutover deadline: the ETA service's cutover deadline is 2026-03-14",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 206,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 206,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F149.0",
+   "members": [
+    "S9:F149.0"
+   ],
+   "supersedes_raw": [],
+   "value": "glaze test batch deadline: the glaze test batch deadline is 2026-03-21",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 273,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 273,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F150.0",
+   "members": [
+    "S9:F150.0"
+   ],
+   "supersedes_raw": [],
+   "value": "VAT return due date: the VAT return is due 2026-03-07",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 224,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 224,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F151.0",
+   "members": [
+    "S9:F151.0"
+   ],
+   "supersedes_raw": [],
+   "value": "physio review date: the physio review is on 2026-03-18",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 255,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 255,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F152.0",
+   "members": [
+    "S9:F152.0"
+   ],
+   "supersedes_raw": [],
+   "value": "fair entry form deadline: the fair entry form is due 2026-03-28",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 238,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 238,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F153.0",
+   "members": [
+    "S9:F153.0"
+   ],
+   "supersedes_raw": [],
+   "value": "shop ad budget: the shop ad budget is 300 GBP a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 305,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 305,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F154.0",
+   "members": [
+    "S9:F154.0"
+   ],
+   "supersedes_raw": [],
+   "value": "cloud hosting budget: the cloud hosting budget is 850 USD a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 345,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 345,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F155.0",
+   "members": [
+    "S9:F155.0"
+   ],
+   "supersedes_raw": [],
+   "value": "clay and glaze spend budget: the clay and glaze spend budget is 220 GBP a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 356,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 356,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F156.0",
+   "members": [
+    "S9:F156.0"
+   ],
+   "supersedes_raw": [],
+   "value": "gym and physio spend limit: the gym and physio spend is capped at 180 GBP a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 386,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 386,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F157.0",
+   "members": [
+    "S9:F157.0"
+   ],
+   "supersedes_raw": [],
+   "value": "hours a week on ETA project: I spend 22 hours a week on the ETA project",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 605,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 605,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F158.0",
+   "members": [
+    "S9:F158.0"
+   ],
+   "supersedes_raw": [],
+   "value": "hours a week in the studio: I spend 14 hours a week in the studio",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 657,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 657,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F159.0",
+   "members": [
+    "S9:F159.0"
+   ],
+   "supersedes_raw": [],
+   "value": "hours a week on bookkeeping: I spend 4 hours a week on bookkeeping",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 639,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 639,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F160.0",
+   "members": [
+    "S9:F160.0"
+   ],
+   "supersedes_raw": [],
+   "value": "hours a week on rehab exercises: I spend 6 hours a week on rehab exercises",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 774,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 774,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F161.0",
+   "members": [
+    "S9:F161.0"
+   ],
+   "supersedes_raw": [],
+   "value": "tracking feed peak load: the tracking feed handles 1,200 events per second at peak",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 539,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 539,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F162.0",
+   "members": [
+    "S9:F162.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln capacity per firing: the kiln fits 42 mugs per firing",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 578,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 578,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F163.0",
+   "members": [
+    "S9:F163.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mugs on the shelf: I have 310 mugs in the warehouse",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 682,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 682,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F164.0",
+   "members": [
+    "S9:F164.0"
+   ],
+   "supersedes_raw": [],
+   "value": "daily water target: my daily water target is 2.5 litres",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 808,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 808,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F165.0",
+   "members": [
+    "S9:F165.0"
+   ],
+   "supersedes_raw": [],
+   "value": "CI pipeline duration: the CI pipeline runs in 14 minutes end to end",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 140,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 140,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F166.0",
+   "members": [
+    "S9:F166.0"
+   ],
+   "supersedes_raw": [],
+   "value": "throwing and trimming time: throwing and trimming one mug takes 25 minutes",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 413,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 413,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F167.0",
+   "members": [
+    "S9:F167.0"
+   ],
+   "supersedes_raw": [],
+   "value": "customer payment terms: customer payment terms are 30 days",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 561,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 561,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F168.0",
+   "members": [
+    "S9:F168.0"
+   ],
+   "supersedes_raw": [],
+   "value": "walk to the studio: the walk from home to the studio takes 22 minutes",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 936,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 936,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F169.0",
+   "members": [
+    "S9:F169.0"
+   ],
+   "supersedes_raw": [],
+   "value": "monthly tooling budget: monthly tooling budget is 180 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 66,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F169.1",
+   "members": [
+    "S9:F169.1"
+   ],
+   "supersedes_raw": [
+    "S9:F169.0"
+   ],
+   "value": "monthly tooling budget: monthly tooling budget is 240 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 416,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 416,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F169.2",
+   "members": [
+    "S9:F169.2"
+   ],
+   "supersedes_raw": [
+    "S9:F169.1"
+   ],
+   "value": "monthly tooling budget: monthly tooling budget is 210 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 726,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 726,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F170.0",
+   "members": [
+    "S9:F170.0"
+   ],
+   "supersedes_raw": [],
+   "value": "freight test environment size: the freight test environment runs on 2 nodes",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 188,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 188,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F170.1",
+   "members": [
+    "S9:F170.1"
+   ],
+   "supersedes_raw": [
+    "S9:F170.0"
+   ],
+   "value": "freight test environment size: the freight test environment runs on 4 nodes",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 529,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 529,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F170.2",
+   "members": [
+    "S9:F170.2"
+   ],
+   "supersedes_raw": [
+    "S9:F170.1"
+   ],
+   "value": "freight test environment size: the freight test environment runs on 3 nodes",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 805,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 805,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F171.0",
+   "members": [
+    "S9:F171.0"
+   ],
+   "supersedes_raw": [],
+   "value": "5k pace goal: my 5k goal is 28:00",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 111,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 111,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F171.1",
+   "members": [
+    "S9:F171.1"
+   ],
+   "supersedes_raw": [
+    "S9:F171.0"
+   ],
+   "value": "5k pace goal: my 5k goal is 26:30",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 470,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 470,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F171.2",
+   "members": [
+    "S9:F171.2"
+   ],
+   "supersedes_raw": [
+    "S9:F171.1"
+   ],
+   "value": "5k pace goal: my 5k goal is 25:10",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 810,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 810,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F172.0",
+   "members": [
+    "S9:F172.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mug price: the mug price is 22 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 193,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 193,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F172.1",
+   "members": [
+    "S9:F172.1"
+   ],
+   "supersedes_raw": [
+    "S9:F172.0"
+   ],
+   "value": "mug price: the mug price is 24 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 540,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 540,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F172.2",
+   "members": [
+    "S9:F172.2"
+   ],
+   "supersedes_raw": [
+    "S9:F172.1"
+   ],
+   "value": "mug price: the mug price is 26 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 896,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 896,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F173.0",
+   "members": [
+    "S9:F173.0"
+   ],
+   "supersedes_raw": [],
+   "value": "shop revenue target: the shop revenue target is 3,000 GBP a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 275,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 275,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F173.1",
+   "members": [
+    "S9:F173.1"
+   ],
+   "supersedes_raw": [
+    "S9:F173.0"
+   ],
+   "value": "shop revenue target: the shop revenue target is 4,500 GBP a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 615,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 615,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F174.0",
+   "members": [
+    "S9:F174.0"
+   ],
+   "supersedes_raw": [],
+   "value": "physio sessions per week: physio is three sessions a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 440,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 440,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F174.1",
+   "members": [
+    "S9:F174.1"
+   ],
+   "supersedes_raw": [
+    "S9:F174.0"
+   ],
+   "value": "physio sessions per week: physio is two sessions a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 744,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 744,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F175.0",
+   "members": [
+    "S9:F175.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA p95 latency target: the ETA p95 latency target is 500 ms",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 208,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 208,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F175.1",
+   "members": [
+    "S9:F175.1"
+   ],
+   "supersedes_raw": [
+    "S9:F175.0"
+   ],
+   "value": "ETA p95 latency target: the ETA p95 latency target is 400 ms",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 579,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 579,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F175.2",
+   "members": [
+    "S9:F175.2"
+   ],
+   "supersedes_raw": [
+    "S9:F175.1"
+   ],
+   "value": "ETA p95 latency target: the ETA p95 latency target is 350 ms",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 937,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 937,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F176.0",
+   "members": [
+    "S9:F176.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln firings per month: I run 6 kiln firings a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 289,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 289,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F176.1",
+   "members": [
+    "S9:F176.1"
+   ],
+   "supersedes_raw": [
+    "S9:F176.0"
+   ],
+   "value": "kiln firings per month: I run 9 kiln firings a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 662,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 662,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F177.0",
+   "members": [
+    "S9:F177.0"
+   ],
+   "supersedes_raw": [],
+   "value": "studio rent: studio rent is 950 GBP a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 42,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 42,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F177.1",
+   "members": [
+    "S9:F177.1"
+   ],
+   "supersedes_raw": [
+    "S9:F177.0"
+   ],
+   "value": "studio rent: studio rent is 1,050 GBP a month",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 700,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 700,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F178.0",
+   "members": [
+    "S9:F178.0"
+   ],
+   "supersedes_raw": [],
+   "value": "sleep target: my sleep target is 7 hours",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 97,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 97,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F178.1",
+   "members": [
+    "S9:F178.1"
+   ],
+   "supersedes_raw": [
+    "S9:F178.0"
+   ],
+   "value": "sleep target: my sleep target is 7.5 hours",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 518,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 518,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F179.0",
+   "members": [
+    "S9:F179.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ETA team headcount: the ETA team has 4 engineers",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 144,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 144,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F179.1",
+   "members": [
+    "S9:F179.1"
+   ],
+   "supersedes_raw": [
+    "S9:F179.0"
+   ],
+   "value": "ETA team headcount: the ETA team has 5 engineers",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 493,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 493,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F179.2",
+   "members": [
+    "S9:F179.2"
+   ],
+   "supersedes_raw": [
+    "S9:F179.1"
+   ],
+   "value": "ETA team headcount: the ETA team has 4 engineers",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 857,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 857,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F180.0",
+   "members": [
+    "S9:F180.0"
+   ],
+   "supersedes_raw": [],
+   "value": "photo walk attendance target: the photo walk attendance target is 6 people",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 339,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 339,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F180.1",
+   "members": [
+    "S9:F180.1"
+   ],
+   "supersedes_raw": [
+    "S9:F180.0"
+   ],
+   "value": "photo walk attendance target: the photo walk attendance target is 9 people",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 720,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 720,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F181.0",
+   "members": [
+    "S9:F181.0"
+   ],
+   "supersedes_raw": [],
+   "value": "savings target: my savings target is 8,000 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 227,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 227,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F181.1",
+   "members": [
+    "S9:F181.1"
+   ],
+   "supersedes_raw": [
+    "S9:F181.0"
+   ],
+   "value": "savings target: my savings target is 12,000 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 638,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 638,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F182.0",
+   "members": [
+    "S9:F182.0"
+   ],
+   "supersedes_raw": [],
+   "value": "coffee limit: my coffee limit is 3 cups a day",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 155,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 155,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F182.1",
+   "members": [
+    "S9:F182.1"
+   ],
+   "supersedes_raw": [
+    "S9:F182.0"
+   ],
+   "value": "coffee limit: my coffee limit is 2 cups a day",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 406,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 406,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F183.0",
+   "members": [
+    "S9:F183.0"
+   ],
+   "supersedes_raw": [],
+   "value": "on-call page ceiling: the on-call page ceiling is 5 pages a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 366,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 366,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F183.1",
+   "members": [
+    "S9:F183.1"
+   ],
+   "supersedes_raw": [
+    "S9:F183.0"
+   ],
+   "value": "on-call page ceiling: the on-call page ceiling is 3 pages a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 770,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 770,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F184.0",
+   "members": [
+    "S9:F184.0"
+   ],
+   "supersedes_raw": [],
+   "value": "glaze test count: the glaze test count is 40 tiles",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 276,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 276,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F184.1",
+   "members": [
+    "S9:F184.1"
+   ],
+   "supersedes_raw": [
+    "S9:F184.0"
+   ],
+   "value": "glaze test count: the glaze test count is 64 tiles",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 784,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 784,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F185.0",
+   "members": [
+    "S9:F185.0"
+   ],
+   "supersedes_raw": [],
+   "value": "invoice late-fee threshold: the invoice late-fee threshold is 30 days",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 385,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 385,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F185.1",
+   "members": [
+    "S9:F185.1"
+   ],
+   "supersedes_raw": [
+    "S9:F185.0"
+   ],
+   "value": "invoice late-fee threshold: the invoice late-fee threshold is 45 days",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 839,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 839,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F186.0",
+   "members": [
+    "S9:F186.0"
+   ],
+   "supersedes_raw": [],
+   "value": "gym sessions per week: I go to the gym 2 times a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 55,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 55,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F186.1",
+   "members": [
+    "S9:F186.1"
+   ],
+   "supersedes_raw": [
+    "S9:F186.0"
+   ],
+   "value": "gym sessions per week: I go to the gym 3 times a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 528,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 528,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F186.2",
+   "members": [
+    "S9:F186.2"
+   ],
+   "supersedes_raw": [
+    "S9:F186.1"
+   ],
+   "value": "gym sessions per week: I go to the gym 4 times a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 962,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 962,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F187.0",
+   "members": [
+    "S9:F187.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Postgres storage quota: the Postgres storage quota is 200 GB",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 195,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 195,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F187.1",
+   "members": [
+    "S9:F187.1"
+   ],
+   "supersedes_raw": [
+    "S9:F187.0"
+   ],
+   "value": "Postgres storage quota: the Postgres storage quota is 350 GB",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 618,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 618,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F188.0",
+   "members": [
+    "S9:F188.0"
+   ],
+   "supersedes_raw": [],
+   "value": "clay bag size: I buy clay in 12.5 kg bags",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 308,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 308,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F188.1",
+   "members": [
+    "S9:F188.1"
+   ],
+   "supersedes_raw": [
+    "S9:F188.0"
+   ],
+   "value": "clay bag size: I buy clay in 25 kg bags",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 749,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 749,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F189.0",
+   "members": [
+    "S9:F189.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Harrogate stand price: the Harrogate stand costs 320 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 88,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 88,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F189.1",
+   "members": [
+    "S9:F189.1"
+   ],
+   "supersedes_raw": [
+    "S9:F189.0"
+   ],
+   "value": "Harrogate stand price: the Harrogate stand costs 380 GBP",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 628,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 628,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F190.0",
+   "members": [
+    "S9:F190.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Harrow & Pike, short name H&P: my accountant firm Harrow & Pike LLP, which I also call H&P in my spreadsheet",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 76,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 76,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F191.0",
+   "members": [
+    "S9:F191.0"
+   ],
+   "supersedes_raw": [],
+   "value": "kiln Dot, the Corvane KX-220: the Corvane KX-220 kiln, which I call Dot",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 70,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F192.0",
+   "members": [
+    "S9:F192.0"
+   ],
+   "supersedes_raw": [],
+   "value": "eta-v2 repo, the ETA beast: freight-eta-recalc-v2, which I also call eta-v2 or the ETA beast",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 367,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 367,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F193.0",
+   "members": [
+    "S9:F193.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Riverside Physio, RPC: Riverside Physio Clinic, which I shorten to Riverside or RPC on my calendar",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 499,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 499,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F194.0",
+   "members": [
+    "S9:F194.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Tarrant Logistics, TLL: Tarrant Logistics Ltd, which I also call TLL or Tarrant Haul",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 246,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 246,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F195.0",
+   "members": [
+    "S9:F195.0"
+   ],
+   "supersedes_raw": [],
+   "value": "sister Ruth, Rutie: my sister Ruth Halloran, who the family calls Rutie",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 215,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 215,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F196.0",
+   "members": [
+    "S9:F196.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mum Margaret, Peg: my mum Margaret Halloran, who everyone calls Peg",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 261,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 261,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F197.0",
+   "members": [
+    "S9:F197.0"
+   ],
+   "supersedes_raw": [],
+   "value": "shop name, HKS: Halloran Kiln Studio, which customers shorten to HKS",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 27,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 27,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F198.0",
+   "members": [
+    "S9:F198.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ci-pool-b, the blue runners: the CI runner pool ci-pool-b, which the team calls the blue runners",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 281,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 281,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F199.0",
+   "members": [
+    "S9:F199.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Ardenne W-12 wheel, the Ardie: the Ardenne W-12 wheel, which I call the Ardie",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 441,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 441,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F200.0",
+   "members": [
+    "S9:F200.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Pentax K1000, the Kay: the Pentax K1000 film camera, which I call the Kay",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 595,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 595,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F201.0",
+   "members": [
+    "S9:F201.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Harbour Loop, the Quay circuit: the Harbour Loop running route, also called the Quay circuit",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 149,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 149,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F202.0",
+   "members": [
+    "S9:F202.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Marlow Freight Software, MFS: my employer Marlow Freight Software, shortened to MFS or Marlow Haul",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 5,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 5,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F203.0",
+   "members": [
+    "S9:F203.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Platform Reliability, SRE-West: the Platform Reliability team, also called SRE-West on the org chart",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 515,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 515,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F204.0",
+   "members": [
+    "S9:F204.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Mudlark Studio, the tannery studio: Mudlark Studio, which I call the Mudlark or the tannery studio",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 336,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 336,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F205.0",
+   "members": [
+    "S9:F205.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Corvane Ceramics Supply, CCS: Corvane Ceramics Supply, also called CCS or the kiln people",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 408,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 408,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F206.0",
+   "members": [
+    "S9:F206.0"
+   ],
+   "supersedes_raw": [],
+   "value": "PhysioBand resistance band, purple band: the PhysioBand resistance band, which I call the purple band",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 384,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 384,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F207.0",
+   "members": [
+    "S9:F207.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Jules Okonkwo, called Jay: Jules Okonkwo, who everyone calls Jay",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 626,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 626,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F208.0",
+   "members": [
+    "S9:F208.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Pemberton starter, Gerald: the Pemberton sourdough starter, which I call Gerald",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 703,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 703,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F209.0",
+   "members": [
+    "S9:F209.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Berlingo van, Bertha: the Berlingo delivery van, which I call Bertha",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 778,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 778,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:F210.0",
+   "members": [
+    "S9:F210.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Berlin team, EU platform squad: the Berlin team, also called the EU platform squad",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 871,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 871,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E01",
+   "members": [
+    "S9:E01"
+   ],
+   "supersedes_raw": [],
+   "value": "the kiln controller threw ERR-K417-3B mid-firing and I reseated the plug on 2026-01-13",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 60,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 60,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E02",
+   "members": [
+    "S9:E02"
+   ],
+   "supersedes_raw": [],
+   "value": "parcel GB-TRK-7730-QWZ was lost in transit and Corvane refunded it on 2026-05-20",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 557,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 557,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E03",
+   "members": [
+    "S9:E03"
+   ],
+   "supersedes_raw": [],
+   "value": "van HB24 TQN failed its MOT on the first attempt on 2026-07-07",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 741,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 741,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E04",
+   "members": [
+    "S9:E04"
+   ],
+   "supersedes_raw": [],
+   "value": "signed up with Halden Glaze Works after a call at the trade fair on 2026-01-26",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 105,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 105,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E05",
+   "members": [
+    "S9:E05"
+   ],
+   "supersedes_raw": [],
+   "value": "the first Thursday 16:30 production deploy went out without a rollback on 2026-02-27",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 267,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 267,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E06",
+   "members": [
+    "S9:E06"
+   ],
+   "supersedes_raw": [],
+   "value": "shot the architecture walk on Fomapan and the grain came out heavy on 2026-08-21",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 923,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 923,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E07",
+   "members": [
+    "S9:E07"
+   ],
+   "supersedes_raw": [],
+   "value": "met Dana Whitfield in person at Harrow & Pike's office on Quayside Row on 2026-04-05",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 377,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 377,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E08",
+   "members": [
+    "S9:E08"
+   ],
+   "supersedes_raw": [],
+   "value": "Tom Abara signed off the shoulder rehab plan on 2026-04-20",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 489,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 489,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E09",
+   "members": [
+    "S9:E09"
+   ],
+   "supersedes_raw": [],
+   "value": "Mo Farrell's crew finished the roller shutter door on 2026-07-17",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 814,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 814,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E10",
+   "members": [
+    "S9:E10"
+   ],
+   "supersedes_raw": [],
+   "value": "ran the Harbour Loop in 52 minutes, my first test of the knee on 2026-03-27",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 326,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 326,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E11",
+   "members": [
+    "S9:E11"
+   ],
+   "supersedes_raw": [],
+   "value": "a studio open day rehearsal with 12 friends on 2026-05-31",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 609,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 609,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E12",
+   "members": [
+    "S9:E12"
+   ],
+   "supersedes_raw": [],
+   "value": "a batch of bisque mugs cracked in the kiln on 2026-02-09",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 174,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 174,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E13",
+   "members": [
+    "S9:E13"
+   ],
+   "supersedes_raw": [],
+   "value": "the Halloran Kiln Studio domain went live on 2026-02-27",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 231,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 231,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E14",
+   "members": [
+    "S9:E14"
+   ],
+   "supersedes_raw": [],
+   "value": "the first Etsy order arrived on 2026-04-07",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 421,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 421,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E15",
+   "members": [
+    "S9:E15"
+   ],
+   "supersedes_raw": [],
+   "value": "the freight v1 endpoint was retired on 2026-07-18",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 783,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 783,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E16",
+   "members": [
+    "S9:E16"
+   ],
+   "supersedes_raw": [],
+   "value": "rolled the ETA service back to the previous image after a bad deploy on 2026-04-14",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 438,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 438,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E17",
+   "members": [
+    "S9:E17"
+   ],
+   "supersedes_raw": [],
+   "value": "first monthly close run with the new checklist on 2026-03-23",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 310,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 310,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E18",
+   "members": [
+    "S9:E18"
+   ],
+   "supersedes_raw": [],
+   "value": "first time running the fair setup routine at a market on 2026-08-24",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 950,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 950,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E19",
+   "members": [
+    "S9:E19"
+   ],
+   "supersedes_raw": [],
+   "value": "wore the wool jumper to the studio and got an itchy rash on my wrists on 2026-05-27",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 582,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 582,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E20",
+   "members": [
+    "S9:E20"
+   ],
+   "supersedes_raw": [],
+   "value": "got a stomach bug after a takeaway curry on 2026-05-06",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 546,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 546,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E21",
+   "members": [
+    "S9:E21"
+   ],
+   "supersedes_raw": [],
+   "value": "the Tarrant sandbox rejected my fourth webhook retry on 2026-06-21",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 715,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 715,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E22",
+   "members": [
+    "S9:E22"
+   ],
+   "supersedes_raw": [],
+   "value": "the bookkeeping review call with Dana went ahead on 2026-03-03",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 262,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 262,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E23",
+   "members": [
+    "S9:E23"
+   ],
+   "supersedes_raw": [],
+   "value": "the landlord's letter came with a 4 percent rent increase on 2026-06-30",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 746,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 746,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E24",
+   "members": [
+    "S9:E24"
+   ],
+   "supersedes_raw": [],
+   "value": "the CI runner pool was upgraded and the pipeline ran slower for a day on 2026-07-31",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 826,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 826,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E25",
+   "members": [
+    "S9:E25"
+   ],
+   "supersedes_raw": [],
+   "value": "Halden's bulk price rose by 3 percent on 2026-02-20",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 299,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 299,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E26",
+   "members": [
+    "S9:E26"
+   ],
+   "supersedes_raw": [],
+   "value": "opened the pre-order page for the planters on 2026-05-04",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 524,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 524,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E27",
+   "members": [
+    "S9:E27"
+   ],
+   "supersedes_raw": [],
+   "value": "the first session of the 12-week rehab, on 2026-02-02 on 2026-02-02",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 179,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 179,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E28",
+   "members": [
+    "S9:E28"
+   ],
+   "supersedes_raw": [],
+   "value": "my friend Jules helped me carry the kiln on 2026-03-31",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 399,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 399,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E29",
+   "members": [
+    "S9:E29"
+   ],
+   "supersedes_raw": [],
+   "value": "the delivery van failed its brake check on 2026-06-12",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 674,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 674,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S9:E30",
+   "members": [
+    "S9:E30"
+   ],
+   "supersedes_raw": [],
+   "value": "Ruth came up to Port Ardell for my birthday on 2026-08-08",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 914,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 914,
+     "role": "user"
+    }
+   ]
+  }
+ ]
+}

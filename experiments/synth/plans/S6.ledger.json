@@ -1,0 +1,732 @@
+{
+ "policy": "ice-final-synth-plan-ledger-1",
+ "history": "S6",
+ "entries": [
+  {
+   "id": "S6:F001.0",
+   "members": [
+    "S6:F001.0"
+   ],
+   "supersedes_raw": [],
+   "value": "coriander: dislikes coriander, picks it out of everything",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 1,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 1,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F001.1",
+   "members": [
+    "S6:F001.1"
+   ],
+   "supersedes_raw": [
+    "S6:F001.0"
+   ],
+   "value": "coriander: coriander is fine cooked, still hates it raw",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 207,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 207,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F002.0",
+   "members": [
+    "S6:F002.0"
+   ],
+   "supersedes_raw": [],
+   "value": "units for recipes: recipes in metric: grams, ml, celsius",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 2,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 2,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F002.1",
+   "members": [
+    "S6:F002.1"
+   ],
+   "supersedes_raw": [
+    "S6:F002.0"
+   ],
+   "value": "units for recipes: back to cups and tablespoons, oven still celsius",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 153,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 153,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F003.0",
+   "members": [
+    "S6:F003.0"
+   ],
+   "supersedes_raw": [],
+   "value": "prep time placement: always list prep time first, before ingredients",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 3,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 3,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F004.0",
+   "members": [
+    "S6:F004.0"
+   ],
+   "supersedes_raw": [],
+   "value": "household size: cooks for 3: me, Sol and Kit",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 4,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F004.1",
+   "members": [
+    "S6:F004.1"
+   ],
+   "supersedes_raw": [
+    "S6:F004.0"
+   ],
+   "value": "household size: cooks for 4 now, Gwen moved in",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 188,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 188,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F005.0",
+   "members": [
+    "S6:F005.0"
+   ],
+   "supersedes_raw": [],
+   "value": "emojis in replies: no emojis in replies",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 5,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 5,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F006.0",
+   "members": [
+    "S6:F006.0"
+   ],
+   "supersedes_raw": [],
+   "value": "reply format: reply in bullet points",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 6,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F006.1",
+   "members": [
+    "S6:F006.1"
+   ],
+   "supersedes_raw": [
+    "S6:F006.0"
+   ],
+   "value": "reply format: no bullets needed, normal sentences are fine now",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 218,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 218,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F007.0",
+   "members": [
+    "S6:F007.0"
+   ],
+   "supersedes_raw": [],
+   "value": "weekday recipe time cap: cap recipes at 30 minutes on weekdays",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 7,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 7,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F007.1",
+   "members": [
+    "S6:F007.1"
+   ],
+   "supersedes_raw": [
+    "S6:F007.0"
+   ],
+   "value": "weekday recipe time cap: cap is 40 minutes on weekdays now, 30 was too tight",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 262,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 262,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F008.0",
+   "members": [
+    "S6:F008.0"
+   ],
+   "supersedes_raw": [],
+   "value": "favourite cuisine: favourite cuisine is Thai",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 9,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F008.1",
+   "members": [
+    "S6:F008.1"
+   ],
+   "supersedes_raw": [
+    "S6:F008.0"
+   ],
+   "value": "favourite cuisine: mostly Korean now since the kimchi class",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 146,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 146,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F009.0",
+   "members": [
+    "S6:F009.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Kit and visible herbs: Kit (6) won't eat anything with visible herbs",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 28,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 28,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F010.0",
+   "members": [
+    "S6:F010.0"
+   ],
+   "supersedes_raw": [],
+   "value": "nuts: no nuts in anything, it's Kit's school rule",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 10,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 10,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F011.0",
+   "members": [
+    "S6:F011.0"
+   ],
+   "supersedes_raw": [],
+   "value": "weekly grocery budget: £70 a week on groceries",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 11,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 11,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F011.1",
+   "members": [
+    "S6:F011.1"
+   ],
+   "supersedes_raw": [
+    "S6:F011.0"
+   ],
+   "value": "weekly grocery budget: £90 a week now, four of us",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 236,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 236,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F012.0",
+   "members": [
+    "S6:F012.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Sol's diet: Sol is vegetarian on weekdays",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 16,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F012.1",
+   "members": [
+    "S6:F012.1"
+   ],
+   "supersedes_raw": [
+    "S6:F012.0"
+   ],
+   "value": "Sol's diet: Sol's gone back to chicken, so no vegetarian weekdays",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 194,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 194,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F013.0",
+   "members": [
+    "S6:F013.0"
+   ],
+   "supersedes_raw": [],
+   "value": "shopping list: always end a meal plan with a shopping list",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 22,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 22,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F013.1",
+   "members": [
+    "S6:F013.1"
+   ],
+   "supersedes_raw": [
+    "S6:F013.0"
+   ],
+   "value": "shopping list: shopping list only when I ask for it",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 169,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 169,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F014.0",
+   "members": [
+    "S6:F014.0"
+   ],
+   "supersedes_raw": [],
+   "value": "half-marathon training: training for a half-marathon in October, 3 runs a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 24,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 24,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F014.1",
+   "members": [
+    "S6:F014.1"
+   ],
+   "supersedes_raw": [
+    "S6:F014.0"
+   ],
+   "value": "half-marathon training: down to 2 runs a week after a knee twinge",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 140,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 140,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F015.0",
+   "members": [
+    "S6:F015.0"
+   ],
+   "supersedes_raw": [],
+   "value": "spice levels: mild for Kit, hot for everyone else",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 27,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 27,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F016.0",
+   "members": [
+    "S6:F016.0"
+   ],
+   "supersedes_raw": [],
+   "value": "reply length: keep replies under 200 words unless I ask for more",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 30,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 30,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F017.0",
+   "members": [
+    "S6:F017.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Thursday takeaway: Thursday is takeaway night, no dinner plan needed",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 34,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 34,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F017.1",
+   "members": [
+    "S6:F017.1"
+   ],
+   "supersedes_raw": [
+    "S6:F017.0"
+   ],
+   "value": "Thursday takeaway: takeaway moved to Friday, Thursday is Gwen's cooking night",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 195,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 195,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F018.0",
+   "members": [
+    "S6:F018.0"
+   ],
+   "supersedes_raw": [],
+   "value": "vitamin D: taking 2000 IU vitamin D every day since November",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 35,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 35,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F019.0",
+   "members": [
+    "S6:F019.0"
+   ],
+   "supersedes_raw": [],
+   "value": "one-pot weeknights: prefers one-pot meals on weeknights",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 40,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 40,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F020.0",
+   "members": [
+    "S6:F020.0"
+   ],
+   "supersedes_raw": [],
+   "value": "brown rice for Kit: assistant suggested brown rice for Kit's dinners; rejected, he won't eat it",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 47,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 47,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S6:F021.0",
+   "members": [
+    "S6:F021.0"
+   ],
+   "supersedes_raw": [],
+   "value": "batch-cooked chilli: batch-cook a chilli on Sundays and freeze four portions",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 55,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 55,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S6:F022.0",
+   "members": [
+    "S6:F022.0"
+   ],
+   "supersedes_raw": [],
+   "value": "slow cooker stew plan: if we get a slow cooker, do stews on Wednesdays",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 60,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 60,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F023.0",
+   "members": [
+    "S6:F023.0"
+   ],
+   "supersedes_raw": [],
+   "value": "slow cooker purchase: bought a 6-litre slow cooker for £45",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 152,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 152,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F024.0",
+   "members": [
+    "S6:F024.0"
+   ],
+   "supersedes_raw": [],
+   "value": "pub quiz team: team is called Crumbs of Comfort, Rhiannon is captain",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 70,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F024.1",
+   "members": [
+    "S6:F024.1"
+   ],
+   "supersedes_raw": [
+    "S6:F024.0"
+   ],
+   "value": "pub quiz team: came second, team renamed Second Helpings",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 232,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 232,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F025.0",
+   "members": [
+    "S6:F025.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Gwen moved in: Gwen moved into the spare room in June",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 186,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 186,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F026.0",
+   "members": [
+    "S6:F026.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Gwen's dairy: Gwen is lactose intolerant, so no cream or butter in her portions",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 197,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 197,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S6:F027.0",
+   "members": [
+    "S6:F027.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Kit's club pickup: after-school club pickup moved to 6pm, so weeknights run later",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 224,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 224,
+     "role": "user"
+    }
+   ]
+  }
+ ]
+}

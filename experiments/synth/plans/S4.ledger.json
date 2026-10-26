@@ -1,0 +1,1844 @@
+{
+ "policy": "ice-final-synth-plan-ledger-1",
+ "history": "S4",
+ "entries": [
+  {
+   "id": "S4:F001.0",
+   "members": [
+    "S4:F001.0"
+   ],
+   "supersedes_raw": [],
+   "value": "pet cat: Mothball, a grey tabby adopted from the Bramwell shelter in 2023",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 2,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 2,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F002.0",
+   "members": [
+    "S4:F002.0"
+   ],
+   "supersedes_raw": [],
+   "value": "childhood town: Ostmere, a lake town up north; she moved away at age 11",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 5,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 5,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F003.0",
+   "members": [
+    "S4:F003.0"
+   ],
+   "supersedes_raw": [],
+   "value": "drug allergy: penicillin, which gives her hives",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 9,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F004.0",
+   "members": [
+    "S4:F004.0"
+   ],
+   "supersedes_raw": [],
+   "value": "closest friend: Corinne Ballard, a pediatric pharmacist at Tellwood General",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 13,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 13,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F005.0",
+   "members": [
+    "S4:F005.0"
+   ],
+   "supersedes_raw": [],
+   "value": "first song: Paper Lanterns, written at age 19",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 17,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 17,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F006.0",
+   "members": [
+    "S4:F006.0"
+   ],
+   "supersedes_raw": [],
+   "value": "thyroid medication: levothyroxine 75 mcg every morning on an empty stomach",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 21,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 21,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F007.0",
+   "members": [
+    "S4:F007.0"
+   ],
+   "supersedes_raw": [],
+   "value": "blood type: O negative",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 24,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 24,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F008.0",
+   "members": [
+    "S4:F008.0"
+   ],
+   "supersedes_raw": [],
+   "value": "sister and brother-in-law: Pell (Penelope) and her husband Owen, who live in Greywick",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 27,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 27,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F009.0",
+   "members": [
+    "S4:F009.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ukulele: Hazel, a secondhand soprano ukulele from a pawn shop",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 30,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 30,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F010.0",
+   "members": [
+    "S4:F010.0"
+   ],
+   "supersedes_raw": [],
+   "value": "watercolour set: a 24-pan Halden set bought at a closing sale",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 33,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F011.0",
+   "members": [
+    "S4:F011.0"
+   ],
+   "supersedes_raw": [],
+   "value": "childhood friend: Renata Oyelaran, who moved to Lisbon at 27",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 36,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 36,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F012.0",
+   "members": [
+    "S4:F012.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mother: Lidia Calloway, a retired bookbinder",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 39,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 39,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F013.0",
+   "members": [
+    "S4:F013.0"
+   ],
+   "supersedes_raw": [],
+   "value": "favourite book: The Salt Ledger by Hanne Voss",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 44,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 44,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F014.0",
+   "members": [
+    "S4:F014.0"
+   ],
+   "supersedes_raw": [],
+   "value": "childhood home: Alder Row number 14 in Ostmere",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 48,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 48,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F015.0",
+   "members": [
+    "S4:F015.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ukulele teacher: Tobiah Renn at Fret & Ferry studio on Mill Street, Thursdays",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 52,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 52,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F016.0",
+   "members": [
+    "S4:F016.0"
+   ],
+   "supersedes_raw": [],
+   "value": "coworker: Dev Malhotra, the chemistry teacher down the hall, whose favourite snack is pistachio gelato",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 55,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 55,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F017.0",
+   "members": [
+    "S4:F017.0"
+   ],
+   "supersedes_raw": [],
+   "value": "ukulele tuning: low-G re-entrant tuning, G-C-E-A",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 58,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 58,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F018.0",
+   "members": [
+    "S4:F018.0"
+   ],
+   "supersedes_raw": [],
+   "value": "running shoes: Stridewell Vantage 3, size 7",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 61,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 61,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F019.0",
+   "members": [
+    "S4:F019.0"
+   ],
+   "supersedes_raw": [],
+   "value": "resting heart rate: 61 beats per minute",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 64,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 64,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F020.0",
+   "members": [
+    "S4:F020.0"
+   ],
+   "supersedes_raw": [],
+   "value": "tea rule: no caffeine after 2pm; Earl Grey with oat milk",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 67,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 67,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F021.0",
+   "members": [
+    "S4:F021.0"
+   ],
+   "supersedes_raw": [],
+   "value": "childhood pet: a rabbit named Admiral, from age 8 to 14",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 71,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 71,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F022.0",
+   "members": [
+    "S4:F022.0"
+   ],
+   "supersedes_raw": [],
+   "value": "university: Carrowfield University, BSc in biology, graduated 2010",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 77,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 77,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F023.0",
+   "members": [
+    "S4:F023.0"
+   ],
+   "supersedes_raw": [],
+   "value": "favourite ice cream: salted caramel from Pemberton's Creamery on Quay Street",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 80,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 80,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F024.0",
+   "members": [
+    "S4:F024.0"
+   ],
+   "supersedes_raw": [],
+   "value": "diet: vegetarian since 2019",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 84,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 84,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F025.0",
+   "members": [
+    "S4:F025.0"
+   ],
+   "supersedes_raw": [],
+   "value": "neighbour: Marisol Vance, next door, who owns two dogs named Pilot and Sage",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 88,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 88,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F026.0",
+   "members": [
+    "S4:F026.0"
+   ],
+   "supersedes_raw": [],
+   "value": "food allergy: cashews, which bring on throat tightness",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 92,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 92,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F027.0",
+   "members": [
+    "S4:F027.0"
+   ],
+   "supersedes_raw": [],
+   "value": "painting series: twelve watercolour lighthouses, begun in 2022",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 96,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 96,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F028.0",
+   "members": [
+    "S4:F028.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bandmate: Ezra Quill, bassist in the band Tin Harbor",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 102,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 102,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F029.0",
+   "members": [
+    "S4:F029.0"
+   ],
+   "supersedes_raw": [],
+   "value": "birthday: 9 September",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 105,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 105,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F030.0",
+   "members": [
+    "S4:F030.0"
+   ],
+   "supersedes_raw": [],
+   "value": "climbing gym: Northside Climbing Gym, Mondays and Wednesdays",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 109,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 109,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F031.0",
+   "members": [
+    "S4:F031.0"
+   ],
+   "supersedes_raw": [],
+   "value": "GP: Dr. Hollis Maren at Riverside Clinic",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 113,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 113,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F032.0",
+   "members": [
+    "S4:F032.0"
+   ],
+   "supersedes_raw": [],
+   "value": "favourite childhood song: Velvet Ferris by the Lantern Sisters",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 117,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 117,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F033.0",
+   "members": [
+    "S4:F033.0"
+   ],
+   "supersedes_raw": [],
+   "value": "father: Anders Calloway, who built wooden boats in Ostmere and died in 2017",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 120,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 120,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F034.0",
+   "members": [
+    "S4:F034.0"
+   ],
+   "supersedes_raw": [],
+   "value": "journal: a green notebook she calls the Green Book",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 124,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 124,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F035.0",
+   "members": [
+    "S4:F035.0"
+   ],
+   "supersedes_raw": [],
+   "value": "melatonin: 3 mg at bedtime",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 127,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 127,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F036.0",
+   "members": [
+    "S4:F036.0"
+   ],
+   "supersedes_raw": [],
+   "value": "pottery class: Tuesday evenings at Clayhouse Studio",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 130,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 130,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F037.0",
+   "members": [
+    "S4:F037.0"
+   ],
+   "supersedes_raw": [],
+   "value": "coworker: Ruth Pemberly, the school librarian, who also plays bass in a folk band",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 133,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 133,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F038.0",
+   "members": [
+    "S4:F038.0"
+   ],
+   "supersedes_raw": [],
+   "value": "favourite colour: ochre",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 136,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 136,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F039.0",
+   "members": [
+    "S4:F039.0"
+   ],
+   "supersedes_raw": [],
+   "value": "hiking trail: Kestrel Ridge loop, 6 km",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 139,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 139,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F040.0",
+   "members": [
+    "S4:F040.0"
+   ],
+   "supersedes_raw": [],
+   "value": "car: a silver 2014 Subaru Forester named Ember",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 142,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 142,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F041.0",
+   "members": [
+    "S4:F041.0"
+   ],
+   "supersedes_raw": [],
+   "value": "pancake recipe: buttermilk pancakes with lemon zest, her mom's recipe",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 146,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 146,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F042.0",
+   "members": [
+    "S4:F042.0"
+   ],
+   "supersedes_raw": [],
+   "value": "concert: saw Mira Hale live at Lantern Hall in 2019",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 152,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 152,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F043.0",
+   "members": [
+    "S4:F043.0"
+   ],
+   "supersedes_raw": [],
+   "value": "fountain pen: a blue pen that belonged to her grandfather Edvard",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 155,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 155,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F044.0",
+   "members": [
+    "S4:F044.0"
+   ],
+   "supersedes_raw": [],
+   "value": "favourite poet: Adrienne Vos",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 158,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 158,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F045.0",
+   "members": [
+    "S4:F045.0"
+   ],
+   "supersedes_raw": [],
+   "value": "classroom: room 114 at Halden Middle School",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 161,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 161,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F046.0",
+   "members": [
+    "S4:F046.0"
+   ],
+   "supersedes_raw": [],
+   "value": "5K time: 27:40, set last spring",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 164,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 164,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F047.0",
+   "members": [
+    "S4:F047.0"
+   ],
+   "supersedes_raw": [],
+   "value": "market stall: rye bread from Stellan's stall at the Sunday market on Harbor Square",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 167,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 167,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F048.0",
+   "members": [
+    "S4:F048.0"
+   ],
+   "supersedes_raw": [],
+   "value": "therapy history: CBT with Dr. Feld, started in 2021",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 171,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 171,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F049.0",
+   "members": [
+    "S4:F049.0"
+   ],
+   "supersedes_raw": [],
+   "value": "grandmother's recipe: Gran Ilse's kolache with apricot filling",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 177,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 177,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F050.0",
+   "members": [
+    "S4:F050.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bakery dream: might open a small bakery called Crumb & Chord someday",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 180,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 180,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F051.0",
+   "members": [
+    "S4:F051.0"
+   ],
+   "supersedes_raw": [],
+   "value": "board game: Azul, the game-night favourite",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 184,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 184,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F052.0",
+   "members": [
+    "S4:F052.0"
+   ],
+   "supersedes_raw": [],
+   "value": "vet: Dr. Quill at Maplewood Animal Hospital",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 187,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 187,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F053.0",
+   "members": [
+    "S4:F053.0"
+   ],
+   "supersedes_raw": [],
+   "value": "first car: Gerald, a dented teal hatchback",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 191,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 191,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F054.0",
+   "members": [
+    "S4:F054.0"
+   ],
+   "supersedes_raw": [],
+   "value": "tattoo: a small swallow on her right wrist, done at 25",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 196,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 196,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F055.0",
+   "members": [
+    "S4:F055.0"
+   ],
+   "supersedes_raw": [],
+   "value": "summer trip: a week on the Ardmoor coast in August 2019",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 202,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 202,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F056.0",
+   "members": [
+    "S4:F056.0"
+   ],
+   "supersedes_raw": [],
+   "value": "apartment: 3B, third floor, in Bramwell",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 206,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 206,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F057.0",
+   "members": [
+    "S4:F057.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Dev's birthday: 14 March",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 211,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 211,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F058.0",
+   "members": [
+    "S4:F058.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Ezra's amp: a battered amp he calls Gravy",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 215,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 215,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F059.0",
+   "members": [
+    "S4:F059.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Pell's job: veterinary nurse at Greywick Animal Care",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 219,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 219,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F060.0",
+   "members": [
+    "S4:F060.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Sunday run: Harbor Path loop, 8 km, every Sunday morning",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 227,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 227,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F061.0",
+   "members": [
+    "S4:F061.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mouthguard: fitted by Dr. Yuki Sato for teeth grinding",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 231,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 231,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F062.0",
+   "members": [
+    "S4:F062.0"
+   ],
+   "supersedes_raw": [],
+   "value": "breakfast: oat porridge with cinnamon and pear",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 234,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 234,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F063.0",
+   "members": [
+    "S4:F063.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bike: a red commuter bike she calls Rusty",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 237,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 237,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F064.0",
+   "members": [
+    "S4:F064.0"
+   ],
+   "supersedes_raw": [],
+   "value": "emergency contact: Marisol Vance",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 241,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 241,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F065.0",
+   "members": [
+    "S4:F065.0"
+   ],
+   "supersedes_raw": [],
+   "value": "parking: space 22 behind the apartment block",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 245,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 245,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F066.0",
+   "members": [
+    "S4:F066.0"
+   ],
+   "supersedes_raw": [],
+   "value": "left knee: left knee patellar tendinitis, flared up after hill repeats",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 253,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 253,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F066.1",
+   "members": [
+    "S4:F066.1"
+   ],
+   "supersedes_raw": [
+    "S4:F066.0"
+   ],
+   "value": "left knee: cleared by physio to run 5K, three days a week",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 733,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 733,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F067.0",
+   "members": [
+    "S4:F067.0"
+   ],
+   "supersedes_raw": [],
+   "value": "physio: Sunil Parekh at Oakline Physio, Tuesdays at 5:30",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 257,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 257,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F068.0",
+   "members": [
+    "S4:F068.0"
+   ],
+   "supersedes_raw": [],
+   "value": "book club: Quiet Pages, the first Thursday of each month at Greywick library",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 286,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 286,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F069.0",
+   "members": [
+    "S4:F069.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bedtime: lights out at 10:30pm on school nights",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 301,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 301,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F069.1",
+   "members": [
+    "S4:F069.1"
+   ],
+   "supersedes_raw": [
+    "S4:F069.0"
+   ],
+   "value": "bedtime: lights out at 10:00pm on school nights",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 937,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 937,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F070.0",
+   "members": [
+    "S4:F070.0"
+   ],
+   "supersedes_raw": [],
+   "value": "yoga suggestion: assistant suggested a Tuesday yoga class at Greywick Community Center",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 328,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 328,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S4:F071.0",
+   "members": [
+    "S4:F071.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Pell's baby due date: due 2 November 2025",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 362,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 362,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F071.1",
+   "members": [
+    "S4:F071.1"
+   ],
+   "supersedes_raw": [
+    "S4:F071.0"
+   ],
+   "value": "Pell's baby due date: born 24 October 2025, a girl named Wren",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 889,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 889,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F072.0",
+   "members": [
+    "S4:F072.0"
+   ],
+   "supersedes_raw": [],
+   "value": "half marathon race: Harbor Half on 14 May 2026, goal finish 2:05",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 381,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 381,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F072.1",
+   "members": [
+    "S4:F072.1"
+   ],
+   "supersedes_raw": [
+    "S4:F072.0"
+   ],
+   "value": "half marathon race: moved to the Ardmoor Coastal Half on 22 September 2026, goal 2:10",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 670,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 670,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F073.0",
+   "members": [
+    "S4:F073.0"
+   ],
+   "supersedes_raw": [],
+   "value": "mom's move: mom moved from Ostmere to Greywick to be near Pell",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 428,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 428,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F074.0",
+   "members": [
+    "S4:F074.0"
+   ],
+   "supersedes_raw": [],
+   "value": "song working title: Salt and Starling, a ballad about the Ostmere ferry",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 451,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 451,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F074.1",
+   "members": [
+    "S4:F074.1"
+   ],
+   "supersedes_raw": [
+    "S4:F074.0"
+   ],
+   "value": "song working title: renamed The Starling Hour, now with a bridge",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 1004,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 1004,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F075.0",
+   "members": [
+    "S4:F075.0"
+   ],
+   "supersedes_raw": [],
+   "value": "practice time: ukulele only before 7am, never in the evenings",
+   "speaker": "user",
+   "kind": "preference",
+   "valid_from_turn": 490,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 490,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F076.0",
+   "members": [
+    "S4:F076.0"
+   ],
+   "supersedes_raw": [],
+   "value": "lighthouse show: group show at Harbor Arts Co-op, opening 14 March 2026",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 534,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 534,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F076.1",
+   "members": [
+    "S4:F076.1"
+   ],
+   "supersedes_raw": [
+    "S4:F076.0"
+   ],
+   "value": "lighthouse show: moved to 4 April 2026, opening 6pm",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 909,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 909,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F077.0",
+   "members": [
+    "S4:F077.0"
+   ],
+   "supersedes_raw": [],
+   "value": "therapy schedule: therapy every other Wednesday with Dr. Feld",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 560,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 560,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F077.1",
+   "members": [
+    "S4:F077.1"
+   ],
+   "supersedes_raw": [
+    "S4:F077.0"
+   ],
+   "value": "therapy schedule: therapy now monthly",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 977,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 977,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F078.0",
+   "members": [
+    "S4:F078.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Corinne's wedding: 21 June 2026 at the Tellwood Conservatory",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 604,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 604,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F078.1",
+   "members": [
+    "S4:F078.1"
+   ],
+   "supersedes_raw": [
+    "S4:F078.0"
+   ],
+   "value": "Corinne's wedding: moved to 12 September 2026, same venue",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 869,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 869,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F079.0",
+   "members": [
+    "S4:F079.0"
+   ],
+   "supersedes_raw": [],
+   "value": "long run distance: Sunday long runs start at 8 km",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 626,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 626,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F079.1",
+   "members": [
+    "S4:F079.1"
+   ],
+   "supersedes_raw": [
+    "S4:F079.0"
+   ],
+   "value": "long run distance: Sunday long run is now 16 km",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 802,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 802,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F080.0",
+   "members": [
+    "S4:F080.0"
+   ],
+   "supersedes_raw": [],
+   "value": "lyric feedback rule: no comparisons to pop songs when I ask for lyric feedback",
+   "speaker": "user",
+   "kind": "instruction",
+   "valid_from_turn": 678,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 678,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F081.0",
+   "members": [
+    "S4:F081.0"
+   ],
+   "supersedes_raw": [],
+   "value": "sabbatical idea: might take a sabbatical in 2027 to record an album",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 743,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 743,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F082.0",
+   "members": [
+    "S4:F082.0"
+   ],
+   "supersedes_raw": [],
+   "value": "lemon cake: Corinne's lemon olive oil cake",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 752,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 752,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F083.0",
+   "members": [
+    "S4:F083.0"
+   ],
+   "supersedes_raw": [],
+   "value": "protein suggestion: assistant suggested a plant-based protein shake after long runs",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 779,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 779,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S4:F084.0",
+   "members": [
+    "S4:F084.0"
+   ],
+   "supersedes_raw": [],
+   "value": "print sales: 14 watercolour lighthouse prints sold so far",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 847,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 847,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F084.1",
+   "members": [
+    "S4:F084.1"
+   ],
+   "supersedes_raw": [
+    "S4:F084.0"
+   ],
+   "value": "print sales: 38 prints sold so far",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 1136,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 1136,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F085.0",
+   "members": [
+    "S4:F085.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Marisol's move: Marisol moving to Lisbon in January 2026",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 945,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 945,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:F086.0",
+   "members": [
+    "S4:F086.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Dev's promotion: Dev promoted to head of the science department",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 1031,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 1031,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:E01",
+   "members": [
+    "S4:E01"
+   ],
+   "supersedes_raw": [],
+   "value": "Ines strained her left knee on hill repeats and was diagnosed with patellar tendinitis on 2025-04-26",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 253,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 253,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:E02",
+   "members": [
+    "S4:E02"
+   ],
+   "supersedes_raw": [],
+   "value": "Corinne moved her wedding from June to September after the venue double-booked on 2025-11-06",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 869,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 869,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:E03",
+   "members": [
+    "S4:E03"
+   ],
+   "supersedes_raw": [],
+   "value": "Pell gave birth to a girl named Wren on 2025-10-24",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 889,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 889,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:E04",
+   "members": [
+    "S4:E04"
+   ],
+   "supersedes_raw": [],
+   "value": "the Harbor Half was swapped for the Ardmoor Coastal Half after the city changed the route on 2025-09-08",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 670,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 670,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S4:E05",
+   "members": [
+    "S4:E05"
+   ],
+   "supersedes_raw": [],
+   "value": "Ines performed Salt and Starling, now The Starling Hour, at the Bramwell open mic on 2025-12-26",
+   "speaker": "user",
+   "kind": "event",
+   "valid_from_turn": 1004,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 1004,
+     "role": "user"
+    }
+   ]
+  }
+ ]
+}

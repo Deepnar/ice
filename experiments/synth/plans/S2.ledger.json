@@ -1,0 +1,1318 @@
+{
+ "policy": "ice-final-synth-plan-ledger-1",
+ "history": "S2",
+ "entries": [
+  {
+   "id": "S2:F001.0",
+   "members": [
+    "S2:F001.0"
+   ],
+   "supersedes_raw": [],
+   "value": "game title: Ferryman's Ledger",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 3,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 3,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F002.0",
+   "members": [
+    "S2:F002.0"
+   ],
+   "supersedes_raw": [],
+   "value": "player count: 2 to 4 players",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 4,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F003.0",
+   "members": [
+    "S2:F003.0"
+   ],
+   "supersedes_raw": [],
+   "value": "playtime (assistant idea): about 90 minutes per game",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 8,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 8,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F004.0",
+   "members": [
+    "S2:F004.0"
+   ],
+   "supersedes_raw": [],
+   "value": "playtime (her decision): 60 to 75 minutes per game",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 12,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 12,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F005.0",
+   "members": [
+    "S2:F005.0"
+   ],
+   "supersedes_raw": [],
+   "value": "company name Tidewater Tabletop: Tidewater Tabletop",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 6,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 6,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F006.0",
+   "members": [
+    "S2:F006.0"
+   ],
+   "supersedes_raw": [],
+   "value": "company name: Low Tide Games",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 10,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 10,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F007.0",
+   "members": [
+    "S2:F007.0"
+   ],
+   "supersedes_raw": [],
+   "value": "pirate-themed spin-off: a pirate-themed spin-off set on the same delta",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 16,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F008.0",
+   "members": [
+    "S2:F008.0"
+   ],
+   "supersedes_raw": [],
+   "value": "companion phone app: a companion phone app that keeps score",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 21,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 21,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F009.0",
+   "members": [
+    "S2:F009.0"
+   ],
+   "supersedes_raw": [],
+   "value": "marketplace illustrator: a marketplace illustrator at $1,200 for the box art",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 28,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 28,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F010.0",
+   "members": [
+    "S2:F010.0"
+   ],
+   "supersedes_raw": [],
+   "value": "box art and card illustrator: Dario Wren at $900 total for box art and cards",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 33,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 33,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F010.1",
+   "members": [
+    "S2:F010.1"
+   ],
+   "supersedes_raw": [
+    "S2:F010.0"
+   ],
+   "value": "box art and card illustrator: $1,150 total for box art and card faces",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 143,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 143,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F011.0",
+   "members": [
+    "S2:F011.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Kickstarter goal (assistant idea): $12,000",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 36,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 36,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F012.0",
+   "members": [
+    "S2:F012.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Kickstarter goal: $18,000",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 52,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 52,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F012.1",
+   "members": [
+    "S2:F012.1"
+   ],
+   "supersedes_raw": [
+    "S2:F012.0"
+   ],
+   "value": "Kickstarter goal: $20,000 after the printer quote rose",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 130,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 130,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F013.0",
+   "members": [
+    "S2:F013.0"
+   ],
+   "supersedes_raw": [],
+   "value": "skip Kickstarter for conventions: skip Kickstarter and sell only at conventions",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 41,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 41,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F014.0",
+   "members": [
+    "S2:F014.0"
+   ],
+   "supersedes_raw": [],
+   "value": "wooden ferry token stretch goal: a wooden ferry token as a stretch goal",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 47,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 47,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F015.0",
+   "members": [
+    "S2:F015.0"
+   ],
+   "supersedes_raw": [],
+   "value": "base deck size (assistant idea): trim the base deck to 80 cards",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 44,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 44,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F016.0",
+   "members": [
+    "S2:F016.0"
+   ],
+   "supersedes_raw": [],
+   "value": "base deck size: keep the base deck at 112 cards",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 46,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 46,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F017.0",
+   "members": [
+    "S2:F017.0"
+   ],
+   "supersedes_raw": [],
+   "value": "retail price (assistant idea): $29.99",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 55,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 55,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F018.0",
+   "members": [
+    "S2:F018.0"
+   ],
+   "supersedes_raw": [],
+   "value": "retail price: $39",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 60,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 60,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F018.1",
+   "members": [
+    "S2:F018.1"
+   ],
+   "supersedes_raw": [
+    "S2:F018.0"
+   ],
+   "value": "retail price: $34, the 39 was a typo in my own sheet",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 160,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 160,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F019.0",
+   "members": [
+    "S2:F019.0"
+   ],
+   "supersedes_raw": [],
+   "value": "print run (assistant idea): 1,000 copies",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 63,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 63,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F020.0",
+   "members": [
+    "S2:F020.0"
+   ],
+   "supersedes_raw": [],
+   "value": "print run: 750 copies",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 66,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F020.1",
+   "members": [
+    "S2:F020.1"
+   ],
+   "supersedes_raw": [
+    "S2:F020.0"
+   ],
+   "value": "print run: 1,000 copies again, because the Expo wants stock on the table",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 182,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 182,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F021.0",
+   "members": [
+    "S2:F021.0"
+   ],
+   "supersedes_raw": [],
+   "value": "2,000 copies kept in the garage: print 2,000 and keep them in the garage",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 70,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F022.0",
+   "members": [
+    "S2:F022.0"
+   ],
+   "supersedes_raw": [],
+   "value": "shipping (assistant idea): $7 flat shipping in the US",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 74,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 74,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F023.0",
+   "members": [
+    "S2:F023.0"
+   ],
+   "supersedes_raw": [],
+   "value": "free shipping threshold: free shipping on orders over $60, and I absorb the cost",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 80,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 80,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F023.1",
+   "members": [
+    "S2:F023.1"
+   ],
+   "supersedes_raw": [
+    "S2:F023.0"
+   ],
+   "value": "free shipping threshold: free shipping on orders over $90 instead",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 185,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 185,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F024.0",
+   "members": [
+    "S2:F024.0"
+   ],
+   "supersedes_raw": [],
+   "value": "wholesale to three game stores: sell to three local game stores at a 40 percent margin",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 78,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 78,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F025.0",
+   "members": [
+    "S2:F025.0"
+   ],
+   "supersedes_raw": [],
+   "value": "sales channel: direct sales only, through my own site and conventions",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 84,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 84,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F026.0",
+   "members": [
+    "S2:F026.0"
+   ],
+   "supersedes_raw": [],
+   "value": "TikTok marketing: short TikTok videos for marketing",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 88,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 88,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F027.0",
+   "members": [
+    "S2:F027.0"
+   ],
+   "supersedes_raw": [],
+   "value": "marketing channel: a monthly newsletter and Bluesky posts",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 92,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 92,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F028.0",
+   "members": [
+    "S2:F028.0"
+   ],
+   "supersedes_raw": [],
+   "value": "playtest plan (assistant idea): twelve playtests at the public library",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 96,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 96,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F029.0",
+   "members": [
+    "S2:F029.0"
+   ],
+   "supersedes_raw": [],
+   "value": "playtest plan: six playtests at the Harbor Cafe on Thursday nights",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 99,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 99,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F030.0",
+   "members": [
+    "S2:F030.0"
+   ],
+   "supersedes_raw": [],
+   "value": "physical game cafe: open a physical game cafe that stocks the game",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 98,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 98,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F031.0",
+   "members": [
+    "S2:F031.0"
+   ],
+   "supersedes_raw": [],
+   "value": "credit union loan: a $10,000 small business loan at 9 percent",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 103,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 103,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F032.0",
+   "members": [
+    "S2:F032.0"
+   ],
+   "supersedes_raw": [],
+   "value": "startup money: $6,500 from savings only",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 106,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 106,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F032.1",
+   "members": [
+    "S2:F032.1"
+   ],
+   "supersedes_raw": [
+    "S2:F032.0"
+   ],
+   "value": "startup money: savings plus a $4,000 credit union loan, after all",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 190,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 190,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F033.0",
+   "members": [
+    "S2:F033.0"
+   ],
+   "supersedes_raw": [],
+   "value": "launch event (assistant idea): launch at the Pacific Game Fair in March",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 110,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 110,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F034.0",
+   "members": [
+    "S2:F034.0"
+   ],
+   "supersedes_raw": [],
+   "value": "launch event: launch at the Port Callan Tabletop Expo in May",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 113,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 113,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F035.0",
+   "members": [
+    "S2:F035.0"
+   ],
+   "supersedes_raw": [],
+   "value": "Lisbon convention demo: bring a demo to a convention in Lisbon",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 117,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 117,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F036.0",
+   "members": [
+    "S2:F036.0"
+   ],
+   "supersedes_raw": [],
+   "value": "logo (assistant idea): make the logo with an AI logo generator",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 121,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 121,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F037.0",
+   "members": [
+    "S2:F037.0"
+   ],
+   "supersedes_raw": [],
+   "value": "stretch goal count (assistant idea): five stretch goals",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 128,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 128,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F038.0",
+   "members": [
+    "S2:F038.0"
+   ],
+   "supersedes_raw": [],
+   "value": "stretch goal count: three stretch goals: wooden tokens, a solo expansion and a cloth bag",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 131,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 131,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F039.0",
+   "members": [
+    "S2:F039.0"
+   ],
+   "supersedes_raw": [],
+   "value": "solo mode as standalone box: sell the solo mode as its own standalone box",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 136,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 136,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F040.0",
+   "members": [
+    "S2:F040.0"
+   ],
+   "supersedes_raw": [],
+   "value": "sourcing broker (assistant idea): a Vietnamese sourcing broker at $3.10 per unit",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 153,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 153,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F041.0",
+   "members": [
+    "S2:F041.0"
+   ],
+   "supersedes_raw": [],
+   "value": "manufacturer: Brightwater Print Co. in Poland at $4.40 per unit",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 158,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 158,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F042.0",
+   "members": [
+    "S2:F042.0"
+   ],
+   "supersedes_raw": [],
+   "value": "third-party warehouse (assistant idea): outsourced fulfilment at $5 per order",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 162,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 162,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F043.0",
+   "members": [
+    "S2:F043.0"
+   ],
+   "supersedes_raw": [],
+   "value": "fulfilment: fulfil from my spare room and ship by post office",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 165,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 165,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F044.0",
+   "members": [
+    "S2:F044.0"
+   ],
+   "supersedes_raw": [],
+   "value": "part-time helper (assistant idea): a part-time fulfilment helper at $18 an hour, ten hours a week",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 178,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 178,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F045.0",
+   "members": [
+    "S2:F045.0"
+   ],
+   "supersedes_raw": [],
+   "value": "quitting logistics job: quit my logistics job by August",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 192,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 192,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F046.0",
+   "members": [
+    "S2:F046.0"
+   ],
+   "supersedes_raw": [],
+   "value": "box format (assistant idea): a horizontal wraparound box",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 205,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 205,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F047.0",
+   "members": [
+    "S2:F047.0"
+   ],
+   "supersedes_raw": [],
+   "value": "box format: a square box with Dario's painted harbour scene on the lid",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 209,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 209,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F048.0",
+   "members": [
+    "S2:F048.0"
+   ],
+   "supersedes_raw": [],
+   "value": "deluxe wooden ferry edition: a deluxe edition with a wooden ferry in the box",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 214,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 214,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F049.0",
+   "members": [
+    "S2:F049.0"
+   ],
+   "supersedes_raw": [],
+   "value": "paper scoring pad (assistant idea): drop the paper scoring pad and use only the app",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 218,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 218,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F050.0",
+   "members": [
+    "S2:F050.0"
+   ],
+   "supersedes_raw": [],
+   "value": "scoring pad: keep the paper ledger pad at 40 sheets",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 221,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 221,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F051.0",
+   "members": [
+    "S2:F051.0"
+   ],
+   "supersedes_raw": [],
+   "value": "email list target (assistant idea): 500 email subscribers before launch",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 228,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 228,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F052.0",
+   "members": [
+    "S2:F052.0"
+   ],
+   "supersedes_raw": [],
+   "value": "email list target: 800 email subscribers before launch",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 233,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 233,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F052.1",
+   "members": [
+    "S2:F052.1"
+   ],
+   "supersedes_raw": [
+    "S2:F052.0"
+   ],
+   "value": "email list target: 500 subscribers, since that was the sensible number all along",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 262,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 262,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F053.0",
+   "members": [
+    "S2:F053.0"
+   ],
+   "supersedes_raw": [],
+   "value": "email list only reaches 300: the list only reaches 300 people",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 240,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 240,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F054.0",
+   "members": [
+    "S2:F054.0"
+   ],
+   "supersedes_raw": [],
+   "value": "expansion bundle (assistant idea): bundle the expansion at checkout",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 243,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 243,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F055.0",
+   "members": [
+    "S2:F055.0"
+   ],
+   "supersedes_raw": [],
+   "value": "bundles: no bundles until after launch",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 247,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 247,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F056.0",
+   "members": [
+    "S2:F056.0"
+   ],
+   "supersedes_raw": [],
+   "value": "budget ceiling: $9,400 for the first print run and fees",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 255,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 255,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F056.1",
+   "members": [
+    "S2:F056.1"
+   ],
+   "supersedes_raw": [
+    "S2:F056.0"
+   ],
+   "value": "budget ceiling: $10,200 after the shipping quote came in",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 268,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 268,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F057.0",
+   "members": [
+    "S2:F057.0"
+   ],
+   "supersedes_raw": [],
+   "value": "crowdfunding platform (assistant idea): Gamefound instead of Kickstarter",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 258,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 258,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F058.0",
+   "members": [
+    "S2:F058.0"
+   ],
+   "supersedes_raw": [],
+   "value": "late August launch: launch in late August instead",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 270,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 270,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F059.0",
+   "members": [
+    "S2:F059.0"
+   ],
+   "supersedes_raw": [],
+   "value": "launch date: Kickstarter launch on Tuesday 7 July",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 278,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 278,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F060.0",
+   "members": [
+    "S2:F060.0"
+   ],
+   "supersedes_raw": [],
+   "value": "campaign length (assistant idea): a 10-day campaign",
+   "speaker": "assistant",
+   "kind": "suggested",
+   "valid_from_turn": 280,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 280,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F061.0",
+   "members": [
+    "S2:F061.0"
+   ],
+   "supersedes_raw": [],
+   "value": "campaign length: a 30-day campaign",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 283,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 283,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F062.0",
+   "members": [
+    "S2:F062.0"
+   ],
+   "supersedes_raw": [],
+   "value": "$25 poster tier: a $25 tier with the poster",
+   "speaker": "assistant",
+   "kind": "rejected",
+   "valid_from_turn": 290,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 290,
+     "role": "assistant"
+    }
+   ]
+  },
+  {
+   "id": "S2:F063.0",
+   "members": [
+    "S2:F063.0"
+   ],
+   "supersedes_raw": [],
+   "value": "pledge tier: a $30 tier with the poster and card sleeves",
+   "speaker": "user",
+   "kind": "decided",
+   "valid_from_turn": 292,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 292,
+     "role": "user"
+    }
+   ]
+  },
+  {
+   "id": "S2:F064.0",
+   "members": [
+    "S2:F064.0"
+   ],
+   "supersedes_raw": [],
+   "value": "funded in the first 48 hours: the campaign funds within the first 48 hours",
+   "speaker": "user",
+   "kind": "hypothetical",
+   "valid_from_turn": 296,
+   "usable_for_questions": true,
+   "citations": [
+    {
+     "turn": 296,
+     "role": "user"
+    }
+   ]
+  }
+ ]
+}

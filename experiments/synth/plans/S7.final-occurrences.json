@@ -1,0 +1,4000 @@
+[
+ {
+  "family": "S7:F001",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Pebble: what was the app idea again? i keep forgetting lol",
+  "ask": {
+   "about": "Pebble app concept",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "a flatmate chore and bill splitter for iOS and Android"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 1,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F002",
+  "type": "update",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Harrow: what's the working title right now?",
+  "ask": {
+   "about": "novel working title",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "The Quiet Mills"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F003",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Harrow: what genre is it and where's it set?",
+  "ask": {
+   "about": "novel genre and setting",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "literary mystery set in a Lancashire mill town"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F004",
+  "type": "update",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Pebble beta: when's the private beta due?",
+  "ask": {
+   "about": "Pebble private beta deadline",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "private beta due 2026-05-15"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F018",
+  "type": "update",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Pebble: where's the database hosted at the moment?",
+  "ask": {
+   "about": "Pebble database hosting",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": [],
+   "status": "decided",
+   "speaker": "user"
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:F019",
+  "type": "fact_recall",
+  "checkpoint_turn": 50,
+  "repeat_index": 0,
+  "question": "Stride: which day do i do the long run on?",
+  "ask": {
+   "about": "long run day",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": [],
+   "status": "decided",
+   "speaker": "user"
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:F005",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "Pebble: which service are we using for sync and push?",
+  "ask": {
+   "about": "Pebble sync and push API provider",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Brightwave Data for push and sync"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 12,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F007",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "Pebble: who's handling the backend again?",
+  "ask": {
+   "about": "Pebble co-builder and backend owner",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Rafi Mendes handles the backend"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F008",
+  "type": "update",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "Harrow: when's the first full draft due?",
+  "ask": {
+   "about": "novel first full draft deadline",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "first full draft due 2026-07-01"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 20,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F009",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "Stride: what's the date for the autumn half marathon?",
+  "ask": {
+   "about": "autumn half marathon",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Ridgeway Half Marathon on 2026-10-11"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 28,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F010",
+  "type": "update",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "Harrow: what's my total word target for the whole novel?",
+  "ask": {
+   "about": "novel total word count target",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "90,000 words"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 29,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F011",
+  "type": "fact_recall",
+  "checkpoint_turn": 75,
+  "repeat_index": 0,
+  "question": "Pebble: how many flatmates go in each group again?",
+  "ask": {
+   "about": "Pebble flatmates per group",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "six flatmates per group"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 30,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F014",
+  "type": "fact_recall",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "Harrow: who's narrating the book again?",
+  "ask": {
+   "about": "novel narrator",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Ruth Calder, first person, past tense"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 39,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F015",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "Pebble: how long are our sprints right now?",
+  "ask": {
+   "about": "Pebble sprint length",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "two-week sprints"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 43,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F016",
+  "type": "fact_recall",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "Harrow: which app am i drafting the novel in?",
+  "ask": {
+   "about": "novel writing software",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Scrivener on the laptop"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 46,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F017",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "Harrow: how many chapters is the book planned for at the moment?",
+  "ask": {
+   "about": "novel chapter count",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "22 chapters"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 52,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F018",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 1,
+  "question": "Pebble: what are we hosting the database on right now?",
+  "ask": {
+   "about": "Pebble database hosting",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Supabase, hosted Postgres"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 54,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F019",
+  "type": "fact_recall",
+  "checkpoint_turn": 100,
+  "repeat_index": 1,
+  "question": "Stride: what day's the long run these days?",
+  "ask": {
+   "about": "long run day",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "long run on Sunday mornings"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 56,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F020",
+  "type": "update",
+  "checkpoint_turn": 100,
+  "repeat_index": 0,
+  "question": "Pebble: how much is the pro tier a month?",
+  "ask": {
+   "about": "Pebble pro tier monthly price",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "3.99 pounds a month for pro"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 59,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F021",
+  "type": "fact_recall",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Harrow: what's my daily word target on weekdays?",
+  "ask": {
+   "about": "novel daily word target",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "1,200 words a day on weekdays"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 61,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F022",
+  "type": "fact_recall",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Kiln Road: what's the shop called and what do we sell?",
+  "ask": {
+   "about": "shop name and product",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Kiln Road Ceramics, hand-thrown mugs and planters"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 64,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F023",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Stride: what pace am i aiming for per km?",
+  "ask": {
+   "about": "target running pace",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "5:45 per km"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F025",
+  "type": "preference",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Harrow: can you sketch a writing block for me this week, something sensible around work?",
+  "ask": {
+   "about": "novel writing time slot",
+   "status": "preference",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "write 6am to 7:30am before work"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 70,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F026",
+  "type": "fact_recall",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Pebble beta: how many testers are we on right now?",
+  "ask": {
+   "about": "Pebble beta tester count",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "25 testers from two flatmate WhatsApp groups"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 77,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F027",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Harrow: who's the victim again?",
+  "ask": {
+   "about": "novel victim's name",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "the victim is Enid Harlow"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 78,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F029",
+  "type": "update",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Kiln Road: what do i charge for the tall speckled mug?",
+  "ask": {
+   "about": "tall speckled mug price",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "24 pounds for the tall speckled mug"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 85,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F043",
+  "type": "fact_recall",
+  "checkpoint_turn": 125,
+  "repeat_index": 0,
+  "question": "Stride: what's my rest day in the week?",
+  "ask": {
+   "about": "weekly rest day",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": [],
+   "status": "decided",
+   "speaker": "user"
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:F032",
+  "type": "attribution",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": "Pebble: which crash reporting tool did i say no to in the end?",
+  "ask": {
+   "about": "Bugsnag suggested for Pebble crash reports",
+   "status": "rejected",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "assistant suggested Bugsnag; user turned it down"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 92,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F035",
+  "type": "fact_recall",
+  "checkpoint_turn": 150,
+  "repeat_index": 0,
+  "question": "Kiln Road: which day do i restock on?",
+  "ask": {
+   "about": "restock day",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "restock on Thursdays"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 96,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F038",
+  "type": "fact_recall",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": "Kiln Road: where's the stock warehouse?",
+  "ask": {
+   "about": "stock warehouse city",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "a rented unit in Leeds"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 112,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F039",
+  "type": "preference",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": "Stride: can you put together a drinks plan for my runs this week, sorted to my usual daily amount?",
+  "ask": {
+   "about": "daily water target",
+   "status": "preference",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "2.5 litres of water a day"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 117,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F040",
+  "type": "fact_recall",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": "Kiln Road: who's our accountant again?",
+  "ask": {
+   "about": "accountant",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Priya Sandhu does the books each quarter"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 118,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F042",
+  "type": "update",
+  "checkpoint_turn": 175,
+  "repeat_index": 0,
+  "question": "Harrow: how does the novel end at the moment?",
+  "ask": {
+   "about": "novel ending",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "ends on the flooded mill, closed ending"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 133,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F043",
+  "type": "fact_recall",
+  "checkpoint_turn": 175,
+  "repeat_index": 1,
+  "question": "Stride: what's my rest day, i always forget lol",
+  "ask": {
+   "about": "weekly rest day",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "rest day is Monday"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 134,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F001",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "Pebble: what's the concept again, quick reminder pls?",
+  "ask": {
+   "about": "Pebble app concept",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "a flatmate chore and bill splitter for iOS and Android"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 1,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F003",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "Harrow: remind me of the genre and where it's set",
+  "ask": {
+   "about": "novel genre and setting",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "literary mystery set in a Lancashire mill town"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 6,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F004",
+  "type": "update",
+  "checkpoint_turn": 200,
+  "repeat_index": 1,
+  "question": "Pebble: when is the beta due right now?",
+  "ask": {
+   "about": "Pebble private beta deadline",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "private beta due 2026-05-15"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F044",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Pebble: what phone are we testing the android build on?",
+  "ask": {
+   "about": "Pebble test phone model",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Pixel 8a is the test phone"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 139,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F045",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Kiln Road: from what basket value is UK shipping free?",
+  "ask": {
+   "about": "free shipping threshold",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "40 pound basket for free UK shipping"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 141,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F046",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Stride: how much is the gym membership and which place is it?",
+  "ask": {
+   "about": "gym membership",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Brindle Street Gym, 32 pounds a month"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 146,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F058",
+  "type": "fact_recall",
+  "checkpoint_turn": 200,
+  "repeat_index": 0,
+  "question": "Kiln Road: what payment terms have we got with the glaze supplier?",
+  "ask": {
+   "about": "supplier payment terms",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": [],
+   "status": "decided",
+   "speaker": "user"
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:F005",
+  "type": "fact_recall",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": "Pebble: who are we using for the push side of things?",
+  "ask": {
+   "about": "Pebble sync and push API provider",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Brightwave Data for push and sync"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 12,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F006",
+  "type": "fact_recall",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": "Pebble: what are we building the app in?",
+  "ask": {
+   "about": "Pebble app framework",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "React Native with Expo"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 14,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F007",
+  "type": "fact_recall",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": "Pebble: who owns the backend work again?",
+  "ask": {
+   "about": "Pebble co-builder and backend owner",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Rafi Mendes handles the backend"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 16,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F011",
+  "type": "fact_recall",
+  "checkpoint_turn": 225,
+  "repeat_index": 1,
+  "question": "Pebble: how big is each group allowed to be?",
+  "ask": {
+   "about": "Pebble flatmates per group",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "six flatmates per group"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 30,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F018",
+  "type": "update",
+  "checkpoint_turn": 225,
+  "repeat_index": 2,
+  "question": "Pebble: where's the database living right now?",
+  "ask": {
+   "about": "Pebble database hosting",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Supabase, hosted Postgres"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 54,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F048",
+  "type": "attribution",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": "Kiln Road: which newsletter tool did i turn down when you suggested one?",
+  "ask": {
+   "about": "Klaviyo suggested for the newsletter",
+   "status": "rejected",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "assistant suggested Klaviyo; user kept Mailchimp"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 161,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F049",
+  "type": "fact_recall",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": "Stride: who's my coach and how often do we check in?",
+  "ask": {
+   "about": "running coach",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "coach Dana Whitcombe, weekly check-in call"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 163,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F051",
+  "type": "hypothetical",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": "Harrow: have i settled on the agent query plan yet?",
+  "ask": {
+   "about": "literary agent query plan",
+   "status": "hypothetical",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "query about 12 agents in September, after the draft"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 172,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F052",
+  "type": "preference",
+  "checkpoint_turn": 225,
+  "repeat_index": 0,
+  "question": "Kiln Road: write me a returns line for the product page for the mugs, pls",
+  "ask": {
+   "about": "returns policy",
+   "status": "instruction",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "always a 14-day returns window, no questions asked"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 184,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:E02",
+  "type": "temporal",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": "Kiln Road: how long ago did the VAT registration come through?",
+  "ask": {
+   "about": "Kiln Road VAT registration came through",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Kiln Road VAT registration came through on 2026-03-20"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 199,
+     "role": "user"
+    }
+   ],
+   "date": "2026-03-20"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F004",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": "Pebble beta: where does the deadline sit now?",
+  "ask": {
+   "about": "Pebble private beta deadline",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "private beta slipped to 2026-06-12"
+   ],
+   "superseded": [
+    "private beta due 2026-05-15"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    },
+    {
+     "turn": 206,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F008",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": "Harrow draft: what date am i working to?",
+  "ask": {
+   "about": "novel first full draft deadline",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "first full draft due 2026-07-01"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 20,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F013",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": "Pebble: which region are the servers in again?",
+  "ask": {
+   "about": "Pebble server region",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "eu-west-2 (London) for the servers"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 36,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F014",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": "For Harrow, remind me whose voice the story is in",
+  "ask": {
+   "about": "novel narrator",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Ruth Calder, first person, past tense"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 39,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F015",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": "Pebble sprints: how long are they at the moment?",
+  "ask": {
+   "about": "Pebble sprint length",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "two-week sprints"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 43,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F016",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 1,
+  "question": "Harrow: what's the program i'm writing the manuscript in?",
+  "ask": {
+   "about": "novel writing software",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Scrivener on the laptop"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 46,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F019",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": "Stride: when do i fit the long run in each week?",
+  "ask": {
+   "about": "long run day",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "long run on Sunday mornings"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 56,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F027",
+  "type": "update",
+  "checkpoint_turn": 250,
+  "repeat_index": 2,
+  "question": "Harrow: spell out the victim's name for me, i need it for chapter one",
+  "ask": {
+   "about": "novel victim's name",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Edith Harlow, I typed Enid by mistake"
+   ],
+   "superseded": [
+    "the victim is Enid Harlow"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 78,
+     "role": "user"
+    },
+    {
+     "turn": 207,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F053",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": "Stride: how long is the current training block?",
+  "ask": {
+   "about": "training block length",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "12-week training block"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 187,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F055",
+  "type": "fact_recall",
+  "checkpoint_turn": 250,
+  "repeat_index": 0,
+  "question": "Stride: what running shoes did i end up getting?",
+  "ask": {
+   "about": "running shoes",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Hoka Clifton 9"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 190,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F021",
+  "type": "fact_recall",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": "Harrow: how many words am i aiming for each weekday?",
+  "ask": {
+   "about": "novel daily word target",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "1,200 words a day on weekdays"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 61,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F022",
+  "type": "fact_recall",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": "Kiln Road: remind me what we sell and what the shop's called",
+  "ask": {
+   "about": "shop name and product",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Kiln Road Ceramics, hand-thrown mugs and planters"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 64,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F023",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": "Stride: what's the pace per km right now?",
+  "ask": {
+   "about": "target running pace",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "5:45 per km"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F026",
+  "type": "fact_recall",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": "Pebble beta: how many testers and where did they come from?",
+  "ask": {
+   "about": "Pebble beta tester count",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "25 testers from two flatmate WhatsApp groups"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 77,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F042",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": "Harrow: where does the book finish up?",
+  "ask": {
+   "about": "novel ending",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "ends on the flooded mill, closed ending"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 133,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F056",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": "Kiln Road: what's the monthly spend on instagram ads?",
+  "ask": {
+   "about": "monthly Instagram ad budget",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "300 pounds a month on Instagram ads"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 212,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F057",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": "Stride: what's my longest run so far?",
+  "ask": {
+   "about": "longest training run",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "16 km longest run"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 218,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F058",
+  "type": "fact_recall",
+  "checkpoint_turn": 275,
+  "repeat_index": 1,
+  "question": "Kiln Road: how long do the glaze people give us to pay?",
+  "ask": {
+   "about": "supplier payment terms",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "net 30 payment terms with Harbourline"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 220,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F060",
+  "type": "update",
+  "checkpoint_turn": 275,
+  "repeat_index": 0,
+  "question": "Kiln Road newsletter: how many subscribers are we at?",
+  "ask": {
+   "about": "newsletter subscribers",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "340 newsletter subscribers"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 231,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F018",
+  "type": "update",
+  "checkpoint_turn": 300,
+  "repeat_index": 3,
+  "question": "Pebble: what db setup are we on right now? been a bit confused",
+  "ask": {
+   "about": "Pebble database hosting",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "back to Supabase, self-hosting was too much"
+   ],
+   "superseded": [
+    "Supabase, hosted Postgres",
+    "self-hosted Postgres on a Hetzner box"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 54,
+     "role": "user"
+    },
+    {
+     "turn": 238,
+     "role": "user"
+    },
+    {
+     "turn": 284,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F020",
+  "type": "update",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": "Pebble pro: what's it cost per month these days?",
+  "ask": {
+   "about": "Pebble pro tier monthly price",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "3.99 pounds a month for pro"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 59,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F030",
+  "type": "fact_recall",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": "Harrow: who's reading the chapters as they come in?",
+  "ask": {
+   "about": "novel beta reader",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Marguerite Oyelaran reads each chapter as it lands"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 86,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F031",
+  "type": "preference",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": "Stride: can you put my morning run into tomorrow's plan, timed the way i usually do it",
+  "ask": {
+   "about": "morning run time",
+   "status": "preference",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "run at 6:15 before the office"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 87,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F036",
+  "type": "fact_recall",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": "Harrow: who's the main suspect right now?",
+  "ask": {
+   "about": "novel chief suspect",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Tobias Wren, the ferryman, is the chief suspect"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 106,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F037",
+  "type": "preference",
+  "checkpoint_turn": 300,
+  "repeat_index": 1,
+  "question": "Pebble: can you draft this week's bug triage agenda?",
+  "ask": {
+   "about": "Pebble bug triage day",
+   "status": "preference",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "triage bugs on Tuesday mornings only"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 110,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F061",
+  "type": "update",
+  "checkpoint_turn": 300,
+  "repeat_index": 0,
+  "question": "Stride: what's the latest on my knee?",
+  "ask": {
+   "about": "left knee twinge",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "back running after a rest week"
+   ],
+   "superseded": [
+    "left knee twinge after the 14k run"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 256,
+     "role": "user"
+    },
+    {
+     "turn": 278,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F002",
+  "type": "update",
+  "checkpoint_turn": 325,
+  "repeat_index": 1,
+  "question": "Harrow: what's the title these days?",
+  "ask": {
+   "about": "novel working title",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "The Quiet Mills"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F018",
+  "type": "update",
+  "checkpoint_turn": 325,
+  "repeat_index": 4,
+  "question": "Pebble database: what's the current host situation?",
+  "ask": {
+   "about": "Pebble database hosting",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "back to Supabase, self-hosting was too much"
+   ],
+   "superseded": [
+    "Supabase, hosted Postgres",
+    "self-hosted Postgres on a Hetzner box"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 54,
+     "role": "user"
+    },
+    {
+     "turn": 238,
+     "role": "user"
+    },
+    {
+     "turn": 284,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F029",
+  "type": "update",
+  "checkpoint_turn": 325,
+  "repeat_index": 1,
+  "question": "Kiln Road: what's the tall speckled mug going for?",
+  "ask": {
+   "about": "tall speckled mug price",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "24 pounds for the tall speckled mug"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 85,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F038",
+  "type": "fact_recall",
+  "checkpoint_turn": 325,
+  "repeat_index": 1,
+  "question": "Kiln Road: which city is the stock unit in?",
+  "ask": {
+   "about": "stock warehouse city",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "a rented unit in Leeds"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 112,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F039",
+  "type": "preference",
+  "checkpoint_turn": 325,
+  "repeat_index": 1,
+  "question": "Stride: plan my hydration for the long run weekend",
+  "ask": {
+   "about": "daily water target",
+   "status": "preference",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "2.5 litres of water a day"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 117,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F040",
+  "type": "fact_recall",
+  "checkpoint_turn": 325,
+  "repeat_index": 1,
+  "question": "Kiln Road: who do we send the quarterly books to?",
+  "ask": {
+   "about": "accountant",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Priya Sandhu does the books each quarter"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 118,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F041",
+  "type": "fact_recall",
+  "checkpoint_turn": 325,
+  "repeat_index": 1,
+  "question": "Stride: which day and where do i do my swim?",
+  "ask": {
+   "about": "cross-training swim",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "swimming on Tuesdays at Brindle Street"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 128,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F010",
+  "type": "update",
+  "checkpoint_turn": 350,
+  "repeat_index": 1,
+  "question": "Harrow: what's the full target length in words?",
+  "ask": {
+   "about": "novel total word count target",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "90,000 words"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 29,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F017",
+  "type": "update",
+  "checkpoint_turn": 350,
+  "repeat_index": 2,
+  "question": "Harrow: how many chapters has the book got now?",
+  "ask": {
+   "about": "novel chapter count",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "24 chapters after splitting chapter nine"
+   ],
+   "superseded": [
+    "22 chapters"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 52,
+     "role": "user"
+    },
+    {
+     "turn": 306,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F023",
+  "type": "update",
+  "checkpoint_turn": 350,
+  "repeat_index": 2,
+  "question": "Stride: what's my pace target per km at the minute?",
+  "ask": {
+   "about": "target running pace",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "5:30 per km"
+   ],
+   "superseded": [
+    "5:45 per km"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    },
+    {
+     "turn": 286,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F042",
+  "type": "update",
+  "checkpoint_turn": 350,
+  "repeat_index": 2,
+  "question": "Harrow: how does the ending land these days?",
+  "ask": {
+   "about": "novel ending",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "open ending instead, the mill is never reached"
+   ],
+   "superseded": [
+    "ends on the flooded mill, closed ending"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 133,
+     "role": "user"
+    },
+    {
+     "turn": 288,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F045",
+  "type": "fact_recall",
+  "checkpoint_turn": 350,
+  "repeat_index": 1,
+  "question": "Kiln Road: how much do people need to spend for free shipping?",
+  "ask": {
+   "about": "free shipping threshold",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "40 pound basket for free UK shipping"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 141,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F057",
+  "type": "update",
+  "checkpoint_turn": 350,
+  "repeat_index": 1,
+  "question": "Stride: longest run i've done so far?",
+  "ask": {
+   "about": "longest training run",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "16 km longest run"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 218,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F062",
+  "type": "fact_recall",
+  "checkpoint_turn": 350,
+  "repeat_index": 0,
+  "question": "Kiln Road: what's selling the most at the moment?",
+  "ask": {
+   "about": "bestselling product",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "the tall speckled mug, about 60 percent of orders"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 289,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F020",
+  "type": "update",
+  "checkpoint_turn": 375,
+  "repeat_index": 2,
+  "question": "Pebble pro: what's the latest monthly price?",
+  "ask": {
+   "about": "Pebble pro tier monthly price",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "4.49 pounds a month, because the Brightwave bill went up"
+   ],
+   "superseded": [
+    "3.99 pounds a month for pro"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 59,
+     "role": "user"
+    },
+    {
+     "turn": 311,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F033",
+  "type": "update",
+  "checkpoint_turn": 375,
+  "repeat_index": 1,
+  "question": "Stride: what's my daily step goal?",
+  "ask": {
+   "about": "daily step target",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "9,000 steps a day"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 93,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F048",
+  "type": "attribution",
+  "checkpoint_turn": 375,
+  "repeat_index": 1,
+  "question": "Kiln Road email tool: which of your suggestions did i knock back?",
+  "ask": {
+   "about": "Klaviyo suggested for the newsletter",
+   "status": "rejected",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "assistant suggested Klaviyo; user kept Mailchimp"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 161,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F050",
+  "type": "preference",
+  "checkpoint_turn": 375,
+  "repeat_index": 1,
+  "question": "Pebble: can you write the auto-charge flow for the monthly split so everyone's paid automatically?",
+  "ask": {
+   "about": "Pebble rule on charging flatmates",
+   "status": "instruction",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "never auto-charge a flatmate without asking first"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 170,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F051",
+  "type": "hypothetical",
+  "checkpoint_turn": 375,
+  "repeat_index": 1,
+  "question": "Harrow: have i actually committed to the agent query thing?",
+  "ask": {
+   "about": "literary agent query plan",
+   "status": "hypothetical",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "query about 12 agents in September, after the draft"
+   ],
+   "superseded": [],
+   "status": "hypothetical",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 172,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F052",
+  "type": "preference",
+  "checkpoint_turn": 375,
+  "repeat_index": 1,
+  "question": "Kiln Road: draft the returns section for our faq, pls",
+  "ask": {
+   "about": "returns policy",
+   "status": "instruction",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "always a 14-day returns window, no questions asked"
+   ],
+   "superseded": [],
+   "status": "instruction",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 184,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F004",
+  "type": "update",
+  "checkpoint_turn": 400,
+  "repeat_index": 3,
+  "question": "Pebble: what's the current beta date?",
+  "ask": {
+   "about": "Pebble private beta deadline",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "private beta slipped to 2026-06-12"
+   ],
+   "superseded": [
+    "private beta due 2026-05-15"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 9,
+     "role": "user"
+    },
+    {
+     "turn": 206,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F010",
+  "type": "update",
+  "checkpoint_turn": 400,
+  "repeat_index": 2,
+  "question": "Harrow: what's the word target now, i've lost track",
+  "ask": {
+   "about": "novel total word count target",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "85,000 words after the editor's cut advice"
+   ],
+   "superseded": [
+    "90,000 words"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 29,
+     "role": "user"
+    },
+    {
+     "turn": 359,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F027",
+  "type": "update",
+  "checkpoint_turn": 400,
+  "repeat_index": 3,
+  "question": "Harrow: what's the victim's full name?",
+  "ask": {
+   "about": "novel victim's name",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Edith Harlow, I typed Enid by mistake"
+   ],
+   "superseded": [
+    "the victim is Enid Harlow"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 78,
+     "role": "user"
+    },
+    {
+     "turn": 207,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F028",
+  "type": "update",
+  "checkpoint_turn": 400,
+  "repeat_index": 1,
+  "question": "Kiln Road: which platform is the shop running on right now?",
+  "ask": {
+   "about": "shop platform",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Shopify on the Starter plan"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 81,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F053",
+  "type": "fact_recall",
+  "checkpoint_turn": 400,
+  "repeat_index": 1,
+  "question": "Stride: how many weeks is the block i'm in?",
+  "ask": {
+   "about": "training block length",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "12-week training block"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 187,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F054",
+  "type": "attribution",
+  "checkpoint_turn": 400,
+  "repeat_index": 1,
+  "question": "Stride: which shoes did i pass on when you recommended a pair?",
+  "ask": {
+   "about": "Asics suggested for running shoes",
+   "status": "rejected",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "assistant suggested Asics Novablast; user passed"
+   ],
+   "superseded": [],
+   "status": "rejected",
+   "speaker": "assistant",
+   "citations": [
+    {
+     "turn": 188,
+     "role": "assistant"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:E03",
+  "type": "temporal",
+  "checkpoint_turn": 425,
+  "repeat_index": 0,
+  "question": "Harrow: how long ago did i hit the word milestone?",
+  "ask": {
+   "about": "Harrow passed 40,000 words",
+   "component": null,
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Harrow passed 40,000 words on 2026-05-10"
+   ],
+   "superseded": [],
+   "citations": [
+    {
+     "turn": 384,
+     "role": "user"
+    }
+   ],
+   "date": "2026-05-10"
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F056",
+  "type": "update",
+  "checkpoint_turn": 425,
+  "repeat_index": 1,
+  "question": "Kiln Road ads: how much are we putting into instagram monthly?",
+  "ask": {
+   "about": "monthly Instagram ad budget",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "300 pounds a month on Instagram ads"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 212,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F057",
+  "type": "update",
+  "checkpoint_turn": 425,
+  "repeat_index": 2,
+  "question": "Stride: how far is my biggest run now?",
+  "ask": {
+   "about": "longest training run",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "18 km longest run"
+   ],
+   "superseded": [
+    "16 km longest run"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 218,
+     "role": "user"
+    },
+    {
+     "turn": 372,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F063",
+  "type": "update",
+  "checkpoint_turn": 425,
+  "repeat_index": 1,
+  "question": "Kiln Road: how are the parcel deliveries doing now?",
+  "ask": {
+   "about": "Royal Mail strike and parcel delays",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "World_&_Current_Events",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "strike called off, deliveries back to normal"
+   ],
+   "superseded": [
+    "Royal Mail strike delaying parcels two to three days"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 319,
+     "role": "user"
+    },
+    {
+     "turn": 378,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F015",
+  "type": "update",
+  "checkpoint_turn": 450,
+  "repeat_index": 3,
+  "question": "Pebble: what's our current sprint length?",
+  "ask": {
+   "about": "Pebble sprint length",
+   "status": "decided",
+   "project": "Pebble",
+   "component": null,
+   "topic": "Software_&_Tech",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "ten-day sprints now"
+   ],
+   "superseded": [
+    "two-week sprints"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 43,
+     "role": "user"
+    },
+    {
+     "turn": 253,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F033",
+  "type": "update",
+  "checkpoint_turn": 450,
+  "repeat_index": 2,
+  "question": "Stride: step target per day now?",
+  "ask": {
+   "about": "daily step target",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "11,000 steps a day"
+   ],
+   "superseded": [
+    "9,000 steps a day"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 93,
+     "role": "user"
+    },
+    {
+     "turn": 387,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F060",
+  "type": "update",
+  "checkpoint_turn": 450,
+  "repeat_index": 1,
+  "question": "Kiln Road newsletter: subscriber count these days?",
+  "ask": {
+   "about": "newsletter subscribers",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "340 newsletter subscribers"
+   ],
+   "superseded": [],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 231,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F056",
+  "type": "update",
+  "checkpoint_turn": 475,
+  "repeat_index": 2,
+  "question": "Kiln Road: current instagram ad budget?",
+  "ask": {
+   "about": "monthly Instagram ad budget",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "220 pounds a month after the ROAS review"
+   ],
+   "superseded": [
+    "300 pounds a month on Instagram ads"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 212,
+     "role": "user"
+    },
+    {
+     "turn": 429,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F061",
+  "type": "update",
+  "checkpoint_turn": 475,
+  "repeat_index": 2,
+  "question": "Stride: how's the knee now, can i run?",
+  "ask": {
+   "about": "left knee twinge",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "back running after a rest week"
+   ],
+   "superseded": [
+    "left knee twinge after the 14k run"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 256,
+     "role": "user"
+    },
+    {
+     "turn": 278,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F023",
+  "type": "update",
+  "checkpoint_turn": 500,
+  "repeat_index": 3,
+  "question": "Stride: what's the pace goal these days?",
+  "ask": {
+   "about": "target running pace",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "5:30 per km"
+   ],
+   "superseded": [
+    "5:45 per km"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 66,
+     "role": "user"
+    },
+    {
+     "turn": 286,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F060",
+  "type": "update",
+  "checkpoint_turn": 500,
+  "repeat_index": 2,
+  "question": "Kiln Road newsletter: how many people are on it right now?",
+  "ask": {
+   "about": "newsletter subscribers",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "412 newsletter subscribers"
+   ],
+   "superseded": [
+    "340 newsletter subscribers"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 231,
+     "role": "user"
+    },
+    {
+     "turn": 452,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F029",
+  "type": "update",
+  "checkpoint_turn": 525,
+  "repeat_index": 3,
+  "question": "Kiln Road: what's the speckled tall mug listed at now?",
+  "ask": {
+   "about": "tall speckled mug price",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "26 pounds after the glaze price rise"
+   ],
+   "superseded": [
+    "24 pounds for the tall speckled mug"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 85,
+     "role": "user"
+    },
+    {
+     "turn": 330,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F064",
+  "type": "preference",
+  "checkpoint_turn": 525,
+  "repeat_index": 1,
+  "question": "Stride: put together a sleep plan for my week so the training holds up",
+  "ask": {
+   "about": "sleep target",
+   "status": "preference",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "7.5 hours a night"
+   ],
+   "superseded": [],
+   "status": "preference",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 328,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F002",
+  "type": "update",
+  "checkpoint_turn": 550,
+  "repeat_index": 3,
+  "question": "Harrow: what's the title i'm going with now?",
+  "ask": {
+   "about": "novel working title",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Low Water"
+   ],
+   "superseded": [
+    "The Quiet Mills"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 4,
+     "role": "user"
+    },
+    {
+     "turn": 340,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F010",
+  "type": "update",
+  "checkpoint_turn": 550,
+  "repeat_index": 3,
+  "question": "Harrow: how many words is the whole book supposed to be?",
+  "ask": {
+   "about": "novel total word count target",
+   "status": "decided",
+   "project": "Harrow",
+   "component": null,
+   "topic": "Creative_&_Media",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "85,000 words after the editor's cut advice"
+   ],
+   "superseded": [
+    "90,000 words"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 29,
+     "role": "user"
+    },
+    {
+     "turn": 359,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F057",
+  "type": "update",
+  "checkpoint_turn": 575,
+  "repeat_index": 3,
+  "question": "Stride: what's the longest run i've got in the logs?",
+  "ask": {
+   "about": "longest training run",
+   "status": "decided",
+   "project": "Stride",
+   "component": null,
+   "topic": "Lifestyle_&_Health",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "18 km longest run"
+   ],
+   "superseded": [
+    "16 km longest run"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 218,
+     "role": "user"
+    },
+    {
+     "turn": 372,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:F028",
+  "type": "update",
+  "checkpoint_turn": 600,
+  "repeat_index": 3,
+  "question": "Kiln Road: what setup are we using to sell, including the mugs listing?",
+  "ask": {
+   "about": "shop platform",
+   "status": "decided",
+   "project": "Kiln Road",
+   "component": null,
+   "topic": "Business_&_Finance",
+   "probe": null
+  },
+  "reference": {
+   "required": [
+    "Shopify plus a separate Etsy listing for the mugs"
+   ],
+   "superseded": [
+    "Shopify on the Starter plan"
+   ],
+   "status": "decided",
+   "speaker": "user",
+   "citations": [
+    {
+     "turn": 81,
+     "role": "user"
+    },
+    {
+     "turn": 407,
+     "role": "user"
+    }
+   ],
+   "in_paste": false
+  },
+  "expected_abstention": false
+ },
+ {
+  "family": "S7:NEG00",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Pebble: did we ever set up a slack channel for the beta testers?",
+  "ask": {
+   "about": "slack channel for beta testers"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG01",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Stride: what's my resting heart rate target these days lol",
+  "ask": {
+   "about": "resting heart rate target"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG02",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Kiln Road: which courier do we use for international orders?",
+  "ask": {
+   "about": "international courier"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG03",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Harrow: who's the copy editor i booked for the final pass?",
+  "ask": {
+   "about": "copy editor"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG04",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Pebble: what colour did i pick for the app icon?",
+  "ask": {
+   "about": "app icon colour"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG05",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Stride: did i sign up for the spring 10k?",
+  "ask": {
+   "about": "spring 10k race"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG06",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Kiln Road: how much is postage to Ireland for one mug?",
+  "ask": {
+   "about": "postage to Ireland"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG07",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Harrow: who designed the cover?",
+  "ask": {
+   "about": "cover designer"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG08",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Pebble: how many crash reports came in last week?",
+  "ask": {
+   "about": "weekly crash report volume"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ },
+ {
+  "family": "S7:NEG09",
+  "type": "negative",
+  "checkpoint_turn": 600,
+  "repeat_index": 0,
+  "question": "Stride: which gym class do i do on fridays?",
+  "ask": {
+   "about": "Friday gym class"
+  },
+  "reference": {
+   "required": [],
+   "superseded": [],
+   "citations": []
+  },
+  "expected_abstention": true
+ }
+]
