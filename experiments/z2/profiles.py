@@ -26,6 +26,9 @@ Z2_PROFILES = {
     "longcat": PROFILES["opencode-longcat20"],
     "luna": PROFILES["opencode-luna6"],
     "muse": PROFILES["opencode-muse13"],
+    # Z2's answerer from 2026-10-27 (spec D6d): Muse 1.2 on the Responses API, like 1.3.
+    "muse12": ProviderProfile(name="opencode-muse12", endpoint="responses", model="muse-spark-1.2-contributor",
+                              base_url_env="PROBE_API_BASE_URL", api_key_env="PROBE_API_KEY"),
 }
 
 # D6: the two ledger/question writer families; each verifies the other. Muse 1.3

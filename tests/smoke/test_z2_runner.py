@@ -85,3 +85,10 @@ def test_meter_shows_estimates_until_a_rate_is_measured(tmp_path):
     ctx.stages[0].units = 40
     text = R.meter(ctx)
     assert "40/100" in text and "(estimate)" in text and "0h10m" in text   # 60 left × 10 s
+
+
+def test_every_local_stage_runs_before_any_cloud_stage():
+    from experiments.z2.run_z2 import ANSWERER, stages
+    keys = [s.key for s in stages()]
+    cloud = ("s10-B", "s10-C", "s12-answers", "s11-B", "s11-C", "s12-grade")
+    assert keys.index("s12") < min(keys.index(k) for k in cloud) and ANSWERER == "muse12"

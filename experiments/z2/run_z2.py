@@ -1,5 +1,6 @@
-"""Z2 long-run driver: S7 → S8 → S9 → S10 → S12 → S11 → S12 grading in one resumable
-command — every local stage first, every cloud judging stage last (spec D6c).
+"""Z2 long-run driver: S7 → S8 → S9 → S12 replay + reads (all local), then the cloud
+stages S10 answers → S12 answers → S11 → S12 grading, in one resumable command — every
+local stage first, every cloud stage last (spec D6c; answerer Muse 1.2, D6d).
 
 The maintainer launches the long runs (2026-10-18); this is the one command, and
 the same command resumes. Every stage keeps its own durable, resumable units, so a
@@ -406,13 +407,16 @@ class ReadPasses(Stage):
         return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
+ANSWERER = "muse12"     # spec D6d
+
+
 class Answers(Stage):
-    """S10: the local answerer (spec D6c) answers every S9 context, one per distinct
-    prompt (experiments/z2/answers.py)."""
+    """S10: the answerer (spec D6d: Muse 1.2, cloud) answers every S9 context, one per
+    distinct prompt (experiments/z2/answers.py)."""
 
     def __init__(self, history, *, key=None, title=None, units_key=None, needs=None, planned=None,
-                 estimate=85.0):
-        # qwen3.8:27b with thinking: ~100 s for a 37.5k-token prompt, ~85 s at B's median.
+                 estimate=10.0):
+        # Muse 1.2, four workers: a planning guess until the stage measures its own rate.
         super().__init__(key=key or f"s10-{history}", title=title or f"S10 answers {history}",
                          needs=needs or (f"s9-{history}",), unit="answers", estimate=estimate)
         self.history = history
@@ -453,7 +457,7 @@ class Answers(Stage):
         def attempt():
             (self.out(ctx) / "status.json").unlink(missing_ok=True)
             cmd = [sys.executable, "experiments/z2/answers.py", "--units", str(self.units(ctx).relative_to(ROOT)),
-                   "--out", str(self.out(ctx).relative_to(ROOT))]
+                   "--out", str(self.out(ctx).relative_to(ROOT)), "--answerer", ANSWERER]
             rc = ctx.run_child(cmd, log_path)
             return rc, _tail(log_path)
 
@@ -606,12 +610,12 @@ def stages(limit=None):
         Audit("C"),
         ReadPasses("B"),
         ReadPasses("C"),
+        Oracle(),
+        # Every cloud stage last, on one plan period (spec D6c, D6d): answers, then grading.
         Answers("B"),
         Answers("C"),
-        Oracle(),
-        Answers("lme", key="s12-answers", title="S12 answers (local Qwen)", units_key="s12", needs=("s12",),
-                planned=2000, estimate=60.0),
-        # Every cloud stage last, on one plan period (spec D6c).
+        Answers("lme", key="s12-answers", title="S12 answers (Muse 1.2)", units_key="s12", needs=("s12",),
+                planned=2000),
         Grading("B"),
         Grading("C"),
         OracleGrade(),

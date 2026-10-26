@@ -100,3 +100,23 @@ def test_local_cap_is_incomplete_and_overflow_is_too_long_never_truncated(tmp_pa
     calls.clear()
     status = A.run(src2, tmp_path / "s10b", generate=local.generate, meta={}, say=lambda *_: None)
     assert status["too_long"] == 1 and not calls
+
+
+def test_a_different_answerer_never_mixes_into_saved_answers(tmp_path):
+    src = units(tmp_path / "s9", [("full", "a", [dict(role="user", content="q")]),
+                                  ("full", "b", [dict(role="user", content="r")])])
+    gen = lambda messages, **_: NS(text="ans", usage={})
+    A.run(src, tmp_path / "s10", generate=gen, meta=dict(model="qwen3.8:27b"), say=lambda *_: None)
+    calls = []
+    try:
+        A.run(src, tmp_path / "s10", generate=lambda m, **_: calls.append(m),
+              meta=dict(model="muse-spark-1.2-contributor"), say=lambda *_: None)
+        raise AssertionError("mixed answerers were accepted")
+    except A.MixedAnswerers:
+        assert calls == []
+
+
+def test_muse12_profile_cap_and_workers():
+    from experiments.z2.profiles import Z2_PROFILES
+    assert Z2_PROFILES["muse12"].model == "muse-spark-1.2-contributor"
+    assert A.OUTPUT_TOKENS["muse12"] == 16_000 and A.WORKERS["muse12"] == 4
