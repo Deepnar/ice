@@ -1,0 +1,1302 @@
+[
+ {
+  "id": "S7:F001@50#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: what was the app idea again? i keep forgetting lol",
+  "checkpoint_turn": 50,
+  "family": "S7:F001",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F002@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: what's the working title right now?",
+  "checkpoint_turn": 50,
+  "family": "S7:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F003@50#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: what genre is it and where's it set?",
+  "checkpoint_turn": 50,
+  "family": "S7:F003",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F004@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble beta: when's the private beta due?",
+  "checkpoint_turn": 50,
+  "family": "S7:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F018@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: where's the database hosted at the moment?",
+  "checkpoint_turn": 50,
+  "family": "S7:F018",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:F019@50#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: which day do i do the long run on?",
+  "checkpoint_turn": 50,
+  "family": "S7:F019",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:F005@75#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: which service are we using for sync and push?",
+  "checkpoint_turn": 75,
+  "family": "S7:F005",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F007@75#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: who's handling the backend again?",
+  "checkpoint_turn": 75,
+  "family": "S7:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F008@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: when's the first full draft due?",
+  "checkpoint_turn": 75,
+  "family": "S7:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F009@75#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: what's the date for the autumn half marathon?",
+  "checkpoint_turn": 75,
+  "family": "S7:F009",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F010@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: what's my total word target for the whole novel?",
+  "checkpoint_turn": 75,
+  "family": "S7:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F011@75#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: how many flatmates go in each group again?",
+  "checkpoint_turn": 75,
+  "family": "S7:F011",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F014@100#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: who's narrating the book again?",
+  "checkpoint_turn": 100,
+  "family": "S7:F014",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F015@100#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: how long are our sprints right now?",
+  "checkpoint_turn": 100,
+  "family": "S7:F015",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F016@100#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: which app am i drafting the novel in?",
+  "checkpoint_turn": 100,
+  "family": "S7:F016",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F017@100#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: how many chapters is the book planned for at the moment?",
+  "checkpoint_turn": 100,
+  "family": "S7:F017",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F018@100#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: what are we hosting the database on right now?",
+  "checkpoint_turn": 100,
+  "family": "S7:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F019@100#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: what day's the long run these days?",
+  "checkpoint_turn": 100,
+  "family": "S7:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F020@100#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: how much is the pro tier a month?",
+  "checkpoint_turn": 100,
+  "family": "S7:F020",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F021@125#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: what's my daily word target on weekdays?",
+  "checkpoint_turn": 125,
+  "family": "S7:F021",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F022@125#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: what's the shop called and what do we sell?",
+  "checkpoint_turn": 125,
+  "family": "S7:F022",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F023@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: what pace am i aiming for per km?",
+  "checkpoint_turn": 125,
+  "family": "S7:F023",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F025@125#0",
+  "kind": "question",
+  "type": "preference",
+  "question": "Harrow: can you sketch a writing block for me this week, something sensible around work?",
+  "checkpoint_turn": 125,
+  "family": "S7:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F026@125#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble beta: how many testers are we on right now?",
+  "checkpoint_turn": 125,
+  "family": "S7:F026",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F027@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: who's the victim again?",
+  "checkpoint_turn": 125,
+  "family": "S7:F027",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F029@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road: what do i charge for the tall speckled mug?",
+  "checkpoint_turn": 125,
+  "family": "S7:F029",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F043@125#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: what's my rest day in the week?",
+  "checkpoint_turn": 125,
+  "family": "S7:F043",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:F032@150#0",
+  "kind": "question",
+  "type": "attribution",
+  "question": "Pebble: which crash reporting tool did i say no to in the end?",
+  "checkpoint_turn": 150,
+  "family": "S7:F032",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F035@150#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: which day do i restock on?",
+  "checkpoint_turn": 150,
+  "family": "S7:F035",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F038@175#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: where's the stock warehouse?",
+  "checkpoint_turn": 175,
+  "family": "S7:F038",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F039@175#0",
+  "kind": "question",
+  "type": "preference",
+  "question": "Stride: can you put together a drinks plan for my runs this week, sorted to my usual daily amount?",
+  "checkpoint_turn": 175,
+  "family": "S7:F039",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F040@175#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: who's our accountant again?",
+  "checkpoint_turn": 175,
+  "family": "S7:F040",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F042@175#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: how does the novel end at the moment?",
+  "checkpoint_turn": 175,
+  "family": "S7:F042",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F043@175#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: what's my rest day, i always forget lol",
+  "checkpoint_turn": 175,
+  "family": "S7:F043",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F001@200#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: what's the concept again, quick reminder pls?",
+  "checkpoint_turn": 200,
+  "family": "S7:F001",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F003@200#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: remind me of the genre and where it's set",
+  "checkpoint_turn": 200,
+  "family": "S7:F003",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F004@200#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: when is the beta due right now?",
+  "checkpoint_turn": 200,
+  "family": "S7:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F044@200#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: what phone are we testing the android build on?",
+  "checkpoint_turn": 200,
+  "family": "S7:F044",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F045@200#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: from what basket value is UK shipping free?",
+  "checkpoint_turn": 200,
+  "family": "S7:F045",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F046@200#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: how much is the gym membership and which place is it?",
+  "checkpoint_turn": 200,
+  "family": "S7:F046",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F058@200#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: what payment terms have we got with the glaze supplier?",
+  "checkpoint_turn": 200,
+  "family": "S7:F058",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:F005@225#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: who are we using for the push side of things?",
+  "checkpoint_turn": 225,
+  "family": "S7:F005",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F006@225#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: what are we building the app in?",
+  "checkpoint_turn": 225,
+  "family": "S7:F006",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F007@225#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: who owns the backend work again?",
+  "checkpoint_turn": 225,
+  "family": "S7:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F011@225#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: how big is each group allowed to be?",
+  "checkpoint_turn": 225,
+  "family": "S7:F011",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F018@225#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: where's the database living right now?",
+  "checkpoint_turn": 225,
+  "family": "S7:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F048@225#0",
+  "kind": "question",
+  "type": "attribution",
+  "question": "Kiln Road: which newsletter tool did i turn down when you suggested one?",
+  "checkpoint_turn": 225,
+  "family": "S7:F048",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F049@225#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: who's my coach and how often do we check in?",
+  "checkpoint_turn": 225,
+  "family": "S7:F049",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F051@225#0",
+  "kind": "question",
+  "type": "hypothetical",
+  "question": "Harrow: have i settled on the agent query plan yet?",
+  "checkpoint_turn": 225,
+  "family": "S7:F051",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F052@225#0",
+  "kind": "question",
+  "type": "preference",
+  "question": "Kiln Road: write me a returns line for the product page for the mugs, pls",
+  "checkpoint_turn": 225,
+  "family": "S7:F052",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:E02@250#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "Kiln Road: how long ago did the VAT registration come through?",
+  "checkpoint_turn": 250,
+  "family": "S7:E02",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F004@250#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble beta: where does the deadline sit now?",
+  "checkpoint_turn": 250,
+  "family": "S7:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F008@250#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow draft: what date am i working to?",
+  "checkpoint_turn": 250,
+  "family": "S7:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F013@250#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble: which region are the servers in again?",
+  "checkpoint_turn": 250,
+  "family": "S7:F013",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F014@250#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "For Harrow, remind me whose voice the story is in",
+  "checkpoint_turn": 250,
+  "family": "S7:F014",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F015@250#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble sprints: how long are they at the moment?",
+  "checkpoint_turn": 250,
+  "family": "S7:F015",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F016@250#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: what's the program i'm writing the manuscript in?",
+  "checkpoint_turn": 250,
+  "family": "S7:F016",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F019@250#2",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: when do i fit the long run in each week?",
+  "checkpoint_turn": 250,
+  "family": "S7:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F027@250#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: spell out the victim's name for me, i need it for chapter one",
+  "checkpoint_turn": 250,
+  "family": "S7:F027",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F053@250#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: how long is the current training block?",
+  "checkpoint_turn": 250,
+  "family": "S7:F053",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F055@250#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: what running shoes did i end up getting?",
+  "checkpoint_turn": 250,
+  "family": "S7:F055",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F021@275#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: how many words am i aiming for each weekday?",
+  "checkpoint_turn": 275,
+  "family": "S7:F021",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F022@275#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: remind me what we sell and what the shop's called",
+  "checkpoint_turn": 275,
+  "family": "S7:F022",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F023@275#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: what's the pace per km right now?",
+  "checkpoint_turn": 275,
+  "family": "S7:F023",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F026@275#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Pebble beta: how many testers and where did they come from?",
+  "checkpoint_turn": 275,
+  "family": "S7:F026",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F042@275#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: where does the book finish up?",
+  "checkpoint_turn": 275,
+  "family": "S7:F042",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F056@275#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road: what's the monthly spend on instagram ads?",
+  "checkpoint_turn": 275,
+  "family": "S7:F056",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F057@275#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: what's my longest run so far?",
+  "checkpoint_turn": 275,
+  "family": "S7:F057",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F058@275#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: how long do the glaze people give us to pay?",
+  "checkpoint_turn": 275,
+  "family": "S7:F058",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F060@275#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road newsletter: how many subscribers are we at?",
+  "checkpoint_turn": 275,
+  "family": "S7:F060",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F018@300#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: what db setup are we on right now? been a bit confused",
+  "checkpoint_turn": 300,
+  "family": "S7:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F020@300#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble pro: what's it cost per month these days?",
+  "checkpoint_turn": 300,
+  "family": "S7:F020",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F030@300#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: who's reading the chapters as they come in?",
+  "checkpoint_turn": 300,
+  "family": "S7:F030",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F031@300#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "Stride: can you put my morning run into tomorrow's plan, timed the way i usually do it",
+  "checkpoint_turn": 300,
+  "family": "S7:F031",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F036@300#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Harrow: who's the main suspect right now?",
+  "checkpoint_turn": 300,
+  "family": "S7:F036",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F037@300#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "Pebble: can you draft this week's bug triage agenda?",
+  "checkpoint_turn": 300,
+  "family": "S7:F037",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F061@300#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: what's the latest on my knee?",
+  "checkpoint_turn": 300,
+  "family": "S7:F061",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F002@325#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: what's the title these days?",
+  "checkpoint_turn": 325,
+  "family": "S7:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F018@325#4",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble database: what's the current host situation?",
+  "checkpoint_turn": 325,
+  "family": "S7:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F029@325#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road: what's the tall speckled mug going for?",
+  "checkpoint_turn": 325,
+  "family": "S7:F029",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F038@325#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: which city is the stock unit in?",
+  "checkpoint_turn": 325,
+  "family": "S7:F038",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F039@325#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "Stride: plan my hydration for the long run weekend",
+  "checkpoint_turn": 325,
+  "family": "S7:F039",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F040@325#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: who do we send the quarterly books to?",
+  "checkpoint_turn": 325,
+  "family": "S7:F040",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F041@325#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: which day and where do i do my swim?",
+  "checkpoint_turn": 325,
+  "family": "S7:F041",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F010@350#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: what's the full target length in words?",
+  "checkpoint_turn": 350,
+  "family": "S7:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F017@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: how many chapters has the book got now?",
+  "checkpoint_turn": 350,
+  "family": "S7:F017",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F023@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: what's my pace target per km at the minute?",
+  "checkpoint_turn": 350,
+  "family": "S7:F023",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F042@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: how does the ending land these days?",
+  "checkpoint_turn": 350,
+  "family": "S7:F042",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F045@350#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: how much do people need to spend for free shipping?",
+  "checkpoint_turn": 350,
+  "family": "S7:F045",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F057@350#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: longest run i've done so far?",
+  "checkpoint_turn": 350,
+  "family": "S7:F057",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F062@350#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Kiln Road: what's selling the most at the moment?",
+  "checkpoint_turn": 350,
+  "family": "S7:F062",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F020@375#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble pro: what's the latest monthly price?",
+  "checkpoint_turn": 375,
+  "family": "S7:F020",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F033@375#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: what's my daily step goal?",
+  "checkpoint_turn": 375,
+  "family": "S7:F033",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F048@375#1",
+  "kind": "question",
+  "type": "attribution",
+  "question": "Kiln Road email tool: which of your suggestions did i knock back?",
+  "checkpoint_turn": 375,
+  "family": "S7:F048",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F050@375#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "Pebble: can you write the auto-charge flow for the monthly split so everyone's paid automatically?",
+  "checkpoint_turn": 375,
+  "family": "S7:F050",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F051@375#1",
+  "kind": "question",
+  "type": "hypothetical",
+  "question": "Harrow: have i actually committed to the agent query thing?",
+  "checkpoint_turn": 375,
+  "family": "S7:F051",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F052@375#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "Kiln Road: draft the returns section for our faq, pls",
+  "checkpoint_turn": 375,
+  "family": "S7:F052",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F004@400#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: what's the current beta date?",
+  "checkpoint_turn": 400,
+  "family": "S7:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F010@400#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: what's the word target now, i've lost track",
+  "checkpoint_turn": 400,
+  "family": "S7:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F027@400#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: what's the victim's full name?",
+  "checkpoint_turn": 400,
+  "family": "S7:F027",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F028@400#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road: which platform is the shop running on right now?",
+  "checkpoint_turn": 400,
+  "family": "S7:F028",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F053@400#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Stride: how many weeks is the block i'm in?",
+  "checkpoint_turn": 400,
+  "family": "S7:F053",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F054@400#1",
+  "kind": "question",
+  "type": "attribution",
+  "question": "Stride: which shoes did i pass on when you recommended a pair?",
+  "checkpoint_turn": 400,
+  "family": "S7:F054",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:E03@425#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "Harrow: how long ago did i hit the word milestone?",
+  "checkpoint_turn": 425,
+  "family": "S7:E03",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F056@425#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road ads: how much are we putting into instagram monthly?",
+  "checkpoint_turn": 425,
+  "family": "S7:F056",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F057@425#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: how far is my biggest run now?",
+  "checkpoint_turn": 425,
+  "family": "S7:F057",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F063@425#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road: how are the parcel deliveries doing now?",
+  "checkpoint_turn": 425,
+  "family": "S7:F063",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F015@450#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Pebble: what's our current sprint length?",
+  "checkpoint_turn": 450,
+  "family": "S7:F015",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F033@450#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: step target per day now?",
+  "checkpoint_turn": 450,
+  "family": "S7:F033",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F060@450#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road newsletter: subscriber count these days?",
+  "checkpoint_turn": 450,
+  "family": "S7:F060",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F056@475#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road: current instagram ad budget?",
+  "checkpoint_turn": 475,
+  "family": "S7:F056",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F061@475#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: how's the knee now, can i run?",
+  "checkpoint_turn": 475,
+  "family": "S7:F061",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F023@500#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: what's the pace goal these days?",
+  "checkpoint_turn": 500,
+  "family": "S7:F023",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F060@500#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road newsletter: how many people are on it right now?",
+  "checkpoint_turn": 500,
+  "family": "S7:F060",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F029@525#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road: what's the speckled tall mug listed at now?",
+  "checkpoint_turn": 525,
+  "family": "S7:F029",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F064@525#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "Stride: put together a sleep plan for my week so the training holds up",
+  "checkpoint_turn": 525,
+  "family": "S7:F064",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F002@550#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: what's the title i'm going with now?",
+  "checkpoint_turn": 550,
+  "family": "S7:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F010@550#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Harrow: how many words is the whole book supposed to be?",
+  "checkpoint_turn": 550,
+  "family": "S7:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F057@575#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Stride: what's the longest run i've got in the logs?",
+  "checkpoint_turn": 575,
+  "family": "S7:F057",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:F028@600#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Kiln Road: what setup are we using to sell, including the mugs listing?",
+  "checkpoint_turn": 600,
+  "family": "S7:F028",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S7:NEG00@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Pebble: did we ever set up a slack channel for the beta testers?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG00",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG01@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Stride: what's my resting heart rate target these days lol",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG01",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG02@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Kiln Road: which courier do we use for international orders?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG02",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG03@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Harrow: who's the copy editor i booked for the final pass?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG03",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG04@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Pebble: what colour did i pick for the app icon?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG04",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG05@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Stride: did i sign up for the spring 10k?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG05",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG06@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Kiln Road: how much is postage to Ireland for one mug?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG06",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG07@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Harrow: who designed the cover?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG07",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG08@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Pebble: how many crash reports came in last week?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG08",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S7:NEG09@600#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Stride: which gym class do i do on fridays?",
+  "checkpoint_turn": 600,
+  "family": "S7:NEG09",
+  "component": null,
+  "expected_abstention": true
+ }
+]

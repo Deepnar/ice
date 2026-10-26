@@ -1,0 +1,1302 @@
+[
+ {
+  "id": "S8:F007@25#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How many days a week do I have to be in the Corbel office?",
+  "checkpoint_turn": 25,
+  "family": "S8:F007",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:F017@25#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What was my monthly outgoings cap again, please?",
+  "checkpoint_turn": 25,
+  "family": "S8:F017",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:E02@50#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "How long ago was the Corbel verbal offer call?",
+  "checkpoint_turn": 50,
+  "family": "S8:E02",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F001@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What is my job title at Corbel Energy right now?",
+  "checkpoint_turn": 50,
+  "family": "S8:F001",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F002@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What base salary did Corbel offer me again?",
+  "checkpoint_turn": 50,
+  "family": "S8:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F004@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "When exactly do I start at Corbel?",
+  "checkpoint_turn": 50,
+  "family": "S8:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F022@50#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Which city am I moving to?",
+  "checkpoint_turn": 50,
+  "family": "S8:F022",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F005@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What pension percentage is Corbel putting in now?",
+  "checkpoint_turn": 75,
+  "family": "S8:F005",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F006@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How much annual leave do I get at Corbel?",
+  "checkpoint_turn": 75,
+  "family": "S8:F006",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F007@75#1",
+  "kind": "question",
+  "type": "update",
+  "question": "How many office days does Corbel want from me?",
+  "checkpoint_turn": 75,
+  "family": "S8:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F009@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How much is the relocation allowance Corbel is paying?",
+  "checkpoint_turn": 75,
+  "family": "S8:F009",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F014@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How much have I got saved up for the move?",
+  "checkpoint_turn": 75,
+  "family": "S8:F014",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F020@75#0",
+  "kind": "question",
+  "type": "preference",
+  "question": "Can you draft the laptop order email for work?",
+  "checkpoint_turn": 75,
+  "family": "S8:F020",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:F025@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What rent budget did I set for the flat?",
+  "checkpoint_turn": 75,
+  "family": "S8:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F033@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How long is my commute to Corbel HQ?",
+  "checkpoint_turn": 75,
+  "family": "S8:F033",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F037@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "When is Jonah out of the flat, and what day is that?",
+  "checkpoint_turn": 75,
+  "family": "S8:F037",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F038@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How much notice do I have to give the Leeds landlord?",
+  "checkpoint_turn": 75,
+  "family": "S8:F038",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F009@100#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What does the relocation money from Corbel actually come to?",
+  "checkpoint_turn": 100,
+  "family": "S8:F009",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F010@100#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How is the Corbel relocation money paid out?",
+  "checkpoint_turn": 100,
+  "family": "S8:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F016@100#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How much buffer am I keeping after the move?",
+  "checkpoint_turn": 100,
+  "family": "S8:F016",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F017@100#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What is the most I can spend a month once I'm in Bristol?",
+  "checkpoint_turn": 100,
+  "family": "S8:F017",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F034@100#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What am I doing with the 2014 Fiesta?",
+  "checkpoint_turn": 100,
+  "family": "S8:F034",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F002@125#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What is Corbel's offer on the base salary now?",
+  "checkpoint_turn": 125,
+  "family": "S8:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F005@125#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Where did the employer pension percentage land in the end?",
+  "checkpoint_turn": 125,
+  "family": "S8:F005",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F007@125#2",
+  "kind": "question",
+  "type": "update",
+  "question": "How many days in the office are we talking about for Corbel?",
+  "checkpoint_turn": 125,
+  "family": "S8:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F008@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "When does the Pellworth bonus get paid out?",
+  "checkpoint_turn": 125,
+  "family": "S8:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F016@125#1",
+  "kind": "question",
+  "type": "update",
+  "question": "How big is the cash cushion I wanted after moving?",
+  "checkpoint_turn": 125,
+  "family": "S8:F016",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F023@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Which area did I pick for the flat?",
+  "checkpoint_turn": 125,
+  "family": "S8:F023",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F024@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How many bedrooms am I after?",
+  "checkpoint_turn": 125,
+  "family": "S8:F024",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F027@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How long is the lease I'm signing?",
+  "checkpoint_turn": 125,
+  "family": "S8:F027",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F028@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "Which removal company am I using?",
+  "checkpoint_turn": 125,
+  "family": "S8:F028",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:E01@150#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "How long ago did I go and see the Bishopston flat?",
+  "checkpoint_turn": 150,
+  "family": "S8:E01",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F001@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What title did they give me at Corbel these days?",
+  "checkpoint_turn": 150,
+  "family": "S8:F001",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F012@150#0",
+  "kind": "question",
+  "type": "attribution",
+  "question": "Which idea you gave me for staying at Pellworth did I turn down?",
+  "checkpoint_turn": 150,
+  "family": "S8:F012",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F014@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "How much money have I got put by now?",
+  "checkpoint_turn": 150,
+  "family": "S8:F014",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F021@150#0",
+  "kind": "question",
+  "type": "update",
+  "question": "How long is the probation at Corbel?",
+  "checkpoint_turn": 150,
+  "family": "S8:F021",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F025@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What is my maximum rent for the flat these days?",
+  "checkpoint_turn": 150,
+  "family": "S8:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F027@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "How long a contract am I getting on the place?",
+  "checkpoint_turn": 150,
+  "family": "S8:F027",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F029@150#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What day is the move?",
+  "checkpoint_turn": 150,
+  "family": "S8:F029",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F030@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "When is my last day at Pellworth again?",
+  "checkpoint_turn": 150,
+  "family": "S8:F030",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F033@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "How long does the commute to Corbel take me?",
+  "checkpoint_turn": 150,
+  "family": "S8:F033",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F036@150#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Which vet in Bristol am I registering Biscuit with?",
+  "checkpoint_turn": 150,
+  "family": "S8:F036",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:F037@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What date is Jonah moving out again?",
+  "checkpoint_turn": 150,
+  "family": "S8:F037",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F040@150#0",
+  "kind": "question",
+  "type": "attribution",
+  "question": "Which option for the cat on the drive did I turn down?",
+  "checkpoint_turn": 150,
+  "family": "S8:F040",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F041@150#0",
+  "kind": "question",
+  "type": "attribution",
+  "question": "What did you suggest I hire for the removal van?",
+  "checkpoint_turn": 150,
+  "family": "S8:F041",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F004@175#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What day do I actually start the Corbel job?",
+  "checkpoint_turn": 175,
+  "family": "S8:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F011@175#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What salary number am I going to ask Corbel for?",
+  "checkpoint_turn": 175,
+  "family": "S8:F011",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F015@175#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What is my one-off moving budget now?",
+  "checkpoint_turn": 175,
+  "family": "S8:F015",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F017@175#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What monthly spending limit did I land on?",
+  "checkpoint_turn": 175,
+  "family": "S8:F017",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F025@175#2",
+  "kind": "question",
+  "type": "update",
+  "question": "How much can I afford to pay in rent monthly now?",
+  "checkpoint_turn": 175,
+  "family": "S8:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F026@175#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "How much deposit does the letting agent want?",
+  "checkpoint_turn": 175,
+  "family": "S8:F026",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F030@175#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What is my final day at Pellworth?",
+  "checkpoint_turn": 175,
+  "family": "S8:F030",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F034@175#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Is the Fiesta staying or going?",
+  "checkpoint_turn": 175,
+  "family": "S8:F034",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F001@200#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What is my Corbel title now that they've bumped it?",
+  "checkpoint_turn": 200,
+  "family": "S8:F001",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F007@200#3",
+  "kind": "question",
+  "type": "update",
+  "question": "How many days a week am I in the office now?",
+  "checkpoint_turn": 200,
+  "family": "S8:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F008@200#1",
+  "kind": "question",
+  "type": "update",
+  "question": "When is the Pellworth bonus landing now?",
+  "checkpoint_turn": 200,
+  "family": "S8:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F010@200#2",
+  "kind": "question",
+  "type": "update",
+  "question": "How is the relocation money getting paid to me now?",
+  "checkpoint_turn": 200,
+  "family": "S8:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F011@200#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What am I asking Corbel for on salary now, the updated figure?",
+  "checkpoint_turn": 200,
+  "family": "S8:F011",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F013@200#1",
+  "kind": "question",
+  "type": "update",
+  "question": "Who will I report to at Corbel?",
+  "checkpoint_turn": 200,
+  "family": "S8:F013",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F015@200#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What are the total one-off costs I budgeted for the move?",
+  "checkpoint_turn": 200,
+  "family": "S8:F015",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F020@200#2",
+  "kind": "question",
+  "type": "preference",
+  "question": "Can you draft my Corbel laptop order request for it?",
+  "checkpoint_turn": 200,
+  "family": "S8:F020",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F022@200#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Where am I moving to again?",
+  "checkpoint_turn": 200,
+  "family": "S8:F022",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F024@200#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What kind of place am I looking for, bedrooms-wise?",
+  "checkpoint_turn": 200,
+  "family": "S8:F024",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F027@200#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What is the contract length on the flat now?",
+  "checkpoint_turn": 200,
+  "family": "S8:F027",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F031@200#1",
+  "kind": "question",
+  "type": "update",
+  "question": "How big is the storage unit I'm booking?",
+  "checkpoint_turn": 200,
+  "family": "S8:F031",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F035@200#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "What does Biscuit look like, the colour and that sort of thing?",
+  "checkpoint_turn": 200,
+  "family": "S8:F035",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F002@225#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Where is the salary offer sitting now? What is the latest number?",
+  "checkpoint_turn": 225,
+  "family": "S8:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F023@225#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Which neighbourhood is the flat in again?",
+  "checkpoint_turn": 225,
+  "family": "S8:F023",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F032@225#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Where am I staying the first week in Bristol?",
+  "checkpoint_turn": 225,
+  "family": "S8:F032",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F033@225#2",
+  "kind": "question",
+  "type": "update",
+  "question": "How am I getting to work each day, and how long does it take?",
+  "checkpoint_turn": 225,
+  "family": "S8:F033",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F034@225#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What is the call on the Fiesta now?",
+  "checkpoint_turn": 225,
+  "family": "S8:F034",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F036@225#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "What is the name of the vet in Bristol again?",
+  "checkpoint_turn": 225,
+  "family": "S8:F036",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F042@225#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "How much is the resident parking permit?",
+  "checkpoint_turn": 225,
+  "family": "S8:F042",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F004@250#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Which Monday do I start at Corbel now?",
+  "checkpoint_turn": 250,
+  "family": "S8:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F009@250#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What is the relocation allowance now, is it still the same?",
+  "checkpoint_turn": 250,
+  "family": "S8:F009",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F011@250#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What did I end up asking Corbel for in pay?",
+  "checkpoint_turn": 250,
+  "family": "S8:F011",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F018@250#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What is my furniture budget at the moment?",
+  "checkpoint_turn": 250,
+  "family": "S8:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F028@250#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Which movers did I go with in the end?",
+  "checkpoint_turn": 250,
+  "family": "S8:F028",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F030@250#3",
+  "kind": "question",
+  "type": "update",
+  "question": "What date is my last Pellworth day now, since they moved it?",
+  "checkpoint_turn": 250,
+  "family": "S8:F030",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F038@250#2",
+  "kind": "question",
+  "type": "update",
+  "question": "How long a notice period is the Leeds landlord on?",
+  "checkpoint_turn": 250,
+  "family": "S8:F038",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F039@250#0",
+  "kind": "question",
+  "type": "update",
+  "question": "What council tax band did the Bishopston flat end up in?",
+  "checkpoint_turn": 250,
+  "family": "S8:F039",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:E03@275#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "How long ago did I send Corbel the signed contract back?",
+  "checkpoint_turn": 275,
+  "family": "S8:E03",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F002@275#3",
+  "kind": "question",
+  "type": "update",
+  "question": "What number did Corbel finally put on the offer?",
+  "checkpoint_turn": 275,
+  "family": "S8:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F005@275#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Regarding the pension with Corbel, what is the split?",
+  "checkpoint_turn": 275,
+  "family": "S8:F005",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F018@275#1",
+  "kind": "question",
+  "type": "update",
+  "question": "How much have I got for furniture after the IKEA plan?",
+  "checkpoint_turn": 275,
+  "family": "S8:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F019@275#0",
+  "kind": "question",
+  "type": "hypothetical",
+  "question": "Did I actually get a bus pass for Bristol?",
+  "checkpoint_turn": 275,
+  "family": "S8:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F012@300#1",
+  "kind": "question",
+  "type": "attribution",
+  "question": "Which retention idea did I say no thanks to at Pellworth?",
+  "checkpoint_turn": 300,
+  "family": "S8:F012",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F014@300#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What is my savings balance now, the latest figure?",
+  "checkpoint_turn": 300,
+  "family": "S8:F014",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F031@300#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What size of storage did we settle on?",
+  "checkpoint_turn": 300,
+  "family": "S8:F031",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F037@300#2",
+  "kind": "question",
+  "type": "update",
+  "question": "When exactly is Jonah leaving the flat?",
+  "checkpoint_turn": 300,
+  "family": "S8:F037",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F040@300#1",
+  "kind": "question",
+  "type": "attribution",
+  "question": "Which vet suggestion did I decline for the drive?",
+  "checkpoint_turn": 300,
+  "family": "S8:F040",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F041@300#1",
+  "kind": "question",
+  "type": "attribution",
+  "question": "What van did you recommend for the move?",
+  "checkpoint_turn": 300,
+  "family": "S8:F041",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:E04@325#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "How long ago did the storage booking get confirmed?",
+  "checkpoint_turn": 325,
+  "family": "S8:E04",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:E05@325#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "How long ago did Jonah move out of the Leeds flat?",
+  "checkpoint_turn": 325,
+  "family": "S8:E05",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F006@325#2",
+  "kind": "question",
+  "type": "update",
+  "question": "Has my holiday allowance at Corbel changed since the contract?",
+  "checkpoint_turn": 325,
+  "family": "S8:F006",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F017@325#3",
+  "kind": "question",
+  "type": "update",
+  "question": "What is my monthly cap for outgoings these days?",
+  "checkpoint_turn": 325,
+  "family": "S8:F017",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F019@325#1",
+  "kind": "question",
+  "type": "hypothetical",
+  "question": "So, am I getting the Bristol bus pass or not?",
+  "checkpoint_turn": 325,
+  "family": "S8:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F025@325#3",
+  "kind": "question",
+  "type": "update",
+  "question": "What rent number is the budget set at right now?",
+  "checkpoint_turn": 325,
+  "family": "S8:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F026@325#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "What deposit is the agent asking for?",
+  "checkpoint_turn": 325,
+  "family": "S8:F026",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F039@325#1",
+  "kind": "question",
+  "type": "update",
+  "question": "What council tax band is the Bishopston flat in?",
+  "checkpoint_turn": 325,
+  "family": "S8:F039",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F008@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "When does Pellworth pay the bonus, and what is the timing?",
+  "checkpoint_turn": 350,
+  "family": "S8:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F010@350#3",
+  "kind": "question",
+  "type": "update",
+  "question": "How many payments is the Corbel relocation money made in?",
+  "checkpoint_turn": 350,
+  "family": "S8:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F015@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What did I set aside in total for the one-off moving costs?",
+  "checkpoint_turn": 350,
+  "family": "S8:F015",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F016@350#3",
+  "kind": "question",
+  "type": "update",
+  "question": "How much cash cushion am I keeping now, the latest figure?",
+  "checkpoint_turn": 350,
+  "family": "S8:F016",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F021@350#1",
+  "kind": "question",
+  "type": "update",
+  "question": "How long is the probation period at Corbel now?",
+  "checkpoint_turn": 350,
+  "family": "S8:F021",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F024@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "How many bedrooms do I need in the new place?",
+  "checkpoint_turn": 350,
+  "family": "S8:F024",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F027@350#3",
+  "kind": "question",
+  "type": "update",
+  "question": "How long is the tenancy on the flat these days?",
+  "checkpoint_turn": 350,
+  "family": "S8:F027",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F029@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "What is the date the van turns up now?",
+  "checkpoint_turn": 350,
+  "family": "S8:F029",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F031@350#3",
+  "kind": "question",
+  "type": "update",
+  "question": "What size storage unit is it now, the latest figure?",
+  "checkpoint_turn": 350,
+  "family": "S8:F031",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F007@375#4",
+  "kind": "question",
+  "type": "update",
+  "question": "How often do I have to be in the office at Corbel now?",
+  "checkpoint_turn": 375,
+  "family": "S8:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F023@375#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Where is the flat going to be, what part of town?",
+  "checkpoint_turn": 375,
+  "family": "S8:F023",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F032@375#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Remind me where I'm sleeping the first few nights in Bristol.",
+  "checkpoint_turn": 375,
+  "family": "S8:F032",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F033@375#3",
+  "kind": "question",
+  "type": "update",
+  "question": "How am I getting to Corbel, and how long does it take?",
+  "checkpoint_turn": 375,
+  "family": "S8:F033",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F034@375#3",
+  "kind": "question",
+  "type": "update",
+  "question": "Is the Fiesta coming down with me or not?",
+  "checkpoint_turn": 375,
+  "family": "S8:F034",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F036@375#2",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "Which Bristol vet are we using for Biscuit?",
+  "checkpoint_turn": 375,
+  "family": "S8:F036",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F042@375#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "How much do I pay for the parking permit?",
+  "checkpoint_turn": 375,
+  "family": "S8:F042",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:E06@400#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "How long ago did the bike turn up?",
+  "checkpoint_turn": 400,
+  "family": "S8:E06",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F020@400#4",
+  "kind": "question",
+  "type": "preference",
+  "question": "Can you check the laptop spec for my Corbel order before I submit it?",
+  "checkpoint_turn": 400,
+  "family": "S8:F020",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F021@400#2",
+  "kind": "question",
+  "type": "update",
+  "question": "How long do I have to serve on probation at Corbel?",
+  "checkpoint_turn": 400,
+  "family": "S8:F021",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:F030@400#4",
+  "kind": "question",
+  "type": "update",
+  "question": "What date is my last day at Pellworth again?",
+  "checkpoint_turn": 400,
+  "family": "S8:F030",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S8:NEG00@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Should I get a dog once I'm settled in Bristol?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG00",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG01@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Is my sister coming to visit us in the spring?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG01",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG02@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "How much does a dentist check-up cost in Bristol?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG02",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG03@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Does a gym membership near the flat make sense?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG03",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG04@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "When do I need to start paying back the student loan?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG04",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG05@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Should I switch bank accounts before the move?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG05",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG06@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "What is the vehicle tax going to be on the car?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG06",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG07@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Did I get my passport renewed before the trip?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG07",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG08@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Is there a Corbel Christmas party I need to RSVP to?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG08",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S8:NEG09@400#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "Are there any good running clubs near the new place?",
+  "checkpoint_turn": 400,
+  "family": "S8:NEG09",
+  "component": null,
+  "expected_abstention": true
+ }
+]

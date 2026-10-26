@@ -1,0 +1,1122 @@
+[
+ {
+  "id": "S5:E01@50#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i do my first 10k of the spring block again? the riverside one",
+  "checkpoint_turn": 50,
+  "family": "S5:E01",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F002@50#0",
+  "kind": "question",
+  "type": "preference",
+  "question": "can u block off my long run slot for this weekend, just tell me the time",
+  "checkpoint_turn": 50,
+  "family": "S5:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F003@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "whats my physio slot right now, day and time?",
+  "checkpoint_turn": 50,
+  "family": "S5:F003",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F005@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "so what are the oaxaca trip dates right now?",
+  "checkpoint_turn": 50,
+  "family": "S5:F005",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F010@50#0",
+  "kind": "question",
+  "type": "update",
+  "question": "what's my goal time for the half at this point?",
+  "checkpoint_turn": 50,
+  "family": "S5:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E03@75#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "how long ago did i get my passport photos taken at the pharmacy?",
+  "checkpoint_turn": 75,
+  "family": "S5:E03",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E04@75#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was the 12k long run where i had to stop for my shoelace?",
+  "checkpoint_turn": 75,
+  "family": "S5:E04",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E05@75#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i lock in the oaxaca apartment?",
+  "checkpoint_turn": 75,
+  "family": "S5:E05",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F012@75#0",
+  "kind": "question",
+  "type": "preference",
+  "question": "ok its late, can you tell me when i should be in bed tonight?",
+  "checkpoint_turn": 75,
+  "family": "S5:F012",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F013@75#0",
+  "kind": "question",
+  "type": "preference",
+  "question": "plan my weekday run before work tomorrow, what time works?",
+  "checkpoint_turn": 75,
+  "family": "S5:F013",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F025@75#0",
+  "kind": "question",
+  "type": "update",
+  "question": "what's the check-in situation for the oaxaca apartment right now?",
+  "checkpoint_turn": 75,
+  "family": "S5:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E06@100#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i do my longest run so far, the 14k one?",
+  "checkpoint_turn": 100,
+  "family": "S5:E06",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F001@100#1",
+  "kind": "question",
+  "type": "update",
+  "question": "wait which day is the desert sun half on, the current one?",
+  "checkpoint_turn": 100,
+  "family": "S5:F001",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F003@100#1",
+  "kind": "question",
+  "type": "update",
+  "question": "are my physio visits still on the same day, or did they change?",
+  "checkpoint_turn": 100,
+  "family": "S5:F003",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F008@100#0",
+  "kind": "question",
+  "type": "update",
+  "question": "when is my next dentist cleaning? the date",
+  "checkpoint_turn": 100,
+  "family": "S5:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F009@100#0",
+  "kind": "question",
+  "type": "update",
+  "question": "whats the max distance i'm allowed on long runs right now?",
+  "checkpoint_turn": 100,
+  "family": "S5:F009",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F010@100#1",
+  "kind": "question",
+  "type": "update",
+  "question": "what finish time am i gunning for in the half these days?",
+  "checkpoint_turn": 100,
+  "family": "S5:F010",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F022@100#0",
+  "kind": "question",
+  "type": "attribution",
+  "question": "what did you recommend i do as cross training?",
+  "checkpoint_turn": 100,
+  "family": "S5:F022",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E08@125#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "how long ago did i file the claim for the car door dent?",
+  "checkpoint_turn": 125,
+  "family": "S5:E08",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E09@125#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i have the dentist cleaning?",
+  "checkpoint_turn": 125,
+  "family": "S5:E09",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E10@125#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was the run where my itb flared up?",
+  "checkpoint_turn": 125,
+  "family": "S5:E10",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E11@125#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was my physio follow-up where they did the taping?",
+  "checkpoint_turn": 125,
+  "family": "S5:E11",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F018@125#0",
+  "kind": "question",
+  "type": "update",
+  "question": "when is the plumber coming for the faucet, what's the day now?",
+  "checkpoint_turn": 125,
+  "family": "S5:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F019@125#1",
+  "kind": "question",
+  "type": "update",
+  "question": "what's my itb pain number at the moment?",
+  "checkpoint_turn": 125,
+  "family": "S5:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E12@150#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did the car come back from the body shop?",
+  "checkpoint_turn": 150,
+  "family": "S5:E12",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F004@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "what's the passport appointment date and time right now?",
+  "checkpoint_turn": 150,
+  "family": "S5:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F007@150#0",
+  "kind": "question",
+  "type": "update",
+  "question": "when's the honda going in for service?",
+  "checkpoint_turn": 150,
+  "family": "S5:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F009@150#1",
+  "kind": "question",
+  "type": "update",
+  "question": "how many km is my long run peak allowed to be these weeks?",
+  "checkpoint_turn": 150,
+  "family": "S5:F009",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E13@175#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i pay the oaxaca flight deposit?",
+  "checkpoint_turn": 175,
+  "family": "S5:E13",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E14@175#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "how long ago was my recovery run in the new shoes?",
+  "checkpoint_turn": 175,
+  "family": "S5:E14",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F015@175#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "what taper am i doing for the race?",
+  "checkpoint_turn": 175,
+  "family": "S5:F015",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:E15@200#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did physio give me the hip exercises?",
+  "checkpoint_turn": 200,
+  "family": "S5:E15",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E16@200#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i renew the car insurance?",
+  "checkpoint_turn": 200,
+  "family": "S5:E16",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F016@200#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "how much am i paying for car insurance now?",
+  "checkpoint_turn": 200,
+  "family": "S5:F016",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F018@200#1",
+  "kind": "question",
+  "type": "update",
+  "question": "what day did the plumber end up coming out to the faucet?",
+  "checkpoint_turn": 200,
+  "family": "S5:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F019@200#2",
+  "kind": "question",
+  "type": "update",
+  "question": "how's the itb pain been scoring lately, whats the latest number?",
+  "checkpoint_turn": 200,
+  "family": "S5:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E17@225#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did the plumber fix the kitchen faucet?",
+  "checkpoint_turn": 225,
+  "family": "S5:E17",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E18@225#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i do my 15k long run?",
+  "checkpoint_turn": 225,
+  "family": "S5:E18",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F002@225#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "need my next long run on the calendar, which day and time do i usually do?",
+  "checkpoint_turn": 225,
+  "family": "S5:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F004@225#2",
+  "kind": "question",
+  "type": "update",
+  "question": "remind me which date my passport agency visit is on, i keep mixing it up",
+  "checkpoint_turn": 225,
+  "family": "S5:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F007@225#1",
+  "kind": "question",
+  "type": "update",
+  "question": "what time do i need to drop the honda off for service?",
+  "checkpoint_turn": 225,
+  "family": "S5:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F012@225#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "gonna be a late one, should i wrap up or keep going on the couch?",
+  "checkpoint_turn": 225,
+  "family": "S5:F012",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F014@225#0",
+  "kind": "question",
+  "type": "attribution",
+  "question": "which taper plan did i turn down when you suggested it?",
+  "checkpoint_turn": 225,
+  "family": "S5:F014",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F023@225#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "ok the honda thing is coming up, can you set me up so i'm not caught out?",
+  "checkpoint_turn": 225,
+  "family": "S5:F023",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E20@250#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "how long ago was my 10k race at saguaro park?",
+  "checkpoint_turn": 250,
+  "family": "S5:E20",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E21@250#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was the first day i didn't use ice on the itb?",
+  "checkpoint_turn": 250,
+  "family": "S5:E21",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F001@250#2",
+  "kind": "question",
+  "type": "update",
+  "question": "is the half still on the same weekend, or did the date shift?",
+  "checkpoint_turn": 250,
+  "family": "S5:F001",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F003@250#3",
+  "kind": "question",
+  "type": "update",
+  "question": "physio, which weekday do i end up on lately?",
+  "checkpoint_turn": 250,
+  "family": "S5:F003",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F006@250#1",
+  "kind": "question",
+  "type": "update",
+  "question": "how much did we budget for the oaxaca trip in total?",
+  "checkpoint_turn": 250,
+  "family": "S5:F006",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F011@250#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "what was my resting heart rate again?",
+  "checkpoint_turn": 250,
+  "family": "S5:F011",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F015@250#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "what's the taper schedule i locked in for the race?",
+  "checkpoint_turn": 250,
+  "family": "S5:F015",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F019@250#3",
+  "kind": "question",
+  "type": "update",
+  "question": "what was the last itb score i gave the physio?",
+  "checkpoint_turn": 250,
+  "family": "S5:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F022@250#1",
+  "kind": "question",
+  "type": "attribution",
+  "question": "that cross training idea you threw at me, what was it again?",
+  "checkpoint_turn": 250,
+  "family": "S5:F022",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E22@275#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was my passport agency appointment?",
+  "checkpoint_turn": 275,
+  "family": "S5:E22",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E23@275#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i start the pilates class?",
+  "checkpoint_turn": 275,
+  "family": "S5:E23",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E24@275#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was the ridgeway auto service for the car?",
+  "checkpoint_turn": 275,
+  "family": "S5:E24",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F002@275#2",
+  "kind": "question",
+  "type": "preference",
+  "question": "can you draft my reminder for this week's long run with the usual time?",
+  "checkpoint_turn": 275,
+  "family": "S5:F002",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F005@275#1",
+  "kind": "question",
+  "type": "update",
+  "question": "did the oaxaca trip dates shift at all? what are they currently?",
+  "checkpoint_turn": 275,
+  "family": "S5:F005",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F007@275#2",
+  "kind": "question",
+  "type": "update",
+  "question": "what day did the honda service end up on?",
+  "checkpoint_turn": 275,
+  "family": "S5:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F008@275#1",
+  "kind": "question",
+  "type": "update",
+  "question": "what's on the books for the dentist at the moment?",
+  "checkpoint_turn": 275,
+  "family": "S5:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F025@275#1",
+  "kind": "question",
+  "type": "update",
+  "question": "how many nights is the oaxaca place, and when do we check in?",
+  "checkpoint_turn": 275,
+  "family": "S5:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F012@300#2",
+  "kind": "question",
+  "type": "preference",
+  "question": "tomorrow starts early for me, so what's my lights out tonight?",
+  "checkpoint_turn": 300,
+  "family": "S5:F012",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E27@325#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i do the dentist check-in?",
+  "checkpoint_turn": 325,
+  "family": "S5:E27",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F008@325#2",
+  "kind": "question",
+  "type": "update",
+  "question": "what's the latest on my dentist stuff, date-wise?",
+  "checkpoint_turn": 325,
+  "family": "S5:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F013@325#1",
+  "kind": "question",
+  "type": "preference",
+  "question": "could i do a 5:30 run tomorrow before work? check if that's allowed",
+  "checkpoint_turn": 325,
+  "family": "S5:F013",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F028@325#0",
+  "kind": "question",
+  "type": "hypothetical",
+  "question": "did i end up signing up for the august 15k?",
+  "checkpoint_turn": 325,
+  "family": "S5:F028",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E28@350#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did physio give me the all clear for longer long runs?",
+  "checkpoint_turn": 350,
+  "family": "S5:E28",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E29@350#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was my run with the negative splits?",
+  "checkpoint_turn": 350,
+  "family": "S5:E29",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F009@350#3",
+  "kind": "question",
+  "type": "update",
+  "question": "where does my long run peak sit now?",
+  "checkpoint_turn": 350,
+  "family": "S5:F009",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F016@350#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "what did the car insurance renewal end up costing?",
+  "checkpoint_turn": 350,
+  "family": "S5:F016",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F018@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "the faucet plumber, what was the date on that job again?",
+  "checkpoint_turn": 350,
+  "family": "S5:F018",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F024@350#1",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "when was pemberton's booster at the vet?",
+  "checkpoint_turn": 350,
+  "family": "S5:F024",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F025@350#2",
+  "kind": "question",
+  "type": "update",
+  "question": "what day is the oaxaca check-in these days?",
+  "checkpoint_turn": 350,
+  "family": "S5:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E30@375#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when does my outbound flight to oaxaca leave?",
+  "checkpoint_turn": 375,
+  "family": "S5:E30",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E32@375#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i do the hierve el agua day trip?",
+  "checkpoint_turn": 375,
+  "family": "S5:E32",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F004@375#3",
+  "kind": "question",
+  "type": "update",
+  "question": "what's my passport agency day on file?",
+  "checkpoint_turn": 375,
+  "family": "S5:F004",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F014@375#1",
+  "kind": "question",
+  "type": "attribution",
+  "question": "what taper did you put forward that i didn't go with?",
+  "checkpoint_turn": 375,
+  "family": "S5:F014",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E33@400#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i fly back from oaxaca?",
+  "checkpoint_turn": 400,
+  "family": "S5:E33",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E34@400#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i send the oaxaca expense report to finance?",
+  "checkpoint_turn": 400,
+  "family": "S5:E34",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F013@400#2",
+  "kind": "question",
+  "type": "preference",
+  "question": "can i fit a quick run at dawn tomorrow before standup?",
+  "checkpoint_turn": 400,
+  "family": "S5:F013",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F015@400#2",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "what did the taper end up looking like?",
+  "checkpoint_turn": 400,
+  "family": "S5:F015",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F017@400#0",
+  "kind": "question",
+  "type": "update",
+  "question": "how much is the quarterly estimated tax, and when's it due?",
+  "checkpoint_turn": 400,
+  "family": "S5:F017",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F007@425#3",
+  "kind": "question",
+  "type": "update",
+  "question": "what's the honda appointment situation these days?",
+  "checkpoint_turn": 425,
+  "family": "S5:F007",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F019@425#4",
+  "kind": "question",
+  "type": "update",
+  "question": "whats the itb score i'm at right now, im losing track",
+  "checkpoint_turn": 425,
+  "family": "S5:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F027@425#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "how much did the toronto flights end up costing?",
+  "checkpoint_turn": 425,
+  "family": "S5:F027",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E37@450#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was my tempo run?",
+  "checkpoint_turn": 450,
+  "family": "S5:E37",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E38@450#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i do that 12k where i felt sluggish?",
+  "checkpoint_turn": 450,
+  "family": "S5:E38",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F003@450#5",
+  "kind": "question",
+  "type": "update",
+  "question": "where do physio sessions sit in my week now, any change?",
+  "checkpoint_turn": 450,
+  "family": "S5:F003",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F012@450#3",
+  "kind": "question",
+  "type": "preference",
+  "question": "i'm wrecked, is it time to call it or can i stay up a bit?",
+  "checkpoint_turn": 450,
+  "family": "S5:F012",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F006@475#3",
+  "kind": "question",
+  "type": "update",
+  "question": "what's the oaxaca trip budget number as it stands?",
+  "checkpoint_turn": 475,
+  "family": "S5:F006",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F008@475#3",
+  "kind": "question",
+  "type": "update",
+  "question": "when do i have to be back at the dentist next?",
+  "checkpoint_turn": 475,
+  "family": "S5:F008",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F017@475#1",
+  "kind": "question",
+  "type": "update",
+  "question": "what's the estimated tax bill i'm on the hook for, current number?",
+  "checkpoint_turn": 475,
+  "family": "S5:F017",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F019@475#5",
+  "kind": "question",
+  "type": "update",
+  "question": "last itb pain check, what number did i land on?",
+  "checkpoint_turn": 475,
+  "family": "S5:F019",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F026@475#0",
+  "kind": "question",
+  "type": "fact_recall",
+  "question": "what time does the race kick off?",
+  "checkpoint_turn": 475,
+  "family": "S5:F026",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F028@475#1",
+  "kind": "question",
+  "type": "hypothetical",
+  "question": "did i commit to the august 15k or not?",
+  "checkpoint_turn": 475,
+  "family": "S5:F028",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E42@500#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when did i run the desert sun half?",
+  "checkpoint_turn": 500,
+  "family": "S5:E42",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:E43@500#0",
+  "kind": "question",
+  "type": "temporal",
+  "question": "when was the physio check after the race?",
+  "checkpoint_turn": 500,
+  "family": "S5:E43",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F005@500#3",
+  "kind": "question",
+  "type": "update",
+  "question": "oaxaca trip dates, the final version please",
+  "checkpoint_turn": 500,
+  "family": "S5:F005",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F009@500#4",
+  "kind": "question",
+  "type": "update",
+  "question": "how far is my longest planned run these days?",
+  "checkpoint_turn": 500,
+  "family": "S5:F009",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:F025@500#3",
+  "kind": "question",
+  "type": "update",
+  "question": "what's the check-in info for the oaxaca apartment, the current version?",
+  "checkpoint_turn": 500,
+  "family": "S5:F025",
+  "component": null,
+  "expected_abstention": false
+ },
+ {
+  "id": "S5:NEG00@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "is the december trip to phoenix still on, or did i cancel it?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG00",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG01@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "did my brother ever pick a date for his wedding?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG01",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG02@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "should i book the cat's vaccination before the holidays?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG02",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG03@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "when is my next eye exam due?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG03",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG04@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "what did the january ski trip cost?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG04",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG05@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "how much did i pay on the mortgage refinance?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG05",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG06@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "did i cancel my gym membership yet?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG06",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG07@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "what should i get my mom for her birthday?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG07",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG08@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "whats the status of my novel draft lol?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG08",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG09@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "how do i file my rental property income?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG09",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG10@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "when do i get my flu shot this year?",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG10",
+  "component": null,
+  "expected_abstention": true
+ },
+ {
+  "id": "S5:NEG11@500#0",
+  "kind": "question",
+  "type": "negative",
+  "question": "remind me about the wine tasting in napa",
+  "checkpoint_turn": 500,
+  "family": "S5:NEG11",
+  "component": null,
+  "expected_abstention": true
+ }
+]
