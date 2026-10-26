@@ -18,7 +18,9 @@ def test_stage_list_is_consistent():
     member = groups["local-read-BEAM100K"].members[0]
     assert member.replay is groups["local-replay-BEAM100K"].members[0]
     assert next(s for s in stages if s.key == "local-replay-S5").needs == ("prep-generate-S5",)
-    assert stages[-1].built is False                      # grading listed, not built yet
+    grades = [s for s in stages if s.key.startswith("grade-")]
+    assert {"grade-B", "grade-S9", "grade-S1-repeat", "grade-BEAM1M", "grade-lmes"} <= {g.key for g in grades}
+    assert keys.index("grade-B") > keys.index("local-answers-lmes")          # every cloud stage last
 
 
 def test_s1_is_replayed_twice_into_separate_stores():

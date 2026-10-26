@@ -396,6 +396,7 @@ def main() -> int:
     r.add_argument("--slice", type=Path, help="a pinned slice (experiments/lme/final_slice.json): its question_ids")
     g = sub.add_parser("grade")
     g.add_argument("--dataset", choices=sorted(DATASETS), default="oracle")
+    g.add_argument("--judge", default="muse", help="judge role")
     g.add_argument("--units", type=Path, required=True)
     g.add_argument("--answers", type=Path, required=True)
     g.add_argument("--out", type=Path, required=True)
@@ -414,8 +415,8 @@ def main() -> int:
         load_selected_env()
         out.mkdir(parents=True, exist_ok=True)
         calls = M.Calls(out / "oracle-grade-raw.jsonl")
-        ask = judge_caller(calls, generator("muse").generate, metadata("muse"), "lme-oracle")
-        ask_text = text_caller(calls, generator("muse").generate, metadata("muse"), "ice-z2-lme-oracle-upstream")
+        ask = judge_caller(calls, generator(args.judge).generate, metadata(args.judge), "lme-oracle", role=args.judge)
+        ask_text = text_caller(calls, generator(args.judge).generate, metadata(args.judge), "ice-z2-lme-oracle-upstream")
         grade_oracle(args.units, args.answers, out, ask=ask, ask_text=ask_text)
         return 0
     if os.environ.get("ICE_TEST_DATABASE") != args.database:

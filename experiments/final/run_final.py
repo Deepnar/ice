@@ -242,6 +242,66 @@ class LongMemEvalS(Z.Oracle):
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
+class FinalGrade(Z.Stage):
+    """Cloud judging of one history's answers (experiments/z2/grade.py, or a dataset's own grader)."""
+
+    def __init__(self, key, title, cmd_args, needs, judge="muse"):
+        super().__init__(key=key, title=title, needs=tuple(needs), unit="calls", estimate=3.0)
+        self.cmd_args, self.judge = cmd_args, judge
+
+    def out(self, ctx):
+        return ctx.dir / self.key
+
+    def total(self, ctx):
+        return 1
+
+    def done(self, ctx):
+        return int(self.complete(ctx))
+
+    def complete(self, ctx):
+        status = self.out(ctx) / "status.json"
+        return status.exists() and json.loads(status.read_text()).get("finished") is True
+
+    def run(self, ctx):
+        log_path = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = [sys.executable, *self.cmd_args(ctx, self.out(ctx)), "--judge", self.judge]
+            rc = ctx.run_child(cmd, log_path)
+            if rc == 0 and not (self.out(ctx) / "status.json").exists():
+                (self.out(ctx) / "status.json").write_text(json.dumps(dict(finished=True)) + "\n")
+            return rc, Z._tail(log_path)
+
+        return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
+def grade_stage(history, repeat="", judge="muse"):
+    """grade.py with the references and ledger each kind of history uses."""
+    rel = lambda path: str(Z._rel(path))
+    read, ans = f"local-read-{history}{repeat}", f"local-answers-{history}{repeat}"
+    if history in SYNTHETIC:
+        plans = ROOT / "experiments/synth/plans"
+        refs = ["--occurrences", rel(plans / f"{history}.final-occurrences.json"), "--ledger", rel(plans / f"{history}.ledger.json")]
+    elif history == "B":
+        refs = ["--questions", "logs/z2-questions-final", "--ledger", "logs/z2-ledger-detail-2026-10-18-r2/B/ledger.json",
+                "--changes", "logs/z2-questions-final/B/changes.json"]
+    else:
+        refs = ["--questions", "logs/final-questions", "--ledger", f"logs/final-ledger-detail/{history}/ledger.json",
+                "--changes", f"logs/final-questions/{history}/changes.json"]
+    args = lambda ctx, out: ["experiments/z2/grade.py", "--history", history, "--units", rel(ctx.dir / read),
+                             "--answers", rel(ctx.dir / ans), *refs, "--out", rel(out)]
+    return FinalGrade(f"grade-{history}{repeat}", f"grade {history}{repeat}", args, (ans,), judge)
+
+
+def beam_grade(key, judge="muse"):
+    tier, cid = key.split("-")[1], key.split("-")[2]
+    rel = lambda path: str(Z._rel(path))
+    args = lambda ctx, out: ["experiments/beam/grade.py", "--units", rel(ctx.dir / f"local-read-{key}"),
+                             "--answers", rel(ctx.dir / f"local-answers-{key}"),
+                             "--asks", f"logs/final-beam/{tier}/{cid}/asks.json", "--out", rel(out)]
+    return FinalGrade(f"grade-{key}", f"grade {key}", args, (), judge)
+
+
 def final_stages(limit=None):
     b_asks = ROOT / "logs/final-questions/B/asks.json"
     z2q = ROOT / "logs/z2-questions-final/B"
@@ -285,7 +345,19 @@ def final_stages(limit=None):
                       "answers", needs=(dk,))]
     out += [LongMemEvalS(), Z.Answers("lmes", key="local-answers-lmes", title="answers LongMemEval-S",
                                      units_key="local-lmes", needs=("local-lmes",), planned=600, estimate=60.0)]
-    out += [Z.Stage(key="grade-all", title="cloud judging (two judges) — not built yet", built=False)]
+    # Cloud judging, last: one judge (Muse) now; a second judge, when chosen, is another pass
+    # with --judge <role> into its own stage keys (Z3 D7, benched).
+    for k in PRIVATE + list(SYNTHETIC):
+        out.append(grade_stage(k))
+    out.append(grade_stage("S1", repeat="-repeat"))
+    for tier in ("100K", "500K", "1M"):
+        keys = [k for k in BEAM if k.startswith(f"BEAM-{tier}-")]
+        out.append(Group(f"grade-BEAM{tier}", f"grade BEAM {tier}", [beam_grade(k) for k in keys], "conversations",
+                         needs=(f"local-answers-BEAM{tier}",)))
+    lmes = lambda ctx, out: ["experiments/z2/oracle.py", "grade", "--dataset", "s",
+                             "--units", str(Z._rel(ctx.dir / "local-lmes")), "--answers",
+                             str(Z._rel(ctx.dir / "local-answers-lmes")), "--out", str(Z._rel(out))]
+    out.append(FinalGrade("grade-lmes", "grade LongMemEval-S", lmes, ("local-answers-lmes",)))
     return out
 
 
