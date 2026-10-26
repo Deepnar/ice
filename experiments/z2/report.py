@@ -1,4 +1,9 @@
-"""Z2 S11 report: the numbers from grades, per history and question type (spec D11).
+"""Z2 S11 report: the numbers from grades, per history and question type (spec D11, D6e).
+
+**Headline (D6e): `scoring`** — FINAL's measures (experiments/z2/scoring.py): M1 accuracy,
+M2 supported current accuracy by evidence distance and window side, M3 cost (TUR), update
+accuracy, evidence recall, context precision, the primary tests, hallucination
+non-inferiority and the fidelity audit. Everything below it is kept as Z2 planned it.
 
 Never one pooled headline. Per condition and question type: mean 1-5 score, grade
 counts, superseded-value and confirmed-invented rates, abstention accuracy on
@@ -25,7 +30,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-POLICY = "ice-z2-report-1"
+POLICY = "ice-z2-report-2"
 BASELINES = ("bare_vector", "warm_vector")
 BOOTSTRAP = 2_000
 
@@ -44,20 +49,59 @@ def bootstrap(per_family, n=BOOTSTRAP, seed=0):
     return [round(means[int(0.025 * n)], 3), round(means[int(0.975 * n) - 1], 3)]
 
 
-def unit_index(units_dir):
+def unit_index(units_dir, count_messages=None):
+    """Per context: type, tokens, fragments, the turns its fragments come from, its recent
+    window and legs. Bare-vector units store raw chunks (`turn`, no `prompt_tokens`, no
+    context ledger): their prompt is counted with ICE's own counter, and their recent window
+    is recent_only's for the same ask, whose envelope they reuse (read_passes.bare_messages)."""
+    if count_messages is None:
+        from src.memory.tokens import count_messages
     out = {}
     for path in Path(units_dir).glob("units/*/*.json"):
         u = json.loads(path.read_text())
-        stage = u["stage"]
+        stage, selected = u["stage"], u["stage"].get("selected") or []
+        ledger = stage.get("context_ledger")
+        prompt_tokens = stage.get("prompt_tokens")
+        if prompt_tokens is None and stage.get("prompt_messages"):
+            prompt_tokens = count_messages(stage["prompt_messages"])
         out[f"{u['condition']}|{u['ask']['id']}"] = dict(
             type=u["ask"].get("type"), kind=u["ask"]["kind"],
-            prompt_tokens=stage.get("prompt_tokens"), memory_tokens=stage.get("selected_tokens") or 0,
-            fragments=len(stage.get("selected") or []))
+            prompt_tokens=prompt_tokens, memory_tokens=stage.get("selected_tokens") or 0,
+            fragments=len(selected),
+            source_turns=sorted({t for f in selected for t in (f.get("source_turns") or
+                                                                ([f["turn"]] if isinstance(f.get("turn"), int) else []))}),
+            recent_tokens=((ledger.get("blocks") or {}).get("recent_turns") or 0) if ledger else None,
+            legs=sorted({f.get("leg") for f in selected if f.get("leg")}))
+    for key, row in out.items():
+        if row["recent_tokens"] is None:
+            row["recent_tokens"] = out.get(f"recent_only|{key.split('|', 1)[1]}", {}).get("recent_tokens") or 0
     return out
 
 
-def build(history, units, grades):
+def scoring_inputs(history, questions, answers, *, audit=None, replay=None, originals=None):
+    """What scoring.score needs beyond the grades: occurrences, the originals' token prefix,
+    the answers' prompt hashes, S8's audit and S7's per-turn wall times (both optional)."""
+    from experiments.z2 import scoring
+    from experiments.z2.ledger import load_history
+    occurrences = {f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}": o
+                   for o in json.loads((Path(questions) / history / "occurrences.json").read_text())}
+    index = Path(answers) / "index.json"
+    walls = [json.loads(line)["wall"] for line in Path(replay).read_text().splitlines() if line.strip()] \
+        if replay and Path(replay).exists() else None
+    return dict(occurrences=occurrences, prefix=scoring.turn_prefix(originals or load_history(history)),
+                prompts=json.loads(index.read_text())["index"] if index.exists() else None,
+                audit=json.loads(Path(audit).read_text()) if audit and Path(audit).exists() else None,
+                replay_walls=walls)
+
+
+def build(history, units, grades, extras=None):
     graded, ranks, ctl = grades["graded"], grades["ranks"], grades["controls"]
+    scored = None
+    if extras:
+        from experiments.z2 import scoring
+        scored = scoring.score(history, graded, units, extras["occurrences"], extras["prefix"],
+                               semantic=grades.get("semantic_credit"), prompts=extras.get("prompts"),
+                               audit=extras.get("audit"), replay_walls=extras.get("replay_walls"))
     rows = collections.defaultdict(list)                     # (condition, type) -> [row]
     for key, g in graded.items():
         cond, ask_id = key.split("|", 1)
@@ -142,7 +186,7 @@ def build(history, units, grades):
         for kinds in (r.get("carried_by_kind") or {}).values():
             for kind in kinds:
                 c[f"carried_by_{kind}"] += 1
-    return dict(policy=POLICY, history=history, by_condition_and_type=table, paired=paired,
+    return dict(policy=POLICY, history=history, scoring=scored, by_condition_and_type=table, paired=paired,
                 semantic_credit={c: dict(v, items_carried_rate=round(v["items_carried"] / v["items"], 3)
                                          if v["items"] else None) for c, v in semantic.items()},
                 ranking_win_rates={f"{c} vs {b}": dict(v) for (c, b), v in wins.items()},
@@ -159,9 +203,15 @@ def main() -> int:
     parser.add_argument("--history", required=True)
     parser.add_argument("--units", type=Path, required=True)
     parser.add_argument("--grades", type=Path, required=True)
+    parser.add_argument("--questions", type=Path, help="questions root (occurrences) — enables scoring")
+    parser.add_argument("--answers", type=Path, help="S10 folder (prompt hashes for the fidelity audit)")
+    parser.add_argument("--audit", type=Path)
+    parser.add_argument("--replay", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
-    result = build(args.history, unit_index(args.units), json.loads(args.grades.read_text()))
+    extras = scoring_inputs(args.history, args.questions, args.answers or args.grades.parent,
+                            audit=args.audit, replay=args.replay) if args.questions else None
+    result = build(args.history, unit_index(args.units), json.loads(args.grades.read_text()), extras)
     args.out.write_text(json.dumps(result, indent=1, ensure_ascii=False) + "\n")
     print(f"wrote {args.out}")
     return 0

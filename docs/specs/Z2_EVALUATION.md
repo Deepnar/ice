@@ -171,7 +171,7 @@ against, so Z2 families are development material for FINAL purposes.
 |---|---|
 | Ledger/question writers (two families) | DeepSeek V4.1 Flash; MiMo V2.5/V2.6 Flash |
 | Ledger verifier / tie-break | the non-writing family of the two, then LongCat-2.0 |
-| Answerer | ~~GPT 6 Luna (`opencode-luna6`)~~ → **local `qwen3.8:27b`** (D6c, 2026-10-26) |
+| Answerer | ~~GPT 6 Luna (`opencode-luna6`)~~ → ~~local `qwen3.8:27b`~~ (D6c) → **Muse Spark 1.2 Contributor (`muse12`)** (D6d, 2026-10-27) |
 | Answer judge, background-content judge | Muse Spark 1.3 Contributor (`opencode-muse13`) |
 | Second-opinion sample (background audit) | DeepSeek V4.1 Flash on 20% of judged items |
 | Second answer judge | **FINAL only**, untuned, reported beside Muse |
@@ -219,6 +219,56 @@ Decision:
   the configuration ICE itself runs (local-first). Within-study comparisons hold —
   every condition shares the answerer. Absolute scores are not comparable with any
   Luna-answered number.
+
+**D6d — Answerer Muse 1.2; local stages first, then every cloud stage (maintainer,
+2026-10-27).** Supersedes D6c's answerer. The laptop can run only some hours a day
+(thermals), so D6c's ~7–9 GPU days of local answering would stretch into weeks; S10-B had
+257 of 4,864 local answers when stopped.
+- **Answerer = `muse-spark-1.2-contributor`** (confirmed in the provider's model list
+  2026-10-27), Responses API, temperature 0, output cap 16,000 (reasoning included — D6c's
+  reason against a tight cap holds: it would turn the weakest conditions' long answers into
+  ungraded `incomplete`), four workers, no request pacing: the spend limit is met by
+  waiting (TRAPS 148). The 257 Qwen answers are moved aside (`s10-B.qwen-answers/`);
+  `answers.py` refuses to add answers from a different model to a saved file.
+- **Judge unchanged:** Muse 1.3. Answerer and judge share a family (Meta). Accepted: the
+  judge checks required items against quoted sources, not taste, and every condition
+  shares the answerer, so any family leniency cancels in paired comparisons; it can move
+  absolute levels only, which Z2 never compares outside the study. FINAL measures it
+  (cross-family judge sample, blind human sample) and keeps Muse out of its ground truth.
+- **Order:** local — S12 replay + reads; then cloud, on one renewed plan — S10 B, S10 C,
+  S12 answers, S11 B, S11 C, S12 grading. Before the cloud stages: read the allowance cost
+  of ~20 real Muse 1.2 answers and size the stage from it (TRAPS 148) —
+  `experiments/z2/allowance.py` projects every answer stage from the saved answers'
+  allowance (on Luna's 2,669 kept answers: median $0.0114, all Z2 answers ≈ $101).
+- **Data use — accepted by the maintainer, 2026-10-27:** Muse Contributor models may
+  train on prompts and completions and are not zero-retention (Data-use terms below). The
+  2026-10-17 acceptance covered the judge, which sees cited source text; the answerer sees
+  every full memory prompt (median ~25k tokens of B/C). **Muse 1.2 Contributor is accepted
+  as the answerer on these terms, for Z2's B/C prompts and FINAL's private prompts.**
+- **What this changes:** Z2's answers come from a cloud model again; nothing answered by
+  Luna or Qwen is mixed in, and no Qwen- or Luna-answered number is compared with them.
+
+**D6e — Z2 reports FINAL's scoring as its headline (maintainer, 2026-10-27).** Nothing is
+graded yet, and FINAL's measures are counts over the same judge call, so Z2 becomes a full
+rehearsal of FINAL's grading and report. `experiments/z2/scoring.py` (FINAL_PREREGISTRATION r2
+§2–§4), as `report.json → scoring`:
+- **M1** accuracy (correct; partial, incorrect and uncertain are not), **M2** supported current
+  accuracy (correct, no outdated value, no confirmed-invented claim), by question type, by
+  evidence distance (<32K · 32K–128K · 128K–512K · >512K tokens, `ledger.pair_tokens`) and by
+  window side — Z2 reads no `long_context`, so out of window = distance > 37,500 tokens;
+- **M3**: prompt tokens per answer and per correct answer, TUR (correct per 1,000 tokens);
+  replay wall seconds per turn (model calls per turn are not in the trace — said so);
+- **update accuracy** (questions with superseded values), **turn-cited evidence recall**
+  (literal; compressed memory is credited by context precision), **context precision** (share
+  of fragments carrying a required item / a wrong one; semantic credit now also reads
+  `bare_vector`), the **primary tests** (`full` vs `bare_vector`: P1 M2 out-of-window, P2 M1;
+  McNemar, family bootstrap 10,000, Holm, detectable difference), **hallucination
+  non-inferiority**, and the **fidelity audit** per component (S8's items and faithfulness,
+  prompt reach, prompts changed when switched off, M2 change → unexercised / contributing /
+  defective / no measurable effect; over all questions — Z2's asks name no target component).
+- Kept as planned, below it: the 1–5 score, paired 1–5 differences, ranking win rates,
+  retention transitions, controls. Bare-vector units were invisible to the old token and
+  fragment columns (TRAPS 149); `unit_index` now reads them.
 
 **Data-use terms (read 2026-10-17, opencode.ai/docs/go).** MiMo, DeepSeek and LongCat on
 Go: no training, 0-day retention (DeepSeek's zero-retention agreement is renewed monthly;
@@ -495,9 +545,9 @@ hash-bound to its inputs; private content stays under `logs/`):
 | S7 replay B and C on the declared clock | checkpoint stores, event log | local |
 | S8 background-content audit | `bg-audit.json` | Muse + sample |
 | S9 read passes (controls, ablations, decay overlays) | per-condition contexts | local |
-| S10 answers | per-condition answers | local `qwen3.8:27b` (D6c) |
+| S10 answers | per-condition answers | Muse 1.2 (D6d) — cloud, after every local stage |
 | S11 grading and retrieval diagnostics | grades, semantic credits, report | Muse — runs last (D6c) |
-| S12 LME oracle | per-instance contexts, answers, grades | local (answers too, D6c) + Muse last |
+| S12 LME oracle | per-instance contexts, answers, grades | replay + reads local; answers Muse 1.2, grades Muse 1.3 (D6d) |
 
 **Ledger entry:** `{id, history, kind (fact|preference|decision|plan|advice|procedure|event), subject, value, speaker, asserted|suggested|hypothetical, citations[], valid_from_turn, superseded_by?, writers[], verified}`.
 

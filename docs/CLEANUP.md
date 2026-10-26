@@ -1140,3 +1140,11 @@ ROADMAP G77 "DECIDED (maintainer, 2026-10-17 b)".
 | `tests/smoke/test_reflection_review_schema.py` → `tests/smoke/test_g77_self_applied.py` | renamed (git mv) + rewritten | the old file asserted rows stay `pending` — the retired behaviour |
 | `tests/test_maintenance_agent.py` §3, §4, §6+8 and the reconciliation/contradiction caps in §7 | **DELETED** from the suite (ported) | they called detectors deleted in `def7309`; the suite crashed at HEAD before G77. §7 now caps tier-2 duplicate decisions and stale-work notices |
 | `scripts/z1/bg_model_bakeoff.py` imports `_evolve_memory_slots` / `_detect_motifs` | **LEFT + this note** (rule 8) | already listed above as a Z1-era tool that runs only at `8079eb2` |
+
+**2026-10-27 — fix-pass branch, FINAL's Haiku judge dropped (Z3 D13):**
+
+| what | action | note |
+|---|---|---|
+| `experiments/lme/cloud_provider.py` `anthropic_messages` endpoint (branch-only, `TextGenerator`) | **REVERTED** to `main`'s bytes | added only for the Haiku second judge; it broke the frozen fingerprint (TRAPS 131, `test_z1_completed_answer_resume`). Recover from the branch history before this merge if a Messages-API model is ever chosen — and re-pin the fingerprint then. |
+| `tests/smoke/test_anthropic_endpoint.py` | **DELETED** with it | tested only that endpoint |
+| `experiments/z2/profiles.py` `haiku` role | **REPLACED** by `glm` (GLM-5.3-Flash, chat completions) | the cross-family judge sample |

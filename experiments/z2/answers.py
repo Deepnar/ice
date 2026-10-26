@@ -4,11 +4,15 @@ Every unit S9 wrote (one question under one condition) is answered from its exac
 prompt messages; identical prompts are answered once (a gated-off question gives
 the same prompt in several conditions). The answerer never sees the condition's name.
 
-Answerer (D6c, 2026-10-26): local `qwen3.8:27b` through Ollama, thinking on,
-temperature 0, num_ctx 49,152; the output cap (thinking + answer) is what the window
-leaves after the prompt, up to 16,000 and never below 8,000. A prompt that leaves
-less is recorded `too_long`, never truncated.
-`--answerer luna` keeps the cloud path (paced, 4,000-token cap, D7) for the record.
+Answerer (D6d, 2026-10-27): Muse 1.2 (`muse-spark-1.2-contributor`) on OpenCode Go,
+temperature 0, 16,000-token output cap (reasoning included), four workers; the plan's
+spend limit is met by waiting, never by pacing to the request table (TRAPS 148). Muse 1.3
+judges (D6).
+`--answerer local` keeps D6c's path: `qwen3.8:27b` through Ollama, thinking on,
+num_ctx 49,152, output cap = what the window leaves (16,000 down to 8,000; a prompt that
+leaves less is `too_long`, never truncated). `--answerer luna` keeps D7's paced path.
+One answers.jsonl never mixes answerers: a run whose model differs from the saved rows'
+stops before calling anything.
 
 Built for a long unattended run:
 - every answer is a durable row in answers.jsonl keyed by the prompt's sha256;
@@ -16,12 +20,12 @@ Built for a long unattended run:
 - an answer cut at the output cap is recorded `incomplete` — ungraded, never counted
   wrong (D11); any other error is retried on the next attempt and recorded as an
   error after three;
-- cloud only: calls are paced to LUNA_PER_5H inside any rolling 5-hour window, a
+- cloud only: Luna's calls are paced to LUNA_PER_5H inside any rolling 5-hour window; a
   quota/rate-limit reply waits and retries, and a rejected key waits too, re-reading
   .env every few minutes.
 
     uv run --no-sync python experiments/z2/answers.py --units logs/z2-run-main/s9-B \
-        --out logs/z2-run-main/s10-B
+        --out logs/z2-run-main/s10-B --answerer muse12
 """
 
 import argparse
@@ -37,11 +41,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 POLICY = "ice-z2-answers-2"
-OUTPUT_TOKENS = {"local": 16_000, "luna": 4_000}    # D6c local ceiling (thinking included); D7 Luna
+OUTPUT_TOKENS = {"local": 16_000, "luna": 4_000, "muse12": 16_000}    # D6c local ceiling; D7 Luna; D6d
 LOCAL_MIN_OUTPUT = 8_000                 # the window must leave at least this much
 LUNA_PER_5H = 4_000                      # under the plan's 4,230 per 5 hours
 WINDOW = 5 * 3600
-WORKERS = {"local": 1, "luna": 4}        # Ollama serves one request at a time
+WORKERS = {"local": 1, "luna": 4, "muse12": 4}    # Ollama serves one request at a time
 MAX_ERRORS = 3
 AUTH_WAIT, QUOTA_WAIT = 300, 600
 
@@ -71,6 +75,10 @@ def load_units(units_dir):
         unit = json.loads(path.read_text())
         out.append((unit["condition"], unit["ask"]["id"], unit["stage"]["prompt_messages"]))
     return out
+
+
+class MixedAnswerers(Exception):
+    """The saved answers come from a different model than this run's."""
 
 
 class Store:
@@ -255,6 +263,10 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
     from concurrent.futures import ThreadPoolExecutor
     out.mkdir(parents=True, exist_ok=True)
     store = Store(out / "answers.jsonl")
+    saved = {(r.get("answerer") or {}).get("model") for r in store.rows.values()}
+    if saved - {meta.get("model")}:
+        raise MixedAnswerers(f"{out / 'answers.jsonl'} holds answers from {sorted(map(str, saved))}; "
+                             f"this run answers with {meta.get('model')} — move the old file aside first")
     units = load_units(units_dir)
     index = {f"{c}|{a}": prompt_sha(m) for c, a, m in units}
     prompts = {prompt_sha(m): m for _, _, m in units}
@@ -312,18 +324,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--units", type=Path, required=True, help="an S9 output directory")
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--answerer", default="local",
-                        help="local | luna | cloud:<role> (FINAL's cloud-answerer subset, Z3 D6)")
+    parser.add_argument("--answerer", default="muse12",
+                        help="muse12 (D6d, default) | local | luna | cloud:<role> (FINAL's cloud-answerer subset)")
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("answers are private: keep them under logs/")
-    if args.answerer == "luna" or args.answerer.startswith("cloud:"):
+    if args.answerer != "local":
         from experiments.z2.profiles import metadata
-        role = "luna" if args.answerer == "luna" else args.answerer.split(":", 1)[1]
+        role = args.answerer.split(":", 1)[1] if args.answerer.startswith("cloud:") else args.answerer
         answerer = Answerer(role)
-        status = run(args.units, args.out, generate=answerer.generate, meta=metadata(role),
-                     reload_env=answerer.refresh, workers=WORKERS["luna"], pace=role == "luna",
-                     output_tokens=OUTPUT_TOKENS["luna"])
+        cap, workers = OUTPUT_TOKENS.get(role, OUTPUT_TOKENS["muse12"]), WORKERS.get(role, WORKERS["muse12"])
+        status = run(args.units, args.out, generate=answerer.generate, meta=dict(metadata(role), output_tokens=cap),
+                     reload_env=answerer.refresh, workers=workers, pace=role == "luna", output_tokens=cap)
     else:
         answerer = LocalAnswerer()
         try:

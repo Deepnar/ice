@@ -27,14 +27,12 @@ Z2_PROFILES = {
     "longcat": PROFILES["opencode-longcat20"],
     "luna": PROFILES["opencode-luna6"],
     "muse": PROFILES["opencode-muse13"],
-    # FINAL's second, untuned judge (Z3 D7): a fifth family — not the answerer (Qwen), the
-    # writers (DeepSeek, MiMo) or Muse (Meta). OpenCode Go serves it on the Anthropic Messages
-    # endpoint; PROBE_ANTHROPIC_BASE_URL defaults to the documented
-    # https://opencode.ai/inference/go/anthropic (confirm on the first call; D6a qualifies it).
-    "haiku": ProviderProfile(name="opencode-haiku55", endpoint="anthropic_messages", model="claude-haiku-5-5",
-                             base_url=os.environ.get("PROBE_ANTHROPIC_BASE_URL",
-                                                     "https://opencode.ai/inference/go/anthropic"),
-                             api_key_env="PROBE_API_KEY"),
+    # Z2's answerer from 2026-10-27 (spec D6d): Muse 1.2 on the Responses API, like 1.3.
+    "muse12": ProviderProfile(name="opencode-muse12", endpoint="responses", model="muse-spark-1.2-contributor",
+                              base_url_env="PROBE_API_BASE_URL", api_key_env="PROBE_API_KEY"),
+    # FINAL's cross-family judge on ~300 answers (Z3 D13): a family other than Muse (Meta) and the
+    # ground-truth writers (DeepSeek, MiMo); qualified on the planted controls before use (D6a).
+    "glm": _go("opencode-glm53-flash", "glm-5.3-flash"),
 }
 
 # D6: the two ledger/question writer families; each verifies the other. Muse 1.3

@@ -127,4 +127,5 @@ def test_semantic_credit_judges_only_fragments_citing_gold_turns(tmp_path):
     result, pending = G.semantic_credit([(unit, None, occ)], judge, tmp_path)
     assert [f["text"] for f in seen[0]["FRAGMENTS"]] == ["The cat is Tofu."] and not pending
     assert result["full|f@50#0"] == dict(gold_fragments=1, items=1, items_carried=1,
-                                         carried_by_kind={"0": ["facts"]}, wrong=0)
+                                         carried_by_kind={"0": ["facts"]}, wrong=0,
+                                         fragments_total=2, fragments_carrying=1)

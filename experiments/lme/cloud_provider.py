@@ -303,11 +303,6 @@ class TextGenerator:
 
     def __init__(self, profile: ProviderProfile, client: Any | None = None):
         self.profile = profile
-        if client is None and profile.endpoint == "anthropic_messages":
-            from anthropic import Anthropic
-
-            client = Anthropic(base_url=profile.resolved_base_url(), api_key=profile.resolved_api_key(),
-                               timeout=profile.timeout_seconds, max_retries=profile.max_retries)
         if client is None:
             from openai import OpenAI
 
@@ -353,24 +348,6 @@ class TextGenerator:
                     raise CloudCompletionError(f"cloud answer completion was not successful: {completion_status}",
                         receipt=completion_receipt(response, self.profile.endpoint, completion_status))
                 text = (response.choices[0].message.content or "").strip()
-            elif self.profile.endpoint == "anthropic_messages":
-                # FINAL's second judge (Claude Haiku 5.5 on OpenCode Go's Anthropic endpoint).
-                system = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
-                request = dict(model=self.profile.model, max_tokens=max_output_tokens,
-                               messages=[m for m in messages if m["role"] != "system"])
-                if system:
-                    request["system"] = system
-                if self.profile.supports_temperature:
-                    request["temperature"] = temperature
-                if extra_headers:
-                    request["extra_headers"] = extra_headers
-                response = self.client.messages.create(**request)
-                completion_status = _field(response, "stop_reason")
-                if completion_status not in (None, "end_turn", "stop_sequence"):
-                    raise CloudCompletionError(f"cloud answer completion was not successful: {completion_status}",
-                        receipt=completion_receipt(response, self.profile.endpoint, completion_status))
-                text = "".join(_field(b, "text", "") or "" for b in (_field(response, "content") or [])
-                               if _field(b, "type") == "text").strip()
             elif self.profile.endpoint == "responses":
                 request = dict(
                     model=self.profile.model,

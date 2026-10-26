@@ -100,3 +100,33 @@ def test_local_cap_is_incomplete_and_overflow_is_too_long_never_truncated(tmp_pa
     calls.clear()
     status = A.run(src2, tmp_path / "s10b", generate=local.generate, meta={}, say=lambda *_: None)
     assert status["too_long"] == 1 and not calls
+
+
+def test_a_different_answerer_never_mixes_into_saved_answers(tmp_path):
+    src = units(tmp_path / "s9", [("full", "a", [dict(role="user", content="q")]),
+                                  ("full", "b", [dict(role="user", content="r")])])
+    gen = lambda messages, **_: NS(text="ans", usage={})
+    A.run(src, tmp_path / "s10", generate=gen, meta=dict(model="qwen3.8:27b"), say=lambda *_: None)
+    calls = []
+    try:
+        A.run(src, tmp_path / "s10", generate=lambda m, **_: calls.append(m),
+              meta=dict(model="muse-spark-1.2-contributor"), say=lambda *_: None)
+        raise AssertionError("mixed answerers were accepted")
+    except A.MixedAnswerers:
+        assert calls == []
+
+
+def test_muse12_profile_cap_and_workers():
+    from experiments.z2.profiles import Z2_PROFILES
+    assert Z2_PROFILES["muse12"].model == "muse-spark-1.2-contributor"
+    assert A.OUTPUT_TOKENS["muse12"] == 16_000 and A.WORKERS["muse12"] == 4
+
+
+def test_allowance_projects_each_stage_from_measured_answers(tmp_path):
+    from experiments.z2 import allowance as W
+    (tmp_path / "s10-B").mkdir()
+    rows = [dict(prompt_sha256=str(i), usage=dict(opencode=dict(allowance=a))) for i, a in enumerate((0.001, 0.002, 0.003))]
+    (tmp_path / "s10-B" / "answers.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    out = []
+    grand = W.report(tmp_path, totals={"s10-B": 100, "s10-C": 10, "s12-answers": 0}, say=out.append)
+    assert abs(grand - 0.002 * 110) < 1e-9 and "s10-B" in out[0] and "from the other stages" in out[1]
