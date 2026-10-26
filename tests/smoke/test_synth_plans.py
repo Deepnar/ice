@@ -71,3 +71,27 @@ def test_keys_answer_as_of_each_checkpoint():
     f2 = [o for o in occ if o["family"] == "T1:F2"]
     assert f2 and f2[0]["type"] == "attribution" and f2[0]["reference"]["speaker"] == "assistant"
     assert K.reference(p["facts"][0], 2)[1] is True           # asked before it is said -> abstain
+
+
+def test_generator_plants_verifies_retries_and_resumes(tmp_path, monkeypatch):
+    from experiments.synth import generate as G
+    monkeypatch.setattr(G, "validate", lambda p: [])
+    p = plan()
+    calls = {"user": 0}
+    def user_llm(system, prompt):
+        import json as j
+        calls["user"] += 1
+        body = j.loads(prompt)
+        vals = " ".join(i["value"] for i in body["MUST_SAY"])
+        return f"hi {vals}" if calls["user"] != 3 else "forgot it"      # third call misses -> retry
+    def assistant_llm(system, prompt):
+        import json as j
+        return "ok " + " ".join(i["value"] for i in j.loads(prompt)["MUST_SUGGEST"])
+    status = G.run(p, tmp_path, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
+    assert status["turns"] == 50 and not status["unverified"]
+    rows = j_rows = __import__("json").loads((tmp_path / "originals.json").read_text())
+    assert "2,000 euros" in rows[2]["prompt"] and "TransEuropa" in rows[4]["response"]
+    assert "TransEuropa" not in rows[4]["prompt"]                      # a suggestion is the assistant's
+    before = calls["user"]
+    G.run(p, tmp_path, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
+    assert calls["user"] == before                                      # resumed: nothing regenerated
