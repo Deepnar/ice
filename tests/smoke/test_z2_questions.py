@@ -216,3 +216,19 @@ def test_finalize_needs_the_review_then_seals_and_writes_z2_asks(tmp_path):
     asks = json.loads((d / "z2-asks.json").read_text())
     assert not any(a["id"].startswith("B:fam000@") for a in asks)
     assert [a for a in asks if a["kind"] == "control"][0]["question"] == "hey"
+
+
+def test_finalize_final_keeps_every_reviewed_family_without_a_split(tmp_path):
+    import json
+    from experiments.z2 import questions as Q
+    d = tmp_path / "A"
+    d.mkdir()
+    (d / "families.json").write_text(json.dumps(dict(kept=[dict(id="A:fam000"), dict(id="A:fam001"), dict(id="A:fam002")],
+                                                     controls=[dict(id="A:ctl1", checkpoint_turn=25, question="hi", kind="small_talk")])))
+    (d / "occurrences.json").write_text(json.dumps([dict(family=f"A:fam00{i}", checkpoint_turn=50, repeat_index=0,
+                                                         question=f"q{i}", type="fact_recall") for i in range(3)]))
+    (d / "review-decisions.json").write_text(json.dumps(dict(reviewed=True, drop=["A:fam001"])))
+    asks = Q.finalize_final("A", tmp_path)
+    assert [a["id"] for a in asks] == ["A:fam000@50#0", "A:fam002@50#0", "A:ctl1"]
+    assert json.loads((d / "asks.json").read_text()) == asks
+    assert not (d / "split").exists()

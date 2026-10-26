@@ -910,6 +910,27 @@ def finalize(history, out, name="families"):
     print(json.dumps(dict(seal, dropped=len(drop), z2_asks=len(asks))))
 
 
+def finalize_final(history, out, name="families"):
+    """FINAL-only histories (A, D, SW, LAP): after the S5 review every kept family is FINAL's
+    (no Z2/FINAL split). Writes asks.json — the kept families' occurrences plus controls —
+    where the history registry expects it (logs/final-questions/<history>/asks.json)."""
+    directory = out / history
+    decisions = json.loads((directory / "review-decisions.json").read_text())
+    if decisions.get("reviewed") is not True:
+        raise RuntimeError("S5 review not done: review-decisions.json has reviewed != true (USER-REQUIRED)")
+    built = json.loads((directory / f"{name}.json").read_text())
+    drop = set(decisions.get("drop", []))
+    keep = {f["id"] for f in built["kept"] if f["id"] not in drop and f.get("base_family") not in drop}
+    asks = [dict(id=f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}", checkpoint_turn=o["checkpoint_turn"],
+                 question=o["question"], kind="question", type=o["type"])
+            for o in json.loads((directory / "occurrences.json").read_text()) if o["family"] in keep]
+    asks += [dict(id=c["id"], checkpoint_turn=c["checkpoint_turn"], question=c.get("question") or c["prompt"],
+                  kind="control", type=c.get("kind")) for c in built.get("controls", []) if c["id"] not in drop]
+    (directory / "asks.json").write_text(json.dumps(asks, ensure_ascii=False, indent=1) + "\n")
+    print(json.dumps(dict(history=history, families=len(keep), dropped=len(drop), asks=len(asks))))
+    return asks
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Z2 S3 question machinery")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -943,6 +964,10 @@ def main() -> int:
     rv.add_argument("--out", type=Path, required=True)
     rv.add_argument("--name", default="families")
     rv.add_argument("--per-type", type=int, default=6)
+    ff = sub.add_parser("finalize-final", help="FINAL-only history: apply review decisions, write asks.json")
+    ff.add_argument("--history", required=True)
+    ff.add_argument("--out", type=Path, required=True)
+    ff.add_argument("--name", default="families")
     fz = sub.add_parser("finalize", help="S6: apply review decisions, seal the split, write the Z2 asks")
     fz.add_argument("--history", required=True)
     fz.add_argument("--ledger", type=Path, required=True)
@@ -1004,6 +1029,8 @@ def main() -> int:
         write_review(args.history, args.out, args.name, args.per_type)
     elif args.command == "finalize":
         finalize(args.history, args.out, args.name)
+    elif args.command == "finalize-final":
+        finalize_final(args.history, args.out, args.name)
     elif args.command == "changes":
         from experiments.lme.cloud_provider import load_selected_env
         from experiments.z2.profiles import generator, metadata
