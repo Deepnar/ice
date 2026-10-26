@@ -368,14 +368,26 @@ synthetic set (designed next). Each history is one conversation replayed into it
 | **D** — v2 Dataset D, academic/personal planning | 251 (10) | — | ledger + questions; **labelled development** (v3 tuning history) |
 | **Laptop decision** — the long thread (two months) | 157 (7) | — | ledger + questions; replayed alone, not stitched with the earlier laptop chats |
 | **Software project** — ERP timetable work project | 128 (5) | — | ledger + questions; a technical domain that is not ICE |
-| **ICE project, stitched** (~1,737 user turns, ~5.9M tokens; first segment = Z2's C) | — | — | **PENDING** — decided after the BEAM check: if BEAM's ~1M-token public conversations cover long-horizon scale, the stitched chat (private, unreleasable, FINAL's largest prep job) is dropped |
 
-**Dropped, with reasons:** the Linux-setup chats (25/37/51 pairs) and the short laptop chat
+**Dropped, with reasons:** the **stitched ICE project chat** (maintainer, 2026-10-26) — BEAM's
+public ~1M-token conversations cover long-horizon scale with human-validated questions and no
+ledger work, while the stitched chat would be FINAL's largest prep job (~4.8M tokens of ledger)
+and can never be released; the Linux-setup chats (25/37/51 pairs) and the short laptop chat
 (21 pairs) — on the Z2 clock (25-pair sessions; first ask ≥ 40 turns after the fact)
 they yield almost no valid questions, and their value was cross-chat; the saga review chat
 (overlaps B); the other ICE chats (same subject as the stitched history); the personal and
 off-topic chats (excluded); chats under ~15 pairs. Releasing any private history is a later
 paper's work and needs heavy redaction.
+
+**⚑ BEAM portion — decided by the maintainer, 2026-10-26.** [BEAM](https://arxiv.org/abs/2510.27246)
+(ICLR 2026; CC-BY-SA-4.0) replaces the stitched ICE chat as FINAL's long-horizon set. Run
+**natively**: each conversation is replayed through ICE's write path (the Z2 replay
+machinery), then its 20 probing questions are asked once, after the last turn, and scored
+with BEAM's nugget protocol (non-official judge, labelled) beside the Muse grade. It is not
+LSREP — there are no mid-conversation cutoffs; the synthetic set covers that. Portion:
+**128K tier all 20, 500K tier 10 of 35, 1M tier 10 of 35, no 10M** (replay ≈ 1 + 2 + 4
+days at B's rate) — chosen by a fixed seed, balanced over BEAM's categories, before any
+result is seen. Exact conversations and file hashes: `experiments/beam/MANIFEST.json`.
 
 **Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the
 record).** Reported in separate tables, never pooled. *Native* = the dataset's own

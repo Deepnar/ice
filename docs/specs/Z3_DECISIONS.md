@@ -64,6 +64,10 @@ the per-call cost on 20 calls before sizing (TRAPS 148).
 
 ## D3 ⚑ Public data
 
+**Decided 2026-10-26 (maintainer):** BEAM natively — 128K all 20, 500K 10, 1M 10, no 10M,
+seeded and category-balanced; the stitched ICE chat is dropped for it (see FINAL_experiments.md
+§2.1). The LongMemEval-S slice size is still open.
+
 **BEAM, checked 2026-10-26** ([paper, ICLR 2026](https://arxiv.org/abs/2510.27246);
 [dataset](https://huggingface.co/datasets/Mohammadta/BEAM), CC-BY-SA-4.0, not gated;
 10M tier in `Mohammadta/BEAM-10M`): 100 synthetic conversations — 128K tier 20, 500K 35,
