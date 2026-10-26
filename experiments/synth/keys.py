@@ -88,7 +88,10 @@ def reference(fact, checkpoint):
     if now is None:
         return dict(required=[], superseded=[], citations=[], status=fact["status"], speaker=fact["speaker"]), True
     return dict(required=[now["value"]], superseded=old, status=fact["status"], speaker=fact["speaker"],
-                citations=[dict(turn=v["turn"], role=fact["speaker"]) for v in fact["values"] if v["turn"] <= checkpoint],
+                # every value said so far; `current` marks the one the answer rests on (scoring
+                # measures evidence distance to it, not to a superseded value)
+                citations=[dict(turn=v["turn"], role=fact["speaker"], current=v is now)
+                           for v in fact["values"] if v["turn"] <= checkpoint],
                 in_paste=bool(fact.get("in_paste"))), False
 
 
