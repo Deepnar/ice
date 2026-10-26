@@ -757,8 +757,11 @@ def meter(ctx, note=None):
     return "\n".join(lines)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+def main(stages_fn=None, run_dir=None, prog="run_z2.py") -> int:
+    """The runner CLI. FINAL reuses it with its own stage list and run folder
+    (experiments/final/run_final.py)."""
+    stages_fn = stages_fn or stages
+    parser = argparse.ArgumentParser(prog=prog, description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="run (or resume) the stages in order")
     status = sub.add_parser("status", help="show the meter of a run")
@@ -769,8 +772,8 @@ def main() -> int:
     status.add_argument("--watch", action="store_true")
     args = parser.parse_args()
 
-    ctx = Context(args.name)
-    ctx.stages = stages(getattr(args, "limit", None) or ctx.state.get("limit"))   # status: the run's own slice
+    ctx = Context(args.name, directory=run_dir(args.name) if run_dir else None)
+    ctx.stages = stages_fn(getattr(args, "limit", None) or ctx.state.get("limit"))   # status: the run's own slice
     if args.command == "status":
         lock = (ctx.dir / "runner.lock").open("a")
         try:
