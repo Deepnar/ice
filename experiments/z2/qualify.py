@@ -246,7 +246,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--judge", default=JUDGE, help="judge role to qualify (FINAL's second judge: haiku); "
+                        "the planted answers are shared — run it in the same --out")
     args = parser.parse_args()
+    global JUDGE
+    JUDGE = args.judge
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("qualification material is private: keep it under logs/")
     from experiments.lme.cloud_provider import load_selected_env
@@ -268,9 +272,10 @@ def main() -> int:
                   judge_errors=[j for j in judged if "error" in j],
                   plants_kept=sum(1 for r in rows if r.get("plant")), prompt_sha256=prompts, bars=BARS,
                   metrics=metrics, plant_quality=plant_quality, passed=passed, all_passed=all(passed.values()))
-    (args.out / "qualification.json").write_text(json.dumps(dict(record, judged=judged), indent=1, ensure_ascii=False,
+    suffix = "" if JUDGE == "muse" else f"-{JUDGE}"
+    (args.out / f"qualification{suffix}.json").write_text(json.dumps(dict(record, judged=judged), indent=1, ensure_ascii=False,
                                                             default=str) + "\n")
-    sheet(rows, judged, args.out / "review-sample.md")
+    sheet(rows, judged, args.out / f"review-sample{suffix}.md")
     print(json.dumps(dict(metrics=metrics, passed=passed), indent=1))
     return 0
 
