@@ -237,7 +237,14 @@ Decision:
   (cross-family judge sample, blind human sample) and keeps Muse out of its ground truth.
 - **Order:** local — S12 replay + reads; then cloud, on one renewed plan — S10 B, S10 C,
   S12 answers, S11 B, S11 C, S12 grading. Before the cloud stages: read the allowance cost
-  of ~20 real Muse 1.2 answers and size the stage from it (TRAPS 148).
+  of ~20 real Muse 1.2 answers and size the stage from it (TRAPS 148) —
+  `experiments/z2/allowance.py` projects every answer stage from the saved answers'
+  allowance (on Luna's 2,669 kept answers: median $0.0114, all Z2 answers ≈ $101).
+- **⚑ Data use — the maintainer must accept before S10:** Muse Contributor models may
+  train on prompts and completions and are not zero-retention (Data-use terms below). The
+  2026-10-17 acceptance covered the judge, which sees cited source text; the answerer
+  sees every full memory prompt (median ~25k tokens of B/C). Read Muse 1.2's terms,
+  record them, and the acceptance, here.
 - **What this changes:** Z2's answers come from a cloud model again; nothing answered by
   Luna or Qwen is mixed in, and no Qwen- or Luna-answered number is compared with them.
 

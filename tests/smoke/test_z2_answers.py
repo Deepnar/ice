@@ -120,3 +120,13 @@ def test_muse12_profile_cap_and_workers():
     from experiments.z2.profiles import Z2_PROFILES
     assert Z2_PROFILES["muse12"].model == "muse-spark-1.2-contributor"
     assert A.OUTPUT_TOKENS["muse12"] == 16_000 and A.WORKERS["muse12"] == 4
+
+
+def test_allowance_projects_each_stage_from_measured_answers(tmp_path):
+    from experiments.z2 import allowance as W
+    (tmp_path / "s10-B").mkdir()
+    rows = [dict(prompt_sha256=str(i), usage=dict(opencode=dict(allowance=a))) for i, a in enumerate((0.001, 0.002, 0.003))]
+    (tmp_path / "s10-B" / "answers.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    out = []
+    grand = W.report(tmp_path, totals={"s10-B": 100, "s10-C": 10, "s12-answers": 0}, say=out.append)
+    assert abs(grand - 0.002 * 110) < 1e-9 and "s10-B" in out[0] and "from the other stages" in out[1]
