@@ -123,12 +123,26 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
 - ✅ `8f8a4a9` S8 part-wise judge failure counted as "not faithful" → error. After the
   merge, in the cloud phase: re-judge S8 C (clear `s8-C/status.json` + `bg-audit.json`;
   failed parts were never cached, so only they are re-asked).
-- ☐ Entity links 20% wrong (S8 B 79/99, C 80/99 valid) — check the judge, find the cause.
-- ☐ Turn summaries C 15% unfaithful (B 5%) and fold notes B 9% / C ~17% unfaithful — the
-  claim + NLI trust gate (G75) admits them; read the failures.
-- ☐ Session summaries (faithful B 8/44, C 3/12) reach 0/208 prompts; procedures B 26%
-  unfaithful, ~0.7 per prompt — decide fix vs. leave.
-- ☐ Codex fact recall vs the ledger B 0.42 / C 0.51 — what is missed and why.
+- ✅ Entity links 20% wrong (S8 B 79/99, C 80/99 valid) — judge right on the cases read; by role:
+  mention 22/118 wrong, object 10/28, subject 7/52. Mostly plain nouns made entities
+  ("sensors", "baseball", "text"), generic heads ("worker"), markdown junk. Two structural
+  rules measured, **neither separates** (mentions only to entities that are a fact's subject/
+  object: wrong kept 3/22 but right kept 50/96; recurrence ≥ N other facts: same story).
+  **No fix built**; the facts leg is ~600 tokens/question in B, ~46 in C — revisit if S11
+  credits the codex with answers.
+- ✅⏳ `f42e956` Turn summaries C 15% / B 5% unfaithful, fold notes B 9% / C ~17% — real:
+  swapped roles, changed values, pasted test strings reported as the user's own questions;
+  all passed NLI (weak on who-did-what). **G75** second reading by the background model,
+  `summary_claim_check_enabled` default OFF — test: `logs/fix-pass/claim_check_eval.py` on
+  393 S8-labeled items (thresholds inside), plus the per-turn cost on a replay slice.
+- ☐ **Maintainer decision:** session summaries (faithful B 8/44, C 3/12; written unverified by
+  reflection) are read only by MCP `ice://session-start`, never by chat prompts — verify
+  them, stop showing them, or leave. Procedures B 26% unfaithful but ~0.7 per prompt — low
+  priority.
+- ✅ Codex fact recall vs the ledger B 0.42 / C 0.51 — the sample is 88% assistant-side;
+  assistant facts ~40-50%, advice ~37-42%; user facts too few to judge (6 / 3). Missed
+  content stays in the raw turns (≈80% of prompt memory tokens), so **no fix** unless S11
+  shows questions failing that the codex would have answered.
 - ☐ **B7** classifier init/input-scaling variants — code on the branch, train later (GPU).
 - ☐ **Z3** decision sheet for FINAL (roster, synthetic set, LongMemEval-S slice, ablations,
   baselines, answerer) — maintainer decides.
