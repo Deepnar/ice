@@ -105,6 +105,24 @@ needs the maintainer's approval):
   3,000-token output cap (shipped 2026-08-25; this block used to say 550/1,200). Dev
   replay: 511/512 turns in one piece, 5/537 calls hit the cap. Still check C.
 
+**⚑ FIX-PASS BRANCH (maintainer, 2026-10-26).** While Z2 runs from `main`, fix-pass and
+FINAL-prep work is committed on branch `fix-pass` (worktree `.claude/worktrees/fix-pass`,
+venv linked to main's) — real commits, not yet GPU-tested. `main` keeps the frozen
+system Z2 measures; **nothing merges before Z2's S12 reads finish (~2026-11-02/03)**.
+An exception to "work on main, no task branches" for this phase only. On the branch:
+- `561250a` G79 batch summaries — test: a replay that writes batch notes + the
+  source-support check.
+- `1b4b79b` G60 same-item supersession guard — test: `logs/fix-pass/reconcile_eval.py`
+  (thresholds in the script), then `tests/test_codex_facts.py` (DB).
+- `8f8a4a9` S8 part-wise judge failure → error, not "no" — **cherry-pick to main
+  before the cloud phase**, then re-judge S8 C (clear `s8-C/status.json` and
+  `bg-audit.json` so the stage reruns; failed parts were never cached, so only
+  they are re-asked).
+- Merge order after S12 reads: run the quick + db smoke groups on the branch, the
+  tests above, then merge to main.
+Decided not to build yet: a fold staleness fix (G73) — the fold is deliberately
+non-recursive and dated; S11's `loo_notes` vs `full` superseded-value rate decides it.
+
 **AFTER Z2, from its evidence (the fix pass):**
 graph — [G63](#g63) wrong speaker/direction, [G76](#g76) assistant suggestion stored
 as a user fact, [G60](#g60) supersession, [G67](#g67) maintenance agent, [G71](#g71)
