@@ -95,6 +95,8 @@ docs/SESSION.md
 # LongMemEval corpus — external, MIT, 278 MB + 15 MB. Re-fetchable at the pinned
 # revision with experiments/lme/fetch_dataset.py; never committed.
 experiments/lme/data/
+# BEAM parquet files (CC-BY-SA-4.0), pinned in experiments/beam/MANIFEST.json; fetched, never committed.
+experiments/beam/data/
 
 # Frozen-v2 LongMemEval raw outputs and calibration evidence remain local.
 # Aggregate reports under experiments/lme/results/ stay versioned.

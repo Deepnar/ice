@@ -1,0 +1,404 @@
+{
+ "source": "https://huggingface.co/datasets/Mohammadta/BEAM",
+ "revision": "3205395e897e7318c7b094ef4e6047b9b82dbb03",
+ "license": "cc-by-sa-4.0",
+ "seed": 20261026,
+ "rule": "128K all; 500K/1M: 2 Coding + 2 Math + 6 general from distinct categories",
+ "files": {
+  "100K": {
+   "file": "data/100K.parquet",
+   "sha256": "c0519be25907005ba873c927c50877471d550873039d96c041554d0075a78ace"
+  },
+  "500K": {
+   "file": "data/500K.parquet",
+   "sha256": "af05921c979355038e1761b7cde3d2dd713200dd3071b278de0200f6c7f30122"
+  },
+  "1M": {
+   "file": "data/1M.parquet",
+   "sha256": "41b5acbbb55a586b1305514ef9d9fb03365d9b3331b598a1c2dd7603d93ef533"
+  }
+ },
+ "tiers": {
+  "100K": {
+   "available": 20,
+   "chosen": 20,
+   "user_messages": 2866,
+   "conversations": [
+    {
+     "conversation_id": "1",
+     "category": "Coding",
+     "title": "Building a Personal Budget Tracker Web App in Python and Flask",
+     "sessions": 3,
+     "user_messages": 94,
+     "approx_tokens": 130753,
+     "questions": 20
+    },
+    {
+     "conversation_id": "2",
+     "category": "Coding",
+     "title": "Developing a Weather Forecast App in JavaScript with OpenWeather API",
+     "sessions": 3,
+     "user_messages": 100,
+     "approx_tokens": 123293,
+     "questions": 20
+    },
+    {
+     "conversation_id": "3",
+     "category": "Coding",
+     "title": "Building a Portfolio Website with HTML, CSS, and Bootstrap",
+     "sessions": 3,
+     "user_messages": 97,
+     "approx_tokens": 126940,
+     "questions": 20
+    },
+    {
+     "conversation_id": "4",
+     "category": "Math",
+     "title": "Exploring the Geometry of Triangles",
+     "sessions": 3,
+     "user_messages": 106,
+     "approx_tokens": 168449,
+     "questions": 20
+    },
+    {
+     "conversation_id": "5",
+     "category": "Math",
+     "title": "Understanding the Basics of Probability",
+     "sessions": 3,
+     "user_messages": 119,
+     "approx_tokens": 100291,
+     "questions": 20
+    },
+    {
+     "conversation_id": "6",
+     "category": "Writing Assistant & Learning",
+     "title": "Building a Portfolio-Ready Resume that Passes Any Applicant Tracking System",
+     "sessions": 5,
+     "user_messages": 129,
+     "approx_tokens": 147466,
+     "questions": 20
+    },
+    {
+     "conversation_id": "7",
+     "category": "Writing Assistant & Learning",
+     "title": "Mastering the Art of Persuasive Academic Essay Writing",
+     "sessions": 5,
+     "user_messages": 130,
+     "approx_tokens": 142784,
+     "questions": 20
+    },
+    {
+     "conversation_id": "8",
+     "category": "Writing Assistant & Learning",
+     "title": "Crafting a Standout Cover Letter for Competitive Job Markets",
+     "sessions": 5,
+     "user_messages": 134,
+     "approx_tokens": 131358,
+     "questions": 20
+    },
+    {
+     "conversation_id": "9",
+     "category": "Writing Assistant & Learning",
+     "title": "Designing a Multi-Purpose Personal Statement for Global Opportunities",
+     "sessions": 5,
+     "user_messages": 135,
+     "approx_tokens": 146294,
+     "questions": 20
+    },
+    {
+     "conversation_id": "10",
+     "category": "Writing Assistant & Learning",
+     "title": "Developing a Self-Editing System for Lifelong Writing Improvement",
+     "sessions": 5,
+     "user_messages": 172,
+     "approx_tokens": 166349,
+     "questions": 20
+    },
+    {
+     "conversation_id": "11",
+     "category": "Philosophical or Ethical Discussion",
+     "title": "Deciding Whether to Use AI to Automate Hiring in My Company",
+     "sessions": 5,
+     "user_messages": 194,
+     "approx_tokens": 225233,
+     "questions": 20
+    },
+    {
+     "conversation_id": "12",
+     "category": "Philosophical or Ethical Discussion",
+     "title": "Considering Whether to Believe in and Live by the Idea of Free Will",
+     "sessions": 5,
+     "user_messages": 196,
+     "approx_tokens": 224902,
+     "questions": 20
+    },
+    {
+     "conversation_id": "13",
+     "category": "Asking Recommendation",
+     "title": "Selecting a Must-Read Fiction Series for Winter Evenings",
+     "sessions": 5,
+     "user_messages": 155,
+     "approx_tokens": 129514,
+     "questions": 20
+    },
+    {
+     "conversation_id": "14",
+     "category": "Asking Recommendation",
+     "title": "Finding the Best Streaming Movies for a Family Weekend",
+     "sessions": 5,
+     "user_messages": 134,
+     "approx_tokens": 111246,
+     "questions": 20
+    },
+    {
+     "conversation_id": "15",
+     "category": "Asking Recommendation",
+     "title": "Choosing Comfortable and Stylish Sneakers for Daily Wear",
+     "sessions": 5,
+     "user_messages": 136,
+     "approx_tokens": 108385,
+     "questions": 20
+    },
+    {
+     "conversation_id": "16",
+     "category": "Lifestyle",
+     "title": "Personal Finance for Everyday Life",
+     "sessions": 5,
+     "user_messages": 161,
+     "approx_tokens": 152571,
+     "questions": 20
+    },
+    {
+     "conversation_id": "17",
+     "category": "Lifestyle",
+     "title": "Time Management for a Balanced Life",
+     "sessions": 5,
+     "user_messages": 143,
+     "approx_tokens": 134625,
+     "questions": 20
+    },
+    {
+     "conversation_id": "18",
+     "category": "Therapy and Emotional Support",
+     "title": "Recovering from Workplace Burnout and Chronic Stress",
+     "sessions": 5,
+     "user_messages": 181,
+     "approx_tokens": 192131,
+     "questions": 20
+    },
+    {
+     "conversation_id": "19",
+     "category": "Legal and Administrative",
+     "title": "Creating a Legally Valid Will and Estate Plan",
+     "sessions": 5,
+     "user_messages": 164,
+     "approx_tokens": 187644,
+     "questions": 20
+    },
+    {
+     "conversation_id": "20",
+     "category": "Legal and Administrative",
+     "title": "Applying for a Patent to Protect a New Invention",
+     "sessions": 5,
+     "user_messages": 186,
+     "approx_tokens": 207782,
+     "questions": 20
+    }
+   ]
+  },
+  "500K": {
+   "available": 35,
+   "chosen": 10,
+   "user_messages": 5311,
+   "conversations": [
+    {
+     "conversation_id": "11",
+     "category": "Asking Recommendation",
+     "title": "Finding the Perfect Smartphone for Photography and Gaming",
+     "sessions": 10,
+     "user_messages": 545,
+     "approx_tokens": 506016,
+     "questions": 20
+    },
+    {
+     "conversation_id": "32",
+     "category": "Business & Entrepreneurship",
+     "title": "Building a Successful Startup",
+     "sessions": 10,
+     "user_messages": 712,
+     "approx_tokens": 856852,
+     "questions": 20
+    },
+    {
+     "conversation_id": "1",
+     "category": "Coding",
+     "title": "Building a Real-Time Chat Application with Node.js and Socket.io",
+     "sessions": 10,
+     "user_messages": 398,
+     "approx_tokens": 465489,
+     "questions": 20
+    },
+    {
+     "conversation_id": "2",
+     "category": "Coding",
+     "title": "Creating an AI-Powered Resume Analyzer with Python and NLP",
+     "sessions": 10,
+     "user_messages": 440,
+     "approx_tokens": 509524,
+     "questions": 20
+    },
+    {
+     "conversation_id": "26",
+     "category": "Education & Learning",
+     "title": "Exploring Performing Arts: Acting, Theater, and Dance",
+     "sessions": 10,
+     "user_messages": 533,
+     "approx_tokens": 537942,
+     "questions": 20
+    },
+    {
+     "conversation_id": "24",
+     "category": "Health & Wellness",
+     "title": "Understanding and Managing Chronic Illness",
+     "sessions": 10,
+     "user_messages": 509,
+     "approx_tokens": 501805,
+     "questions": 20
+    },
+    {
+     "conversation_id": "35",
+     "category": "Legal and Administrative",
+     "title": "Filing for a Marriage-Based Green Card in the United States",
+     "sessions": 10,
+     "user_messages": 501,
+     "approx_tokens": 499402,
+     "questions": 20
+    },
+    {
+     "conversation_id": "6",
+     "category": "Math",
+     "title": "Diving into Analytic Geometry",
+     "sessions": 10,
+     "user_messages": 512,
+     "approx_tokens": 322518,
+     "questions": 20
+    },
+    {
+     "conversation_id": "8",
+     "category": "Math",
+     "title": "Exploring Conic Sections in Depth",
+     "sessions": 10,
+     "user_messages": 623,
+     "approx_tokens": 536335,
+     "questions": 20
+    },
+    {
+     "conversation_id": "18",
+     "category": "Therapy and Emotional Support",
+     "title": "Coping with Post-Breakup Emotional Pain and Relationship Trauma",
+     "sessions": 10,
+     "user_messages": 538,
+     "approx_tokens": 556496,
+     "questions": 20
+    }
+   ]
+  },
+  "1M": {
+   "available": 35,
+   "chosen": 10,
+   "user_messages": 10387,
+   "conversations": [
+    {
+     "conversation_id": "12",
+     "category": "Career and Professional Development",
+     "title": "Landing Your Next Job: From Resume to Job Offer",
+     "sessions": 10,
+     "user_messages": 1107,
+     "approx_tokens": 1291558,
+     "questions": 20
+    },
+    {
+     "conversation_id": "3",
+     "category": "Coding",
+     "title": "Creating an Autonomous Stock Trading Bot",
+     "sessions": 10,
+     "user_messages": 778,
+     "approx_tokens": 903516,
+     "questions": 20
+    },
+    {
+     "conversation_id": "4",
+     "category": "Coding",
+     "title": "Implementing a Custom Image Captioning Model",
+     "sessions": 10,
+     "user_messages": 800,
+     "approx_tokens": 909256,
+     "questions": 20
+    },
+    {
+     "conversation_id": "19",
+     "category": "Education & Learning",
+     "title": "Mastering a New Language for Real-World Communication",
+     "sessions": 10,
+     "user_messages": 985,
+     "approx_tokens": 1133635,
+     "questions": 20
+    },
+    {
+     "conversation_id": "14",
+     "category": "Financial Investment",
+     "title": "Navigating the World of Cryptocurrency",
+     "sessions": 10,
+     "user_messages": 1347,
+     "approx_tokens": 1446881,
+     "questions": 20
+    },
+    {
+     "conversation_id": "21",
+     "category": "Home & Real Estate",
+     "title": "Selling Your Home for Maximum Value",
+     "sessions": 10,
+     "user_messages": 1167,
+     "approx_tokens": 1263108,
+     "questions": 20
+    },
+    {
+     "conversation_id": "10",
+     "category": "Math",
+     "title": "Exploring Non-Euclidean Geometry",
+     "sessions": 10,
+     "user_messages": 888,
+     "approx_tokens": 809479,
+     "questions": 20
+    },
+    {
+     "conversation_id": "7",
+     "category": "Math",
+     "title": "Solving Ordinary Differential Equations (ODEs)",
+     "sessions": 10,
+     "user_messages": 831,
+     "approx_tokens": 727952,
+     "questions": 20
+    },
+    {
+     "conversation_id": "18",
+     "category": "Relationship & Family",
+     "title": "Strengthening Communication in Romantic Relationships",
+     "sessions": 10,
+     "user_messages": 1306,
+     "approx_tokens": 1429353,
+     "questions": 20
+    },
+    {
+     "conversation_id": "30",
+     "category": "Trip Planning",
+     "title": "Preparing for a Week-Long Hiking and Camping Adventure in Patagonia",
+     "sessions": 10,
+     "user_messages": 1178,
+     "approx_tokens": 1141621,
+     "questions": 20
+    }
+   ]
+  }
+ }
+}
