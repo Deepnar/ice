@@ -15,7 +15,7 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
   LoCoMo (10 conversations, extra table).
 - Answerer Muse Spark 1.2, judge Muse Spark 1.3 (Z2 D6d; Z3 D13) — or the closest available
   models at freeze if either is retired, recorded here before the first answer. The shared
-  family is measured, not assumed away: a cross-family judge re-grades ~300 answers and the
+  family is measured, not assumed away: a cross-family judge re-grades ~450 answers (§4) and the
   blind human sample is reported per condition; Muse writes none of the ground truth.
   No tuning on any FINAL data.
 - The long-context window is fixed at freeze from the chosen answerer's window and the
@@ -32,21 +32,27 @@ published) gives one verdict per answer: correct / partial / incorrect, plus whe
 used an outdated value, made an unsupported claim, or abstained.
 
 **M1 — Accuracy (comparable with the field).** An answer counts when the judge calls it
-*correct* (partial counts as wrong), as LongMemEval, LoCoMo-J, Zep and Mem0 report it; per dataset
+*correct* (partial counts as wrong; the judge's *uncertain* is never credited and its rate is
+reported), as LongMemEval, LoCoMo-J, Zep and Mem0 report it; per dataset
 and question type. Benchmarks also keep their own native score beside it: BEAM's nugget mean
 (Kendall tau-b for ordering), LongMemEval's upstream yes/no, LoCoMo's judge. *Misses:* whether a
 correct answer also carried an invented or outdated claim, and how hard the question was.
 
 **M2 — Supported current accuracy against distance (the paper's measure; LSREP- and
 ICE-native).** An answer counts only if it is **correct as of the moment it was asked** (LSREP's
-evolving answer key), uses **no outdated value**, makes **no unsupported claim**, and **declines**
-when the thing was never said. Reported as a curve over **how far the evidence lies from the
-question** — tokens between the evidence turn and the question: < 32K · 32K–128K · 128K–512K ·
-> 512K — and split **in-window / out-of-window** for the long-context condition (exactly, from the
-turns its prompt actually held). *This replaces Z2's 1–5 scoring for FINAL.* *Misses:* cost.
+evolving answer key), uses **no outdated value**, makes **no invented claim** (an unsupported
+claim the claim chain finds in neither the ledger nor the originals), and **declines** when the
+thing was never said. Reported as a curve over **how far the evidence lies from the question** —
+the history's tokens between the farthest turn holding the *current* evidence and the question (a
+superseded value's turn is not evidence): < 32K · 32K–128K · 128K–512K · > 512K — and split
+**in-window / out-of-window**: exactly, from the turns `long_context`'s prompt held; where no
+`long_context` read exists, distance > 37,500 tokens (its prompt budget). The split is a property
+of the question, applied to every condition. *This replaces Z2's 1–5 scoring for FINAL.*
+*Misses:* cost. Implementation: `experiments/z2/scoring.py`.
 
 **M3 — Cost per correct answer.** Prompt tokens per answer and per M1-correct answer, beside
-write-time cost per turn (background seconds and model calls). A system can buy accuracy by
+write-time cost per turn (replay wall seconds per turn; model calls per turn are not in the replay
+trace and are reported as not measured). A system can buy accuracy by
 filling the window; M3 shows the price. *Misses:* quality — it is read beside M1/M2, never alone.
 
 ## 3. Primary tests (decided before any result)
@@ -72,8 +78,10 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   Graphiti (Zep), Mem0, A-Mem — on the LongMemEval-S slice; also LoCoMo (below).
 - **LoCoMo** as a small, clearly labelled extra table (its known answer-key errors and lenient
   common judge stated); it is the common ground of most memory papers.
-- **Evidence recall:** did the turn holding the answer reach the prompt? (BEAM evidence ids, plan
-  and ledger citations.) Separates "memory did not find it" from "the model misread it".
+- **Evidence recall (turn-cited):** is every current cited turn a prompt fragment's source or
+  inside the recent window? Separates "memory did not find it" from "the model misread it".
+  Literal by design — a summary or fact carrying the content without citing every turn is not
+  credited here (TRAPS #32); context precision, read by the judge, credits it.
 - **Paper 1's measures, kept only where they add something (2026-10-27):**
   *update accuracy* — M2 on the questions whose answer changed, asked after the change
   (LSREP's evolving key: did the system follow the update?); *context precision* — the share
@@ -92,7 +100,13 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 - **Retention (S4)** by distance; **style invariance** S1 vs S8; **ablations** — leave-one-out on
   S9 and sealed B, build-up on S9 (a group earns its place when switching it off lowers M2 on the
   questions planned for it, interval excluding 0); **run-to-run variance** (S1 replayed twice);
-  **answerer sensitivity** (cloud-answerer subset); **judge vs the maintainer** (exact, kappa).
+  **answerer sensitivity** — the cloud-answerer subset: 25 asks from each of S9, B, S5 under
+  `full`, `recent_only`, `bare_vector` (225 contexts) answered by a non-Meta model and graded the
+  same way: does ICE keep its margin?; the **cross-family judge check** — GLM-5.3-Flash gives
+  verdicts on those 225 contexts' Muse 1.2 answers and on the subset's answers (~450 calls); the
+  family effect is Muse 1.3's leniency against GLM on Muse 1.2's answers minus its leniency on the
+  non-Meta answers, with a 95% interval over question families (reported, with agreement and
+  kappa on each side); **judge vs the maintainer** (exact, kappa).
 
 ## 5. Handling rules
 - An answer cut at its output cap is **ungraded**, never wrong; the ungraded rate is reported per
@@ -107,7 +121,7 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 ## 6. Left open by design (approved as such)
 - The cross-family judge (GLM-5.3-Flash as of 2026-10-27, Z3 D13) qualifies on the planted
   controls before use; if it fails, another non-Meta family replaces it, recorded here.
-- The cloud-answerer subset's model, picked at the time from a non-Meta family; recorded here
-  before use.
+- The cloud-answerer subset's model, picked at the time from a non-Meta family (default
+  LongCat-2.0); recorded here before use.
 - The cloud model for the full-history upper bound (≥ 256K window), picked at the time after the
   per-call cost check; recorded here before it answers.

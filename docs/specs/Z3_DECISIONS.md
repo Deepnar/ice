@@ -328,3 +328,12 @@ real calls by `experiments/z2/allowance.py` (TRAPS 148).
 train on prompts and are not zero-retention (Z2 spec, Data-use terms); Muse 1.2 Contributor is
 accepted as the answerer on those terms, for every full memory prompt of the private
 histories A, D, SW, LAP.
+
+**Built 2026-10-27 (fix-pass):** run_final.py runs every prep-/local- stage before any cloud stage
+(answers `cloud-answers-*`, audits, grading, subset, cross-judge); B and S9 freeze their audit
+inventory locally before any read pass (the read passes restore checkpoints into the replay's
+database, so a later inventory would see a checkpoint, not the final store); the private ground
+truth runs with `--tie-breaker none` and `--verifier mimo`; the cross-family judge and the
+cloud-answerer subset are runner stages (GLM-5.3-Flash; default LongCat-2.0). Not built: A-Mem,
+LoCoMo, the full-history upper bound (FINAL_experiments.md §2.1 items 15–17).
+

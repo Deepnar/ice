@@ -519,6 +519,12 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
     envelope as Graphiti/Mem0; its LLM roles on our local models.
 16. LoCoMo adapter (originals with its session dates, its questions as asks; the data
     download needs the maintainer's OK; licence unstated upstream — noted in the paper).
+*State 2026-10-27 (branch fix-pass):* **14 built** — `experiments/z2/scoring.py` (also Z2's
+headline, Z2 D6e), wired through grade.py / report.py / FINAL's report; plus the r2 analyses: the
+cross-family judge (`crossjudge-*` stages), the cloud-answerer subset as a stage, the fidelity
+audit's local inventory before the read passes, and the ground-truth chain without Muse
+(`--tie-breaker none`, `--verifier mimo`). **15, 16, 17 not built yet.**
+
 17. Full-history upper bound on BEAM 128K: a cloud model with a ≥ 256K window answers every
     question from the whole conversation (one cached prefix per conversation, questions
     appended); the same model also answers ICE's `full` contexts for those conversations.

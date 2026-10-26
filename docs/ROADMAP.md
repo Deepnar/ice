@@ -198,11 +198,14 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     ground truth, GLM-5.3-Flash cross-judge sample; all local, then all cloud.
   - ⚑ `main` has `d561cb5` + `95df259` (Z2 answerer → Muse 1.2, local-first order, D6d) — the
     branch must take them at merge (conflicts expected in `experiments/z2/answers.py`).
-  - ☐ D13 code: `run_final.py` answers move into the cloud block; ledger chain without the Muse
-    tie-break (disputes dropped / to review); `muse12` answerer on the branch (data-use terms accepted 2026-10-27); paper-1 measures (prereg §4) in
-    grade/report — update accuracy, context precision, TUR, fidelity audit.
-  - ☐ r2 machinery (FINAL_experiments.md §2.1 items 14–17): scoring r2 in grade/report, A-Mem
-    adapter, LoCoMo adapter (download needs OK), full-history upper-bound runner.
+  - ✅ D13 code (2026-10-27): main merged into the branch (`fe37edb`); all local then all cloud in
+    `run_final.py`; audit inventory before reads; ground truth without Muse; scoring r2 + paper-1
+    measures (update accuracy, context precision, TUR, fidelity audit) + cross-family judge +
+    subset stage — `46349ed`..`afd7b47`. Main has the same scoring as Z2's headline (Z2 D6e).
+  - ☐ still to build: A-Mem adapter, LoCoMo adapter (download needs OK), BEAM 128K full-history
+    upper-bound runner (§2.1 items 15–17).
+  - ◐ r2 machinery (FINAL_experiments.md §2.1 items 14–17): scoring r2 ✅ (item 14); A-Mem, LoCoMo,
+    full-history upper bound ☐ (see the next line but one).
   - ✅ memory-system baselines: Graphiti + Mem0 in an isolated env (`experiments/final/baselines/`,
     adapter `run_baseline.py`, runner stages); live run needs `nomic-embed-text` pulled (⚑ OK) + GPU.
   - ✅ S9 build-up decided yes (preset final_main+final_ablation+final_buildup).
