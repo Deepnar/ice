@@ -109,18 +109,19 @@ needs the maintainer's approval):
 FINAL-prep work is committed on branch **`fix-pass`**, worktree
 **`~/Programs/ice-worktrees/fix-pass`** (`.venv` and `.env` are symlinks to main's; both
 excluded in `.git/info/exclude`). Real commits, not yet GPU-tested. `main` keeps the frozen
-system Z2 measures; **no `src/` change reaches `main` before Z2's S12 reads finish
-(~2026-11-02/03)**. Docs-only and experiment-tooling commits that Z2's remaining local
-stages never import may be cherry-picked to `main` earlier (done: the S8 fix and this block).
-A new session resumes the work with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
+system Z2 measures. **Nothing from this branch reaches `main` until the GPU is free
+(after Z2's local stages, ~2026-11-02/03), each item is tested, and then the branch is
+merged (maintainer, 2026-10-26).** Meanwhile the branch also collects everything Z2 has
+shown about the system and the FINAL preparation (machinery, datasets). A new session
+resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
 
 *Checklist (✅ done on the branch · ⏳ test later on GPU/DB · ☐ open):*
 - ✅⏳ `561250a` **G79** batch summaries never written (model call rejected `schema`) —
   test: a replay that writes batch notes + the source-support check.
 - ✅⏳ `1b4b79b` **G60** fact replacements 53/99 wrong → `same_item` question required —
   test: `logs/fix-pass/reconcile_eval.py` (thresholds inside), then `tests/test_codex_facts.py`.
-- ✅ `8f8a4a9` S8 part-wise judge failure counted as "not faithful" → error. On `main`
-  too. In the cloud phase: re-judge S8 C (clear `s8-C/status.json` + `bg-audit.json`;
+- ✅ `8f8a4a9` S8 part-wise judge failure counted as "not faithful" → error. After the
+  merge, in the cloud phase: re-judge S8 C (clear `s8-C/status.json` + `bg-audit.json`;
   failed parts were never cached, so only they are re-asked).
 - ☐ Entity links 20% wrong (S8 B 79/99, C 80/99 valid) — check the judge, find the cause.
 - ☐ Turn summaries C 15% unfaithful (B 5%) and fold notes B 9% / C ~17% unfaithful — the

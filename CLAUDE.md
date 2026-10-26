@@ -244,7 +244,9 @@ dropped, dead code and lying comments fixed in place, one-off scripts *moved*
 
 ### Git, commits, and the public repo
 
-**Work on `main`; do not create task branches.** The experiment-phase push freeze
+**Work only on `main`, unless the maintainer explicitly says otherwise** — no task
+branches on a session's own initiative; an authorised branch and its worktree are named in
+ROADMAP's CURRENT POSITION. The experiment-phase push freeze
 remains in force; an explicit user request to push authorizes that push only.
 
 **⚑ THE REPO IS PUBLIC** (`origin` → `github.com/Deepnar/ice`) — **every push is
