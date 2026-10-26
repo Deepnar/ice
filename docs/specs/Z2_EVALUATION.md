@@ -248,6 +248,28 @@ Decision:
 - **What this changes:** Z2's answers come from a cloud model again; nothing answered by
   Luna or Qwen is mixed in, and no Qwen- or Luna-answered number is compared with them.
 
+**D6e — Z2 reports FINAL's scoring as its headline (maintainer, 2026-10-27).** Nothing is
+graded yet, and FINAL's measures are counts over the same judge call, so Z2 becomes a full
+rehearsal of FINAL's grading and report. `experiments/z2/scoring.py` (FINAL_PREREGISTRATION r2
+§2–§4), as `report.json → scoring`:
+- **M1** accuracy (correct; partial, incorrect and uncertain are not), **M2** supported current
+  accuracy (correct, no outdated value, no confirmed-invented claim), by question type, by
+  evidence distance (<32K · 32K–128K · 128K–512K · >512K tokens, `ledger.pair_tokens`) and by
+  window side — Z2 reads no `long_context`, so out of window = distance > 37,500 tokens;
+- **M3**: prompt tokens per answer and per correct answer, TUR (correct per 1,000 tokens);
+  replay wall seconds per turn (model calls per turn are not in the trace — said so);
+- **update accuracy** (questions with superseded values), **turn-cited evidence recall**
+  (literal; compressed memory is credited by context precision), **context precision** (share
+  of fragments carrying a required item / a wrong one; semantic credit now also reads
+  `bare_vector`), the **primary tests** (`full` vs `bare_vector`: P1 M2 out-of-window, P2 M1;
+  McNemar, family bootstrap 10,000, Holm, detectable difference), **hallucination
+  non-inferiority**, and the **fidelity audit** per component (S8's items and faithfulness,
+  prompt reach, prompts changed when switched off, M2 change → unexercised / contributing /
+  defective / no measurable effect; over all questions — Z2's asks name no target component).
+- Kept as planned, below it: the 1–5 score, paired 1–5 differences, ranking win rates,
+  retention transitions, controls. Bare-vector units were invisible to the old token and
+  fragment columns (TRAPS 149); `unit_index` now reads them.
+
 **Data-use terms (read 2026-10-17, opencode.ai/docs/go).** MiMo, DeepSeek and LongCat on
 Go: no training, 0-day retention (DeepSeek's zero-retention agreement is renewed monthly;
 the one read was valid through 2026-10-31 — re-check before each stage that sends B/C

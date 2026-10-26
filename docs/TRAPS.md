@@ -2935,3 +2935,14 @@ cap by that**, not by the table. Large prompts are written to the provider's cac
 and almost never read back when every prompt differs, so caching adds cost rather
 than saving it. (2026-10-26, Z2 S10; PROVENANCE same date.)
 
+### 149. A baseline stored in a different shape drops out of the metric without a sound
+
+Z2's bare-vector read units keep raw chunks — each with a `turn`, no `source_turns`, no
+`prompt_tokens`, no context ledger — while every ICE condition keeps rich fragments. The S11
+report read `prompt_tokens` and `source_turns` only, so bare vector, the baseline every claim
+is compared against, would have shown no token count, no TUR and 0% evidence reached: not
+an error, a blank that reads like a result. Caught only by running the new scoring on the
+real units before any grading (2026-10-27): 0% for bare vector, which nothing retrieves that
+badly. **When a metric spans conditions built by different code, run it on one real unit of
+EACH condition and look for a None or a zero before trusting any comparison.** (Z2 D6e.)
+
