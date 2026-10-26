@@ -27,11 +27,11 @@ def test_m1_and_m2_rules():
 def test_distance_bins_and_recent_window():
     prefix = S.turn_prefix([None] * 10, count=lambda t: 1000 * t)     # turn t has 1000·t tokens
     assert prefix[3] == 6000
-    # question before turn 10: farthest cited turn 2 → turns 3..9 lie between
-    assert S.distance([5, 2], 10, prefix) == prefix[9] - prefix[2] == 42_000
-    assert S.distance([10, 11], 10, prefix) is None
+    # question at checkpoint 10 (after turn 10): farthest cited turn 2 → turns 3..10 lie between
+    assert S.distance([5, 2], 10, prefix) == prefix[10] - prefix[2] == 52_000
+    assert S.distance([10], 10, prefix) == 0 and S.distance([11, 12], 10, prefix) is None
     assert S.bin_of(42_000) == "32K-128K" and S.bin_of(600_000) == ">512K" and S.bin_of(None) == "no cited turn"
-    assert S.recent_turns(10, 17_000, prefix) == {8, 9}
+    assert S.recent_turns(10, 17_000, prefix) == {10} and S.recent_turns(10, 19_000, prefix) == {9, 10}
 
 
 def test_statistics():
