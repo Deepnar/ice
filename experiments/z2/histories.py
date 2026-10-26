@@ -59,3 +59,42 @@ FINAL_PRIVATE = {
                                ("LAP", "942699a4", 101))
 }
 HISTORIES.update(FINAL_PRIVATE)
+
+
+# FINAL synthetic histories S1-S9 (source clock): originals written by
+# experiments/synth/generate.py into logs/final-synth/<id>/, asks checked and committed
+# beside the plans (experiments/synth/plans/<id>.asks.json).
+def _synthetic():
+    import json
+    out = {}
+    plans = ROOT / "experiments/synth/plans"
+    for path in sorted(plans.glob("S*.json")):
+        if not path.stem[1:].isdigit():
+            continue
+        pairs = sum(s["pairs"] for s in json.loads(path.read_text())["sessions"])
+        out[path.stem] = History(path.stem, f"syn{path.stem.lower()}", f"logs/final-synth/{path.stem}/originals.json",
+                                 pairs, True, 0, 1.0, 0, asks=f"experiments/synth/plans/{path.stem}.asks.json")
+    return out
+
+
+# FINAL BEAM histories (source clock): the 40 MANIFEST conversations, exported by
+# experiments/beam/adapter.py into logs/final-beam/<tier>/<id>/; keys BEAM-<tier>-<id>.
+def _beam():
+    import json
+    manifest = ROOT / "experiments/beam/MANIFEST.json"
+    if not manifest.exists():
+        return {}
+    out = {}
+    for tier, t in json.loads(manifest.read_text())["tiers"].items():
+        for c in t["conversations"]:
+            key = f"BEAM-{tier}-{c['conversation_id']}"
+            d = f"logs/final-beam/{tier}/{c['conversation_id']}"
+            out[key] = History(key, f"beam{tier.lower()}{c['conversation_id']}", f"{d}/originals.json",
+                               c["user_messages"], True, 0, 1.0, 20, asks=f"{d}/asks.json")
+    return out
+
+
+SYNTHETIC = _synthetic()
+BEAM = _beam()
+HISTORIES.update(SYNTHETIC)
+HISTORIES.update(BEAM)
