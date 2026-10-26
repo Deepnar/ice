@@ -143,3 +143,45 @@ by measured per-call cost before launch.
 
 The fold staleness question (G73) and the entity-link precision are fix-pass items
 decided from Z2's S11 evidence, before FINAL freezes the system.
+
+## D9 ⚑ Post-Z2 simplification pass (maintainer, 2026-10-26)
+
+**Decision:** once Z2's results are in (S11 grades, the leave-one-out and build-up ablations,
+S8's quality audit, reach into prompts) and after a short re-investigation, the maintainer
+intends to **remove** parts that do not earn their place — named so far: batch summaries,
+session summaries, "and things alike". Done **before FINAL freezes the system**, so FINAL
+measures the simpler system.
+
+**Rules for each removal:**
+1. **Evidence per part, not a hunch:** its ablation effect in Z2 (does switching it off change
+   answers beyond noise?), its S8 quality, and how often it reaches a prompt. A part that
+   costs work, is often wrong and changes no answer goes.
+2. **A part Z2 could not see is not judged by Z2.** Batch summaries never ran in Z2 (G79 bug:
+   0 rows in both replays), so Z2 says nothing about them. Either test them after the G79 fix,
+   or remove them as a *design* decision recorded as such — never as "Z2 showed they don't help".
+3. **Recoverable and recorded:** each removal is logged in docs/CLEANUP.md (what, why, the
+   evidence, the commit), FEATURE_INVENTORY rows updated, code removed in its own commit so a
+   revert brings it back.
+4. **Ablation groups follow:** a removed part leaves FINAL's leave-one-out/build-up set.
+
+**Candidates and what is known now (decided only after Z2):**
+| Part | Known now |
+|---|---|
+| Batch summaries | never ran in Z2 (bug); fixed on branch, untested |
+| Session summaries (reflection) | faithful B 8/44, C 3/12; written unverified; their original consumer (procedural crystallization) was removed; only reader is MCP `ice://session-start` |
+| Procedural memory | B 26% unfaithful; ~0.7 fragments per prompt |
+| Entity mention links | 19% of mention links wrong; no structural fix separates them |
+| Conversation fold (notes) | in every prompt; ~1/3 stale, C ~17% unfaithful; `loo_notes` decides |
+| Cluster scoping, others | read from the ablations |
+
+**View recorded with the decision:** this is the right direction — a smaller system is easier
+to defend, cheaper to run, and Z2 is exactly the evidence to decide with. The two cautions are
+rule 2 (batch summaries) and keeping each removal reversible.
+
+## D10 ⚑ Build-up ablation on S9 (open)
+
+Leave-one-out (decided) switches off one part at a time with all others on. Its blind spot:
+two parts that cover for each other each look useless alone. A **build-up** starts from the
+bare system and adds one part at a time in Z2's frozen order, showing what each adds on top
+of the earlier ones (order-dependent: the first parts get the easy credit). Cost on S9:
+9 more conditions × 260 asks ≈ 2,300 local answers ≈ 2 GPU days. Recommended: yes.
