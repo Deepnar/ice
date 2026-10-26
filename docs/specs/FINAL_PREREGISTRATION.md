@@ -1,64 +1,89 @@
-# FINAL — pre-registration (APPROVED by the maintainer, 2026-10-26)
+# FINAL — pre-registration, revision 2 (APPROVED by the maintainer, 2026-10-26)
 
-**Status: approved 2026-10-26.** Fixed before FINAL runs; nothing here changes after the first FINAL answer is
-graded. A change after that is a new revision, reported beside the first (Z3 D11 item 3).
+**Status: revision 2 approved 2026-10-26** (revision 1 used the judge's 1–5 score as the headline;
+replaced before anything ran — 1–5 saturates: most answers in every condition score 4–5).
+Fixed before FINAL runs; nothing here changes after the first FINAL answer is graded. A change after that is a new revision, reported beside the first (Z3 D11 item 3).
 Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DECISIONS.md](Z3_DECISIONS.md).
 
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets, each reported **separately, never pooled**: private B (sealed families; labelled
   development), A, D (labelled development), LAP, SW; synthetic S1–S9; BEAM 128K/500K/1M
-  (40 conversations, MANIFEST seed 20261026); LongMemEval-S (100 instances, final_slice.json).
+  (40 conversations, MANIFEST seed 20261026); LongMemEval-S (100 instances, final_slice.json); LoCoMo (10 conversations, extra table).
 - Answerer local qwen3.8:27b, thinking on (Z2 D6c). Judge Muse 1.3; a second judge if chosen
   before grading (D7). No tuning on any FINAL data.
 
-## 2. Primary question and metric
-**Does full ICE answer better than simple ways of giving a model memory, at the same prompt
-budget?**
-- **Metric:** the judge's 1–5 score per answered question.
-- **Primary comparisons (per dataset):** `full` vs `bare_vector` (budget-matched retrieval)
-  and `full` vs `long_context` (the newest history packed into the same prompt ceiling).
-- **Statistic:** mean paired difference by question family, 95% bootstrap interval over
-  families (10,000 resamples, seed 0).
-- **A win** in a dataset: the interval excludes 0 in ICE's favour after Holm–Bonferroni across
-  that dataset's two primary comparisons. A loss is reported as plainly as a win.
-- BEAM uses its own metric (nugget mean, Kendall tau-b for ordering) in the same way;
-  LongMemEval-S its upstream yes/no accuracy beside the 1–5 grade.
+## 2. The claim, and the three headline measures
 
-## 3. Hallucination and honesty — registered measures
-Per dataset and condition, reported for every condition:
-1. **Invented claims:** share of answers containing a claim the conversation never supports
-   (Z2's claim chain: `confirmed_invented`).
-2. **Never-said questions:** share answered as "not mentioned" (abstention accuracy on the
-   negatives); a confident answer to a never-said question counts as a hallucination.
-3. **Outdated values:** share of answers that use a superseded value as current.
-4. **Attribution mix-ups:** score on attribution questions (an assistant suggestion reported as
-   the user's decision, a mused option reported as decided).
+**The claim.** ICE gives the answering model a small, curated working context so it behaves as if
+it had the whole history: answers stay **correct, current and honest** as the conversation grows
+far past what any window holds — at a fraction of the tokens of stuffing the window.
 
-**Registered expectation:** ICE is **not worse** than `bare_vector` on 1–3 — non-inferiority
-margin 2 percentage points (the upper interval bound of ICE minus baseline below +2 pp).
+Three headline measures, each covering what the others miss. The judge (Muse, fixed prompt,
+published) gives one verdict per answer: correct / partial / incorrect, plus whether the answer
+used an outdated value, made an unsupported claim, or abstained.
 
-## 4. Secondary measures (reported, no win/loss claim)
-- Score per question type; per-1,000-prompt-token score (quality at budget).
-- **Retention (S4):** score against distance since the fact was said (100 / 300 / 600 / 1,000 turns).
-- **Style invariance:** S1 vs S8 (same plan, different writing) — the paired difference and its
-  interval; a difference is reported as sensitivity to writing style.
-- **Ablations:** leave-one-out per component group on S9 and sealed B; the additive build-up on S9
-  (D10, decided yes) in Z2's frozen order; a group "earns its place" when switching it off lowers the mean score with an
-  interval excluding 0 on the questions planned for it.
-- Memory-system baseline (D11) on LongMemEval-S; the cloud-answerer subset; run-to-run variance
-  (S1 replayed twice); cost and speed (prompt tokens, answer seconds, write time per turn).
-- Judge validity: agreement with the maintainer's blind sample (exact, Cohen's kappa).
+**M1 — Accuracy (comparable with the field).** An answer counts when the judge calls it
+*correct* (partial counts as wrong), as LongMemEval, LoCoMo-J, Zep and Mem0 report it; per dataset
+and question type. Benchmarks also keep their own native score beside it: BEAM's nugget mean
+(Kendall tau-b for ordering), LongMemEval's upstream yes/no, LoCoMo's judge. *Misses:* whether a
+correct answer also carried an invented or outdated claim, and how hard the question was.
+
+**M2 — Supported current accuracy against distance (the paper's measure; LSREP- and
+ICE-native).** An answer counts only if it is **correct as of the moment it was asked** (LSREP's
+evolving answer key), uses **no outdated value**, makes **no unsupported claim**, and **declines**
+when the thing was never said. Reported as a curve over **how far the evidence lies from the
+question** — tokens between the evidence turn and the question: < 32K · 32K–128K · 128K–512K ·
+> 512K — and split **in-window / out-of-window** for the long-context condition (exactly, from the
+turns its prompt actually held). *This replaces Z2's 1–5 scoring for FINAL.* *Misses:* cost.
+
+**M3 — Cost per correct answer.** Prompt tokens per answer and per M1-correct answer, beside
+write-time cost per turn (background seconds and model calls). A system can buy accuracy by
+filling the window; M3 shows the price. *Misses:* quality — it is read beside M1/M2, never alone.
+
+## 3. Primary tests (decided before any result)
+- **P1 (the thesis):** on **out-of-window** questions, M2 of `full` vs `long_context`, and M2 of
+  `full` vs `bare_vector` (budget-matched retrieval).
+- **P2:** M1 of `full` vs the same two, on all questions.
+- Per dataset, never pooled. Each question is a paired yes/no outcome across conditions:
+  McNemar's exact test and a bootstrap interval over question families (10,000 resamples, seed 0);
+  Holm–Bonferroni across a dataset's primary tests. A win = interval excludes 0 in ICE's favour
+  after correction; a loss is reported as plainly.
+- **Detectable difference:** each dataset states, before running, the smallest difference its
+  question count can detect (≈ 6–8 points at ~300 paired questions); smaller differences are
+  reported as "no detectable difference", never as a tie.
+- **Hallucination non-inferiority:** ICE's rates of (i) unsupported claims, (ii) confident answers
+  to never-said questions, (iii) outdated values, (iv) attribution mix-ups are not worse than
+  `bare_vector`'s by more than 2 points (upper interval bound).
+
+## 4. Comparisons and diagnostics (reported, no win/loss claim beyond §3)
+- **Upper bound — full history:** on BEAM's 128K tier (conversations ~100K–225K tokens) a cloud
+  model with a **≥ 256K window** answers from the **entire** conversation; ICE's own contexts are
+  answered by the **same cloud model**, so ICE vs full history compares memory, not answerers.
+- **Other memory systems,** run by us in the same setup (same answerer, judge, data):
+  Graphiti (Zep), Mem0, A-Mem — on the LongMemEval-S slice; also LoCoMo (below).
+- **LoCoMo** as a small, clearly labelled extra table (its known answer-key errors and lenient
+  common judge stated); it is the common ground of most memory papers.
+- **Evidence recall:** did the turn holding the answer reach the prompt? (BEAM evidence ids, plan
+  and ledger citations.) Separates "memory did not find it" from "the model misread it".
+- **Pairwise preference** (both orders), the judge's 1–5 score, per-type tables — descriptive.
+- **Retention (S4)** by distance; **style invariance** S1 vs S8; **ablations** — leave-one-out on
+  S9 and sealed B, build-up on S9 (a group earns its place when switching it off lowers M2 on the
+  questions planned for it, interval excluding 0); **run-to-run variance** (S1 replayed twice);
+  **answerer sensitivity** (cloud-answerer subset); **judge vs the maintainer** (exact, kappa).
 
 ## 5. Handling rules
 - An answer cut at its output cap is **ungraded**, never wrong; the ungraded rate is reported per
   condition, and a condition with >5% ungraded is flagged.
 - Questions a history's review dropped stay dropped. Controls (no-memory questions) are reported
   apart.
-- If time runs short, the drop order is fixed in advance: BEAM 1M 10 → 5 conversations;
-  LongMemEval-S 100 → 50; the S9 build-up; BEAM conditions 6 → 4. Never dropped: the primary
-  comparisons, the hallucination measures, the private and synthetic main runs.
+- If time runs short, the drop order is fixed in advance: LoCoMo; A-Mem; BEAM 1M 10 → 5
+  conversations; LongMemEval-S 100 → 50; the S9 build-up; BEAM conditions 6 → 4. Never dropped: the
+  primary tests, the hallucination measures, the full-history upper bound, the private and
+  synthetic main runs.
 
 ## 6. Left open by design (approved as such)
-- Second judge: benched until a cheap model exists at the time (D7); which memory system (D11),
-  decided at the time. Either, once chosen, is recorded here before FINAL's grading.
+- Second judge: benched until a cheap model exists at the time (D7); once chosen, recorded here
+  before FINAL's grading.
+- The cloud model for the full-history upper bound (≥ 256K window), picked at the time after the
+  per-call cost check; recorded here before it answers.

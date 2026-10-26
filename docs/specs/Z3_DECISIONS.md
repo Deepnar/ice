@@ -251,3 +251,22 @@ parts (embedder, reranker) stay as the system itself chose them, run locally. Ch
 tests together: it runs locally; it has its own LongMemEval score at a good level; users
 regard its real-world output as good. Candidates: Graphiti (Zep), Mem0 (open-source SDK),
 Hindsight (Vectorize, MIT); **which one (or two) is decided at the time, by how things stand then.**
+
+## D12 Scoring and comparison set — pre-registration r2 (maintainer, 2026-10-26)
+
+Replaces the judge's 1–5 score as FINAL's headline (it saturates: most answers in every
+condition score 4–5, so it cannot separate systems). Three measures, each covering what the
+others miss — full text in [FINAL_PREREGISTRATION.md](FINAL_PREREGISTRATION.md) §2–4:
+- **M1 accuracy** (correct / not, partial = not) — what LongMemEval, LoCoMo, Zep and Mem0
+  report, so ICE is comparable; benchmarks keep their native score beside it.
+- **M2 supported current accuracy against evidence distance** — correct as of the moment
+  asked, no outdated value, no invented claim, declines on never-said; plotted by how far
+  the evidence lies (< 32K · 32K–128K · 128K–512K · > 512K tokens) and split in-window /
+  out-of-window. LSREP's thesis measure; replaces Z2's paired 1–5 scoring.
+- **M3 cost per correct answer** — prompt tokens per answer and write-time cost per turn.
+
+Comparison set: own baselines (bare_vector, warm_vector, recent_only, long_context);
+**Graphiti, Mem0 and A-Mem** run locally in the same setup; a **full-history upper bound** on
+BEAM 128K (cloud model, ≥ 256K window — the tier runs 100K–225K tokens, 15 of 20 over 128K)
+with ICE's contexts answered by the same model; **LoCoMo** as an extra table. Drop order and
+the never-dropped list are in the pre-registration §5. Estimate ≈ 35–38 GPU days.

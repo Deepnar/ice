@@ -465,7 +465,10 @@ additive ladder is reported from Z2, labelled pre-fix development evidence. **Bu
 100-instance slice stratified by question type, native protocol and upstream prompts,
 with the oracle evidence as a read-time control (no separate oracle replay). BEAM as
 above. **MemoryAgentBench benched** — not run now; reconsidered once FINAL's measured
-time is known. LoCoMo stays out.
+time is known. **LoCoMo — revised 2026-10-26 (pre-registration r2): a small, clearly labelled
+extra table** (all 10 conversations, its own questions; ICE and the three memory systems; known
+answer-key errors and the lenient common judge stated). It is the common ground of memory
+papers, so it makes ICE comparable; it is never a headline (histories fit one window).
 
 **FINAL build list and run estimate (2026-10-26, v3).** Rates measured in Z2: replay ~34 s
 per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3.8:27b, thinking).
@@ -496,9 +499,24 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
 12. Cloud-answerer subset (~200 answers) for answerer sensitivity.
 13. FINAL report: per-dataset tables, never pooled.
 
+*Added by pre-registration r2 (2026-10-26):*
+14. Scoring r2: one judge verdict per answer — correct / partial / incorrect plus flags
+    (outdated value, unsupported claim, abstained); M1 accuracy, M2 supported current accuracy,
+    M3 cost per correct answer; evidence distance in tokens per question and in-window /
+    out-of-window membership from the long-context prompt; evidence recall; McNemar + family
+    bootstrap + Holm in `report.py`. Z2's 1–5 stays as a descriptive column.
+15. A-Mem (MIT, agiresearch/A-mem) as the third memory-system baseline, same isolated env and
+    envelope as Graphiti/Mem0; its LLM roles on our local models.
+16. LoCoMo adapter (originals with its session dates, its questions as asks; the data
+    download needs the maintainer's OK; licence unstated upstream — noted in the paper).
+17. Full-history upper bound on BEAM 128K: a cloud model with a ≥ 256K window answers every
+    question from the whole conversation (one cached prefix per conversation, questions
+    appended); the same model also answers ICE's `full` contexts for those conversations.
+
 *Run estimate (GPU, continuous):* replays — B 0.5 d, private 0.5 d, synthetic ~2 d, BEAM ~7.3 d,
 LME-S ~4 d (≈ 14 d); reads ~2 d (~16,000 contexts); local answers ~10 d (~11,500 distinct
-prompts); S9 build-up ~2 d; memory-system baselines ~2–4 d. **≈ 30–32 GPU days — days of the laptop running
+prompts); S9 build-up ~2 d; memory-system baselines ~2–4 d; **r2 additions:** A-Mem ~2 d,
+LoCoMo (ICE + three systems) ~2–3 d. **≈ 35–38 GPU days (was ≈ 30–32 before r2) — days of the laptop running
 nonstop, as Z2 does; ≈ 4½–5 weeks with cooling pauses (≈ 3× longer if run only ~8 h a day).** Cloud: private ledgers, synthetic
 generation, two judges — sized from measured per-call cost (TRAPS 148), likely two plan
 periods. Levers if it runs long: BEAM 1M tier 10 → 5 (−3 d), fewer main conditions on BEAM,
