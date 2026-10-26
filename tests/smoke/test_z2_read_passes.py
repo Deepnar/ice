@@ -87,3 +87,11 @@ def test_ablation_chains_follow_the_frozen_order():
     for name, spec in R.CONDITIONS.items():
         assert set(spec.get("flags", {})) <= SUPPORTED_FLAGS, name
         assert all(hasattr(settings, k) for k in spec.get("settings", {})), name
+
+
+def test_long_context_packs_the_newest_messages_into_the_budget():
+    from experiments.v3_repair.bare_vector import Chunk
+    chunks = [Chunk(t, role, 0, 10, f"m{t}{role[0]}") for t in range(1, 6) for role in ("user", "assistant")]
+    chosen, used = R.long_context_chunks(chunks, 4, lambda text: 1)
+    assert [(c.turn, c.role) for c, _ in chosen] == [(4, "user"), (4, "assistant"), (5, "user"), (5, "assistant")]
+    assert used == 4 and R.phase_of(R.CONDITIONS["long_context"]) == "bare"

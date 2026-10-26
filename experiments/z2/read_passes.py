@@ -58,6 +58,9 @@ CONDITIONS = {
     "warm_vector": dict(overlay="neutral", arm="vector_only"),
     "recent_only": dict(overlay="neutral", arm="recent_only"),
     "bare_vector": dict(overlay="none", bare=True),
+    # FINAL (Z3 D4): no memory system — the newest original messages packed into the
+    # same prompt ceiling ICE's budget has (LONG_CONTEXT_PROMPT_TOKENS), newest first.
+    "long_context": dict(overlay="none", bare=True, long=True),
     **{f"full_b{b}": dict(overlay="default", arm="full", budget=b, subset="questions") for b in BUDGETS},
     **{f"warm_b{b}": dict(overlay="neutral", arm="vector_only", budget=b, subset="questions") for b in BUDGETS},
     **{f"bare_b{b}": dict(overlay="none", bare=True, budget=b, subset="questions") for b in BUDGETS},
@@ -180,6 +183,21 @@ def checkpoint_times(events_path):
         if e["event"] == "checkpoint":
             out[int(e["store"].split("-")[1].split(".")[0])] = datetime.fromisoformat(str(e["at"]))
     return out
+
+
+LONG_CONTEXT_PROMPT_TOKENS = 37_500       # the largest prompt ICE's budget produced in Z2 (37,539)
+
+
+def long_context_chunks(chunks, budget, count):
+    """Newest-first original messages that fit *budget* tokens, returned oldest first."""
+    picked, used = [], 0
+    for chunk in sorted(chunks, key=lambda c: (c.turn, c.role != "user"), reverse=True):
+        cost = count(chunk.render())
+        if used + cost > budget:
+            break
+        picked.append((chunk, None))
+        used += cost
+    return list(reversed(picked)), used
 
 
 def bare_messages(recent_stage, chosen, question):
@@ -459,6 +477,15 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                     recent = json.loads(unit_path(out, "recent_only", ask["id"]).read_text())["stage"]
                     recent_from = cp - sum(1 for m in recent["prompt_messages"][:-1] if m["role"] == "assistant") + 1
                     chunks = chunk_turns([r for r in originals if r["turn_number"] < recent_from], None)
+                    if spec.get("long"):
+                        room = LONG_CONTEXT_PROMPT_TOKENS - sum(tokens.count(m["content"]) for m in recent["prompt_messages"])
+                        chosen, used = long_context_chunks(chunks, max(0, room), tokens.count)
+                        write_unit(path, dict(policy=POLICY, history=history, condition=name, ask=ask,
+                                              checkpoint=cp, question_time=now, decay_overlay="none",
+                                              stage=dict(prompt_messages=bare_messages(recent, chosen, ask["question"]),
+                                                         long_context_budget=room, selected_tokens=used,
+                                                         selected=[dict(turn=c.turn, role=c.role) for c, _ in chosen])))
+                        continue
                     budget = spec.get("budget") or full_budget.get(ask["id"])
                     if not budget:
                         raise ValueError(f"{ask['id']}: full ICE recorded no retrieval budget to match")
