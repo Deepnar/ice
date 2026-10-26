@@ -20,10 +20,10 @@ Each decision: options, the pick, and what it costs. **⚑ = needs the maintaine
 
 ## D1 ⚑ Private conversations
 
-**Locked 2026-10-26 (maintainer):** B (re-replayed), A, D (development), the long laptop-decision
-thread, the software project — each replayed alone. The stitched ICE chat is pending the BEAM
-check (D3). Linux and short chats dropped. Written into FINAL_experiments.md §2.1. The text
-below is the original proposal.
+**Locked 2026-10-26 (maintainer):** B (re-replayed; development), A, D (development), LAP (the
+101-pair laptop-decision chat — the DeepSeek thread first chosen is an excluded conversation and is
+never used), SW — each replayed alone. The stitched ICE chat is **dropped** for BEAM (D3). Linux and
+short chats dropped. Written into FINAL_experiments.md §2.1. The text below is the original proposal.
 
 Candidates (sizes in FINAL_experiments.md §2.1; ids in `docs/PRIVATE_CONTEXT.md`
 [PRIVATE:final-private-roster]):
@@ -42,7 +42,11 @@ groups** (~650 pairs). Drop the two overlapping groups: their new material would
 fresh ledger over millions of tokens, and their histories are already Z2 development data.
 Cost: ledger + questions for ~650 pairs (about a fifth of Z2's B+C prep); replay ~1 day.
 
-## D2 ⚑ Synthetic conversations
+## D2 Synthetic conversations — **decided (maintainer, 2026-10-26)**
+
+S1–S8 plus S9 (the ablation conversation), plans by Claude Haiku 5.5 agents, the simulated
+assistant working from a local plan-built briefing (never the probes); see FINAL_experiments.md §2.1.
+The text below is the original proposal.
 
 A synthetic set is the reproducible, publishable part with a perfect answer key: the facts
 are planted, so ground truth is the plan itself.
@@ -95,7 +99,8 @@ per 128K; no ledger or question writing needed.
 LongMemEval-S is already downloaded (`experiments/lme/data/longmemeval_s`, pinned in
 `MANIFEST.json`). Report the slice as a slice; never compare to published full-set scores.
 
-## D4 ⚑ Conditions and baselines
+## D4 Conditions and baselines — **built as proposed** (`final_main`: full_default, full, warm_vector,
+recent_only, bare_vector, long_context); not changed by the maintainer, not explicitly confirmed
 
 **Pick:** `recent_only`, `bare_vector` (budget-matched), `warm_vector`, `full` (neutral
 decay) and `full_default`, plus **a long-context baseline**: the newest history packed into
@@ -115,7 +120,7 @@ leave-one-out conditions only, on sealed B/C and the synthetic set; the 9-step a
 ladder is reported from Z2, labelled pre-fix development evidence. Read-time only — no new
 replays; cost = reads + local answers (GPU days) + grading.
 
-## D6 Answerer
+## D6 Answerer — as Z2 D6c (local qwen3.8:27b, thinking on); cloud-answerer subset built
 
 **Pick:** the same as Z2 D6c — local `qwen3.8:27b`, thinking on — so FINAL's answers cost
 GPU days, not plan money. Plus a ~200-answer cloud-answerer subset (a different family) to
@@ -139,7 +144,8 @@ Report agreement; never average the two.
 ## D8 Time and money, rough
 
 **Superseded 2026-10-26** by the build list and run estimate in FINAL_experiments.md §2.1
-(≈ 26 GPU days). MemoryAgentBench benched; LongMemEval-S unchanged.
+(≈ 30–32 GPU days with the S9 build-up and the memory-system baselines). MemoryAgentBench benched;
+LongMemEval-S unchanged.
 
 GPU: replays ~1 (private) + ~1 (B/C again, post-fix) + ~2–3 (synthetic) + ~4 (LME-S)
 days; reads ~2 days; local answers ~5–8 days. ≈ 2.5–3 weeks of GPU, resumable.

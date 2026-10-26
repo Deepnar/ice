@@ -498,7 +498,8 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
 
 *Run estimate (GPU, continuous):* replays — B 0.5 d, private 0.5 d, synthetic ~2 d, BEAM ~7.3 d,
 LME-S ~4 d (≈ 14 d); reads ~2 d (~16,000 contexts); local answers ~10 d (~11,500 distinct
-prompts). **≈ 26 GPU days ≈ 4–5 weeks with cooling pauses.** Cloud: private ledgers, synthetic
+prompts); S9 build-up ~2 d; memory-system baselines ~2–4 d. **≈ 30–32 GPU days — days of the laptop running
+nonstop, as Z2 does; ≈ 4½–5 weeks with cooling pauses (≈ 3× longer if run only ~8 h a day).** Cloud: private ledgers, synthetic
 generation, two judges — sized from measured per-call cost (TRAPS 148), likely two plan
 periods. Levers if it runs long: BEAM 1M tier 10 → 5 (−3 d), fewer main conditions on BEAM,
 LME-S 100 → 50 (−2 d).
