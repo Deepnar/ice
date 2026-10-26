@@ -31,7 +31,13 @@ from experiments.synth.plans import PLANS, STYLES, validate  # noqa: E402
 POLICY = "ice-final-synth-generate-1"
 RECENT_PAIRS, MAX_TRIES = 6, 3
 SESSION_START, TURN_GAP = "19:00", timedelta(minutes=3)
-USER_ROLE, ASSISTANT_ROLE = "deepseek", "mimo"      # two families; neither answers or judges in FINAL
+# Each side is "local:<ollama model>" or "cloud:<Z2 profile role>". Default (maintainer,
+# 2026-10-26): the simulated user runs locally — from the plan, the last RECENT_PAIRS
+# exchanges and the items due — and the assistant on a cheap cloud model. The local user
+# model is from a family used nowhere else in ICE's stack or FINAL's grading (not Gemma —
+# ICE's background model; not Qwen — the answerer and embedder).
+USER_SIDE, ASSISTANT_SIDE = "local:ministral-3:8b", "cloud:deepseek"
+LOCAL_NUM_CTX = 32_768
 
 USER_SYSTEM = """You write the next message of a USER chatting with an AI assistant, as the person
 described in PERSONA, in exactly the writing style of STYLE. Stay in character; never mention
@@ -159,6 +165,34 @@ def run(plan, out, *, user_llm, assistant_llm, say=print):
     return status
 
 
+def local_caller(model, num_ctx=LOCAL_NUM_CTX):
+    """(system, prompt) -> text on a local Ollama model (thinking off, held while generating)."""
+    import urllib.request
+    from src.api.config import settings
+
+    def call(system, prompt):
+        body = dict(model=model, stream=False, think=False, keep_alive="30m",
+                    messages=[dict(role="system", content=system), dict(role="user", content=prompt)],
+                    options=dict(num_ctx=num_ctx, temperature=0.8, num_predict=2_000))
+        request = urllib.request.Request(settings.ollama_base_url.rstrip("/") + "/api/chat",
+                                         data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(request, timeout=900) as response:
+            out = json.load(response)
+        if out.get("done_reason") == "length":
+            raise RuntimeError(f"{model}: reply cut at the output cap")
+        return (out.get("message") or {}).get("content", "").strip()
+    return call
+
+
+def caller(side):
+    kind, _, name = side.partition(":")
+    if kind == "local":
+        return local_caller(name)
+    if kind == "cloud":
+        return cloud_caller(name)
+    raise ValueError(f"side must be local:<model> or cloud:<role>, got {side!r}")
+
+
 def cloud_caller(role):
     """(system, prompt) -> text on a Z2 profile (cloud; sized from measured cost first, TRAPS 148)."""
     from experiments.z2.profiles import generator
@@ -175,9 +209,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--plan", required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--user", default=USER_SIDE, help="local:<ollama model> | cloud:<role>")
+    parser.add_argument("--assistant", default=ASSISTANT_SIDE, help="local:<ollama model> | cloud:<role>")
     args = parser.parse_args()
     plan = json.loads((PLANS / f"{args.plan}.json").read_text())
-    status = run(plan, args.out, user_llm=cloud_caller(USER_ROLE), assistant_llm=cloud_caller(ASSISTANT_ROLE))
+    (args.out).mkdir(parents=True, exist_ok=True)
+    (args.out / "sides.json").write_text(json.dumps(dict(user=args.user, assistant=args.assistant, policy=POLICY)) + "\n")
+    status = run(plan, args.out, user_llm=caller(args.user), assistant_llm=caller(args.assistant))
     print(json.dumps(status))
     return 0 if not status["unverified"] else 3
 
