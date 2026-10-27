@@ -41,8 +41,12 @@ def usable(history, ledger_root):
 
 def default_device():
     """The GPU when there is one: B's 2,238 originals took 20+ minutes at full CPU
-    (2026-10-18) against seconds on the GPU; the encoder needs ~1.2 GB."""
+    (2026-10-18) against seconds on the GPU; the encoder needs ~1.2 GB. Z2_EMBED_DEVICE=cpu
+    keeps it off a GPU another stage is using (run_z2's cloud lane)."""
+    import os
     import torch
+    if os.environ.get("Z2_EMBED_DEVICE"):
+        return os.environ["Z2_EMBED_DEVICE"]
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 

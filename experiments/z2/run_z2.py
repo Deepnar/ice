@@ -10,6 +10,14 @@ break, crash, stop or reboot loses at most the unit in flight:
     uv run --no-sync python experiments/z2/run_z2.py run --only s7-B    # one stage
     uv run --no-sync python experiments/z2/run_z2.py status --watch     # the meter, from any terminal
 
+A second runner may work the same run at the same time in its own LANE — its own lock and
+state file (state-<lane>.json), the shared append-only log — for cloud stages only, named with
+--only, while the main runner holds the GPU stages (S7, S9, S12 replay + reads). Grading then
+embeds on the CPU (Z2_EMBED_DEVICE=cpu) so it never competes for GPU memory:
+
+    Z2_EMBED_DEVICE=cpu uv run --no-sync python experiments/z2/run_z2.py run --lane cloud \
+        --only s10-B,s10-C,s11-B,s11-C
+
 Errors never just stop the run:
 - before every attempt the prerequisites are checked (Postgres, Ollama, disk); a
   missing one is WAITED for, with the reason on screen, not failed on;
@@ -54,14 +62,21 @@ class Stop(Exception):
     pass
 
 
+GPU_STAGES = {"s7-B", "s7-C", "s9-B", "s9-C", "s12"}     # never in a second lane
+
+
 class Context:
-    def __init__(self, name, *, health=None, sleep=time.sleep, out=sys.stdout, directory=None):
+    def __init__(self, name, *, health=None, sleep=time.sleep, out=sys.stdout, directory=None, lane=None):
         if not re.fullmatch(r"[a-z0-9_]{1,24}", name):
             raise ValueError("run name: 1-24 of a-z 0-9 _")
+        if lane is not None and not re.fullmatch(r"[a-z0-9_]{1,24}", lane):
+            raise ValueError("lane: 1-24 of a-z 0-9 _")
+        self.lane = lane
         self.name = name
         self.dir = Path(directory) if directory else ROOT / "logs" / f"z2-run-{name}"
         self.dir.mkdir(parents=True, exist_ok=True)
-        self.state_path = self.dir / "state.json"
+        self.state_path = self.dir / (f"state-{lane}.json" if lane else "state.json")
+        self.lock_path = self.dir / (f"runner-{lane}.lock" if lane else "runner.lock")
         self.state = json.loads(self.state_path.read_text()) if self.state_path.exists() else \
             dict(policy=POLICY, name=name, stages={}, started=time.time())
         self.stopping = False
@@ -772,15 +787,16 @@ def main() -> int:
     status = sub.add_parser("status", help="show the meter of a run")
     for p in (run, status):
         p.add_argument("--name", default="main", help="run name (logs/z2-run-<name>)")
+        p.add_argument("--lane", help="a second runner on the same run: cloud stages only, its own lock and state")
     run.add_argument("--only", help="comma-separated stage keys, e.g. s7-B,s7-C")
     run.add_argument("--limit", type=int, help="replay only the first N turns per history (a slice check)")
     status.add_argument("--watch", action="store_true")
     args = parser.parse_args()
 
-    ctx = Context(args.name)
+    ctx = Context(args.name, lane=args.lane)
     ctx.stages = stages(getattr(args, "limit", None) or ctx.state.get("limit"))   # status: the run's own slice
     if args.command == "status":
-        lock = (ctx.dir / "runner.lock").open("a")
+        lock = ctx.lock_path.open("a")
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             fcntl.flock(lock, fcntl.LOCK_UN)
@@ -794,11 +810,15 @@ def main() -> int:
                 return 0
             time.sleep(TTY_REFRESH)
 
-    lock = (ctx.dir / "runner.lock").open("a")
+    if ctx.lane and (not args.only or set(args.only.split(",")) & GPU_STAGES):
+        print(f"a lane runs named cloud stages only (--only, none of {sorted(GPU_STAGES)})")
+        return 2
+    lock = ctx.lock_path.open("a")
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        print(f"another runner holds {ctx.dir}; watch it with: run_z2.py status --name {ctx.name} --watch")
+        lane = f" --lane {ctx.lane}" if ctx.lane else ""
+        print(f"another runner holds {ctx.lock_path}; watch it with: run_z2.py status --name {ctx.name}{lane} --watch")
         return 1
     known = {s.key for s in ctx.stages}
     wanted = set(args.only.split(",")) if args.only else known
@@ -823,7 +843,7 @@ def main() -> int:
 
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, request_stop)
-    ctx.log("runner started", only=sorted(wanted), pid=os.getpid())
+    ctx.log("runner started", only=sorted(wanted), pid=os.getpid(), lane=ctx.lane)
     outcomes = drive(ctx, [s for s in ctx.stages if s.key in wanted])
     ctx.render(force=True)
     print("\nOutcome: " + ", ".join(f"{k} {v}" for k, v in outcomes.items()))

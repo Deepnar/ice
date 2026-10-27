@@ -92,3 +92,25 @@ def test_every_local_stage_runs_before_any_cloud_stage():
     keys = [s.key for s in stages()]
     cloud = ("s10-B", "s10-C", "s12-answers", "s11-B", "s11-C", "s12-grade")
     assert keys.index("s12") < min(keys.index(k) for k in cloud) and ANSWERER == "muse12"
+
+
+def test_a_cloud_lane_keeps_its_own_lock_and_state_and_refuses_gpu_stages(tmp_path, monkeypatch):
+    import fcntl
+    main = R.Context("t", directory=tmp_path, out=io.StringIO())
+    lane = R.Context("t", directory=tmp_path, out=io.StringIO(), lane="cloud")
+    assert main.state_path.name == "state.json" and lane.state_path.name == "state-cloud.json"
+    assert main.lock_path != lane.lock_path
+    held = main.lock_path.open("a")
+    fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)                 # the main runner is busy...
+    other = lane.lock_path.open("a")
+    fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)                # ...and the lane still starts
+    lane.stage_state("s10-B")["status"] = "running"
+    lane.save()
+    assert "s10-B" not in (R.Context("t", directory=tmp_path, out=io.StringIO()).state["stages"])
+    assert {"s9-B", "s12", "s7-C"} <= R.GPU_STAGES and "s10-B" not in R.GPU_STAGES
+
+
+def test_embedding_device_can_be_pinned_to_cpu(monkeypatch):
+    from experiments.z2 import questions
+    monkeypatch.setenv("Z2_EMBED_DEVICE", "cpu")
+    assert questions.default_device() == "cpu"
