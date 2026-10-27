@@ -238,6 +238,12 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     generator checks against invented values. Cache check: a reused 51K start cost 22× less.
   - ☐ before the full synthetic run: a longer trial on all nine plans (unverified-turn rate), and the
     maintainer reads the 20 S1 turns; two items fail every try (S2 t6 suggestion, S3 t4 paste).
+  - ☐ efficiency audit before FINAL's long runs (maintainer, 2026-10-28, after Z2's grading crawled: claim checks one
+    call per claim and one at a time, ranking/controls/LongMemEval/BEAM/LoCoMo graders one at a time — all fixed):
+    the LOCAL runs (replay, read passes; Z2's S12 runs ~398 s a question; FINAL's local phase 14-17 GPU days) and
+    whatever is left in the cloud (run_z2 `status` re-reads ~7 GB of read-pass units to draw its meter).
+  - ☐ FINAL grading cost: one call per answer for claims is in; decide whether claims are checked only on
+    otherwise-correct answers and whether the judge reasons shorter; recompute FINAL's cloud cost from real sizes.
   - ☐ live trials when the GPU is free must include: a LoCoMo replay slice (144 turns end a session
     with an empty assistant side — never exercised), and one LongMemEval-S full-context read.
   - **Next, in order (2026-10-26):** (1) Z2 local stages finish (~Nov 3–4); (2) GPU free: ~20 generated
