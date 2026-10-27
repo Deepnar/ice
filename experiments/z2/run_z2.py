@@ -795,6 +795,13 @@ def meter(ctx, note=None):
     return "\n".join(lines)
 
 
+# Experiment runs keep their local models loaded for the whole run (maintainer, 2026-10-28: the
+# models fit the 24 GB card together; no unloading and reloading between turns). ICE's own default
+# — unload the background model once its queue drains — stays for real use; every stage this
+# runner starts inherits the switch.
+os.environ.setdefault("BG_RELEASE_AFTER_DRAIN", "false")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
