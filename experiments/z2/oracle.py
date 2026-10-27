@@ -426,9 +426,19 @@ def main() -> int:
         grade_oracle(args.units, args.answers, out, ask=ask, ask_text=ask_text)
         return 0
     if args.workers > 1 and not args.shard:
+        import signal
         import subprocess
         children = [subprocess.Popen([sys.executable, *worker_argv(sys.argv, k, args.workers)])
                     for k in range(args.workers)]
+
+        def stop(signum, _frame):
+            # a stop reaches every worker (the runner stops this process only; 2026-10-28 the
+            # workers ran on after it); each leaves its unfinished question to be redone
+            for c in children:
+                if c.poll() is None:
+                    c.send_signal(signum)
+        signal.signal(signal.SIGINT, stop)
+        signal.signal(signal.SIGTERM, stop)
         return max(c.wait() for c in children)
     shard = tuple(int(x) for x in args.shard.split("/")) if args.shard else None
     if os.environ.get("ICE_TEST_DATABASE") != args.database:
