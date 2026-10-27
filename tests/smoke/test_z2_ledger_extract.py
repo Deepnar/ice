@@ -209,3 +209,14 @@ def test_an_aborted_generation_retries_but_a_length_cut_does_not():
     from experiments.z2 import profiles
     assert profiles.transient(CloudCompletionError("cloud answer completion was not successful: abort", receipt={}))
     assert not profiles.transient(CloudCompletionError("cloud answer completion was not successful: length", receipt={}))
+
+
+def test_a_provider_at_capacity_is_transient_a_limit_is_not():
+    """FINAL private chain, 2026-10-28: DeepSeek's "the cell is at capacity; retry shortly" (429)
+    stopped A's ledger; it is load, retried — a plan limit still stops for the operator."""
+    from experiments.lme.cloud_provider import ProviderAccessError
+    from experiments.z2.profiles import transient
+    load = ProviderAccessError("opencode-deepseek-v41-flash", "quota/rate-limit", 429,
+                               "Upstream request failed: [ttft_admission_refused] the cell is at capacity; retry shortly")
+    limit = ProviderAccessError("opencode-deepseek-v41-flash", "quota/rate-limit", 429, "weekly usage limit reached")
+    assert transient(load) and not transient(limit)

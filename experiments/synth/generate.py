@@ -291,6 +291,16 @@ def hide_future(plan, turn, beats):
     return [hide(beat) for beat in beats]
 
 
+def invite_topic(item):
+    """What the user asks the assistant's ideas on for a planned suggestion: its topic, with the
+    suggestion's value and key parts taken out (S7's "Bugsnag suggested for Pebble crash
+    reporting" had the user name Bugsnag before the assistant suggested it)."""
+    text = re.sub(re.escape(item["value"]), "", item["about"], flags=re.I)
+    for part in key_parts(item["value"]) | {"suggested", "suggestion", "assistant", "idea"}:
+        text = re.sub(rf"(?<!\w){re.escape(part)}(?!\w)", "", text, flags=re.I)
+    return re.sub(r"\s+", " ", text).strip(" ,;:'\"()") or "what to do next"
+
+
 def suggest_note(items):
     """This turn's planned assistant suggestions, as an instruction appended to the system prompt."""
     if not items:
@@ -427,6 +437,8 @@ Problems:
 - "inconsistent": it contradicts the assistant's own earlier advice without saying it changed its mind;
 - "impossible": it offers to do anything outside the chat (reminders, scheduling, sending,
   browsing) or to look at something the user has not pasted.
+A suggestion listed under THIS REPLY HAD TO SUGGEST is required: never flag it, or the reply for
+making it, whatever the conversation said before.
 Return JSON: {"problems": [{"kind": "...", "quote": "...", "detail": "...", "is_problem": true}]} — an
 empty list when there are none; if, on reflection, something is fine, leave it out or set
 "is_problem": false."""
@@ -475,11 +487,12 @@ def checker_caller(role, *, session="", usage_log=None):
         return [f"checker {p.get('kind')}: \"{str(p.get('quote'))[:80]}\" {str(p.get('detail'))[:120]}"
                 for p in found if isinstance(p, dict) and p.get("is_problem") is True and real(p)]
 
-    def check(known, recent, must_say, message, unconfirmed=(), reply=None, upcoming=()):
+    def check(known, recent, must_say, message, unconfirmed=(), reply=None, upcoming=(), suggest=()):
         convo = f"CONVERSATION:\n{transcript(recent) or '(none yet)'}\n\n---\n"    # first: the cached start
         if reply is not None:
-            return verdict("reply", REPLY_CHECK, f"{convo}ESTABLISHED:\n{known or '(nothing yet)'}\n\nUSER:\n{message}"
-                                                 f"\n\nREPLY:\n{reply}", reply)
+            required = "\n".join(f"- {i['about']}: {i['value']}" for i in suggest) or "(nothing)"
+            return verdict("reply", REPLY_CHECK, f"{convo}ESTABLISHED:\n{known or '(nothing yet)'}\n\nTHIS REPLY HAD TO SUGGEST:"
+                                                 f"\n{required}\n\nUSER:\n{message}\n\nREPLY:\n{reply}", reply)
         items = "\n".join(f"- {i['about']}: {i['value']} ({i['kind']})" for i in must_say) or "(nothing specific)"
         doubt = "\n".join(f"- {i['about']}: {i['value']} ({i['kind']})" for i in unconfirmed) or "(none)"
         later = "\n".join(f"- {t}" for t in upcoming) or "(none)"
@@ -497,20 +510,23 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
     must_say = [dict(about=i["about"], value=i["value"], kind=("paste" if i["paste"] else i["change"]))
                 for i in items["user"]]
     problems, user, reply = [], "", ""
-    beats = hide_future(plan, turn, session["beats"])
+    # a beat about something not yet due is not shown until it is (full run: with its value hidden
+    # but the beat in view, the user acted on it early — S5 dropped a long-run cap turns ahead)
+    paced = hide_future(plan, turn, session["beats"])
+    beats = [b for b in paced if "…" not in b]
     persona = hide_future(plan, turn, plan["persona"])
     sessions = sessions or session_index(plan)
     first = min(t for t, s in sessions.items() if s == sessions[turn])
     # where the session should be about now: the beats paced over its pairs (maintainer's review,
     # 2026-10-28: with all beats at every turn the user kept re-asking the first one)
-    beat_now = beats[min(len(beats) - 1, (turn - first) * len(beats) // max(1, session["pairs"]))] if beats else None
+    at = min(len(paced) - 1, (turn - first) * len(paced) // max(1, session["pairs"])) if paced else -1
+    beat_now = next((b for b in reversed(paced[:at + 1]) if "…" not in b), None)
     topic = session["topics"][0] if items["quiet"] and not must_say else None
     last = turn == first + session["pairs"] - 1
     # a planned suggestion needs the user to open the door: asked about Dario's playtesting, both
     # writer models declined to drop in a company name (S2 turn 6, every round) — the user asks
     # about its topic, never its value
-    invite = [re.sub(re.escape(i["value"]), "", i["about"], flags=re.I).strip(" ,'\"") or i["about"]
-              for i in items["assistant"]]
+    invite = [invite_topic(i) for i in items["assistant"]]
     for attempt in range(1, MAX_TRIES + 1):
         try:
             user = user_llm(USER_SYSTEM, user_prompt(persona, STYLES[session["style"]], beats, beat_now, recent,
@@ -551,7 +567,8 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
                     + drift_problems(plan, turn, user, reply) + artifacts(reply))
         if not problems and checker:                  # follows, continuity, facts, stays in the chat
             try:
-                problems = checker(established(plan, turn, persona, suggestions=True), recent, [], user, reply=reply)
+                problems = checker(established(plan, turn, persona, suggestions=True), recent, [], user, reply=reply,
+                                   suggest=items["assistant"])
             except CUT_OFF as exc:
                 problems = [f"reply cut off: {str(exc)[:120]}"]
         if problems:

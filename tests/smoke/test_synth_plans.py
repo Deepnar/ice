@@ -295,7 +295,7 @@ def test_an_item_said_in_other_words_goes_to_the_checker_and_replies_are_checked
     from experiments.synth import generate as G
     seen = []
 
-    def checker(known, recent, must_say, message, unconfirmed=(), reply=None, upcoming=()):
+    def checker(known, recent, must_say, message, unconfirmed=(), reply=None, upcoming=(), suggest=()):
         seen.append("reply" if reply is not None else [i["value"] for i in unconfirmed])
         return []
     items = dict(user=[dict(id="F4", about="passport appointment", value="thursday 10 april 2025 at 9:10am", change="introduce",
@@ -384,3 +384,22 @@ def test_a_described_suggestion_is_checked_by_its_key_parts():
     v = "assistant suggested brown rice for Kit's dinners; rejected, he won't eat it"
     assert G.key_parts(v) == {"brown", "rice", "Kit's", "dinners"}
     assert G.said("what about brown rice for Kit's dinners this week?", v)
+
+
+def test_future_beats_stay_hidden_and_an_invite_never_names_the_suggestion():
+    from experiments.synth import generate as G
+    item = dict(about="Bugsnag suggested for Pebble crash reporting", value="assistant suggested Bugsnag; user picked Sentry")
+    assert "bugsnag" not in G.invite_topic(item).lower() and "crash reporting" in G.invite_topic(item)
+    seen = {}
+
+    def user_llm(system, prompt):
+        seen["p"] = prompt
+        return "how far should my long runs go"
+    plan = dict(id="T", persona=dict(name="Imogen"), facts=[dict(id="F9", about="long-run cap", speaker="user", status="decided",
+                                                                values=[dict(turn=3, value="19 km peak"), dict(turn=9, value="16 km now")])],
+                sessions=[dict(index=1, pairs=10, style="casual", topics=["t"], beats=["sets the long-run cap at 19 km peak",
+                                                                                     "drops the cap to 16 km now after the physio"])])
+    G.generate_turn(plan, 8, plan["sessions"][0], [dict(user="u", assistant="a")] * 7,
+                    dict(user=[], assistant=[], quiet=False), user_llm=user_llm, assistant_llm=lambda s, m: "ok",
+                    sessions={t: 1 for t in range(1, 11)})
+    assert "drops the cap" not in seen["p"] and "sets the long-run cap at 19 km peak" in seen["p"]

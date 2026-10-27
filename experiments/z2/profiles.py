@@ -7,6 +7,7 @@ appear here. Every call records the profile's public metadata.
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -109,6 +110,11 @@ def transient(exc) -> bool:
     # A generation the provider aborted mid-way (status "abort", 2026-10-19 on B's
     # change detection) is transient; a length cut is not (it would cut again).
     if isinstance(exc, CloudCompletionError) and "abort" in str(exc):
+        return True
+    # "the cell is at capacity; retry shortly" — a 429 that is the provider's load, not a limit of
+    # the plan (FINAL private chain, 2026-10-28: it stopped A's ledger)
+    from experiments.lme.cloud_provider import ProviderAccessError
+    if isinstance(exc, ProviderAccessError) and re.search(r"(?i)at capacity|retry shortly|admission_refused", str(exc)):
         return True
     return isinstance(exc, openai.APIStatusError) and getattr(exc, "status_code", 0) >= 500
 
