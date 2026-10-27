@@ -219,6 +219,12 @@ def hide_future(plan, turn, beats):
                     words = [re.escape(w) for w in re.split(r"[\s\-_,.]+", v["value"]) if w]
                     if words:
                         text = re.sub(r"[\s\-_,.]+".join(words), f"the {f['about']}", text, flags=re.I)
+                    # its numbers too, wherever they stand alone (round 4: a persona's "2,400 USD"
+                    # budget was said turns before the plan's "2400 usd all in, flights included")
+                    for n in (x for x in NUMBER.findall(v["value"]) if len(x.replace(",", "")) >= 2):
+                        text = re.sub(rf"(?<![\d.,]){re.escape(n)}(?![\d.,])", "a figure", text)
+                        if "," not in n and len(n) >= 4:          # 2400 also as 2,400
+                            text = re.sub(rf"(?<![\d.,]){n[:-3]},{n[-3:]}(?![\d.,])", "a figure", text)
         return text
     if isinstance(beats, dict):                        # the persona: every text field
         return {k: hide(v) if isinstance(v, str) else v for k, v in beats.items()}
@@ -248,7 +254,7 @@ were be been being has have had do does did it its this that these those she he 
 i me my we our you your which who whom whose what when where why how not no so very too also just only still than
 then there here likes like dislikes dislike prefers prefer hates hate loves love wants want uses use gets get got
 gives give makes make picks pick takes take moved move goes go went lives live works work keeps keep thinks think
-says say always never usually every each""".split())
+says say always never usually every each per about around roughly approx at""".split())
 
 
 def key_parts(value):

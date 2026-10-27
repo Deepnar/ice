@@ -471,6 +471,12 @@ sometimes be brief, disagree or change topic; a hidden value reads as a plain ph
 the assistant no longer sees the beats and keeps quick replies short. Not checked, by design:
 whether the assistant's advice is right — the answer key is the plan, and the assistant's words
 count only where the plan has it suggest.
+**Round 4 (2026-10-28, after the maintainer's round-3 review):** plain-text prompts (MiMo answered
+JSON in JSON); a DeepSeek checker reads each user message for invented specifics, contradictions,
+broken character and repeats; the assistant only chats; questions about a fact due in a turn that
+never verified are dropped (logs/final-synth/<id>/asks.json, excluded.json). Sample: no leaks, no
+invented titles, no reminder offers; 7-8% of turns unverified (scattered: long dates or phrases not
+written out, values said early, a missed suggestion, checker contradictions).
 
 About 3,900 pairs, ~2 days of replay. **Build:** (1) a structured plan per conversation —
 persona, timeline, every planted fact with its introduce / change / correct turns, speaker,

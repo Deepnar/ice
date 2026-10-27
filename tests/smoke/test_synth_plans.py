@@ -261,3 +261,12 @@ def test_the_checker_reports_problems_and_never_passes_an_unreadable_verdict(mon
     assert check("name: Ana", [], [], "my game Tideways") == ["checker invented: the title Tideways"]
     assert check("name: Ana", [], [], "ok") == []
     assert check("name: Ana", [], [], "ok") == ["checker reply unreadable: JSONDecodeError"]
+
+
+
+def test_numbers_of_future_values_are_hidden_from_the_persona_and_filler_is_not_a_key_part():
+    from experiments.synth import generate as G
+    plan = dict(facts=[dict(id="F6", about="Oaxaca budget", values=[dict(turn=9, value="2400 usd all in, flights included")])])
+    persona = dict(situation="planning Oaxaca on a 2,400 USD budget, 3 friends")
+    assert G.hide_future(plan, 2, persona) == dict(situation="planning Oaxaca on a a figure USD budget, 3 friends")
+    assert G.key_parts("about 90 minutes per game") == {"90", "minutes", "game"}
