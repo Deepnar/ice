@@ -77,12 +77,17 @@ def test_generator_plants_verifies_retries_and_resumes(tmp_path, monkeypatch):
     from experiments.synth import generate as G
     monkeypatch.setattr(G, "validate", lambda p: [])
     p = plan()
+    plans = tmp_path / "plans"
+    plans.mkdir()
+    (plans / f"{p['id']}.asks.json").write_text("[]")                     # its questions (none needed here)
+    monkeypatch.setattr(G, "PLANS", plans)
+    tmp_path = tmp_path / "out"
     calls = {"user": 0}
     def user_llm(system, prompt):
         import json as j
         calls["user"] += 1
-        body = j.loads(prompt)
-        vals = " ".join(i["value"] for i in body["MUST_SAY"])
+        must = prompt.split("THIS MESSAGE MUST SAY:\n")[1].split("\n\n")[0].splitlines()
+        vals = " ".join(line.split(": ", 1)[1].rsplit(" (", 1)[0] for line in must if line.startswith("- "))
         hello = "".join(chr(97 + int(d)) for d in str(calls["user"]))   # never the same message twice
         return f"{hello} {vals}" if calls["user"] != 3 else "forgot it"  # third call misses -> retry
     def assistant_llm(system, messages):
@@ -224,3 +229,35 @@ def test_a_repeated_user_message_is_regenerated():
     history = [dict(user="hey so i got a verbal offer, can u help me plan", assistant="sure")]
     assert G.invented_values(dict(facts=[]), 2, "hey so i got a verbal offer, can u help me plan", history, "") == [
         "user side repeated an earlier message"]
+
+
+
+def test_json_replies_and_named_instructions_are_never_messages():
+    from experiments.synth import generate as G
+    for leaked in ('{"messages": [{"content": "ok so", "role": "user"}]}', '{"content": "ok"}',
+                   "MUST_SAY is empty, could you paste the last reply", "WHO YOU ARE: Ana"):
+        assert G.invented_values(dict(facts=[]), 2, leaked, [], "") == ["user side echoed its instructions"], leaked
+    assert G.invented_values(dict(facts=[]), 2, "here's the log:\n```\n{\"a\": 1}\n```", [], "1") == []
+
+
+def test_questions_about_facts_in_a_failed_turn_are_dropped(tmp_path, monkeypatch):
+    import json
+    from experiments.synth import generate as G
+    plans = tmp_path / "plans"; plans.mkdir()
+    monkeypatch.setattr(G, "PLANS", plans)
+    asks = [dict(id="X:F001@9#0", family="X:F001"), dict(id="X:F002@9#0", family="X:F002"), dict(id="X:N01@9#0", family="X:N01")]
+    (plans / "X.asks.json").write_text(json.dumps(asks))
+    schedule = {4: dict(user=[dict(id="F002")], assistant=[])}
+    assert G.drop_failed(dict(id="X"), tmp_path, [4], schedule) == 1
+    assert [a["family"] for a in json.loads((tmp_path / "asks.json").read_text())] == ["X:F001", "X:N01"]
+    assert json.loads((tmp_path / "excluded.json").read_text())["facts"] == ["F002"]
+
+
+def test_the_checker_reports_problems_and_never_passes_an_unreadable_verdict(monkeypatch):
+    from experiments.synth import generate as G
+    replies = iter(['{"problems": [{"kind": "invented", "detail": "the title Tideways"}]}', '{"problems": []}', "not json"])
+    monkeypatch.setattr(G, "cloud_caller", lambda role, **_: lambda system, prompt: next(replies))
+    check = G.checker_caller("deepseek")
+    assert check("name: Ana", [], [], "my game Tideways") == ["checker invented: the title Tideways"]
+    assert check("name: Ana", [], [], "ok") == []
+    assert check("name: Ana", [], [], "ok") == ["checker reply unreadable: JSONDecodeError"]

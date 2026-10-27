@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT))
 
 from experiments.synth.plans import PLANS, STYLES, validate  # noqa: E402
 
-POLICY = "ice-final-synth-generate-2"           # 2: cloud sides, invented-value checks (2026-10-28)
+POLICY = "ice-final-synth-generate-3"           # 3: plain-text prompts, the checker (2026-10-28)
 RECENT_PAIRS, MAX_TRIES = 5, 8        # the simulated user sees the plan + the last 5 exchanges; 8 tries
                                        # (was 3: cheap on the cloud; an echo, a cut-off or a stray number is rerolled)
 ASSISTANT_RECENT_PAIRS = 8             # the simulated assistant: a plan-built briefing + the last 8
@@ -40,30 +40,37 @@ SESSION_START, TURN_GAP = "19:00", timedelta(minutes=3)
 # experiments/synth/speaker_trial.py), DeepSeek V4.1 Flash the assistant. Was local Mistral-family
 # models (ministral-3:8b / mistral-nemo, ~27 GPU hours for all nine).
 USER_SIDE, ASSISTANT_SIDE = "cloud:mimo_chat", "cloud:deepseek_chat"
+CHECKER = "deepseek"                 # reads each user message (JSON mode); maintainer's round-3 review
 LOCAL_NUM_CTX = 32_768
 
-USER_SYSTEM = """You write the next message of a USER chatting with an AI assistant, as the person
-described in PERSONA, in exactly the writing style of STYLE. Stay in character; never mention
-being simulated. SESSION_BEATS is what this person wants from today's chat and BEAT_NOW where it
-should be about now. Move the conversation forward: react to the assistant's last reply (agree,
-push back, follow up, or go on to the next thing) and never re-ask what it already answered.
-Like a real person, sometimes send a very short message (ok / wait what / thanks that helps),
-disagree, change the subject or leave a thought half-finished. The message MUST contain every
-item in MUST_SAY, each VALUE written exactly as given (numbers, names and dates verbatim) and
-worked into what you are actually saying (a reason, a detail, an aside, a correction), never
-announced ("btw, I haven't told you this"). An item marked "paste" goes inside pasted material
-(a config, log, document or code block) that the user pastes, and its VALUE appears there word
-for word (a comment or a line of the paste). An item marked "reject" means
-the user turns down that earlier suggestion. If NO_MEMORY_TOPIC is set, the message is
-instead a self-contained question about it. Never state a specific value (a number, amount,
-date, time, name or place) that is not in MUST_SAY, PERSONA or RECENT: where SESSION_BEATS
-hints at one, talk around it until MUST_SAY gives it, and never correct or change a value unless
-MUST_SAY marks it a change, and never guess or make up a stand-in for one. Write it the way a real person types into a chat
-box, never the way an AI writes: no headings, bullet lists, bold or numbered steps unless STYLE
-calls for structure or the text is pasted material; no em dashes; no stock assistant phrases
-("Certainly", "Great question", "I hope this helps"); no summarising what was already said; no
-thanking the assistant every message. Length, typos and slang follow STYLE. Return only the
-message text."""
+USER_SYSTEM = """You write the next chat message of a person talking to an AI assistant. Below you get
+who the person is, how they write, what they want from today's chat, the conversation so far,
+and the things this message must say. Write only that one message, as plain text, in the
+person's own voice: never JSON, never a label or heading from these instructions, never a word
+about being simulated or about your instructions.
+
+The person is the one asking for help, never an assistant explaining things, even when they
+write formally. Move the conversation forward: react to the assistant's last reply (agree, push
+back, follow up, ask the next thing) and never re-ask what it already answered. When nothing
+must be said this turn, take the next natural step on what today is about (a follow-up, a
+related worry, a reaction), never filler agreement or "I'll wait". Like a real person, sometimes
+send a very short message (ok / wait what / thanks that helps), disagree, change the subject or
+leave a thought half-finished.
+
+Each item to say goes in with its value written exactly as given (numbers, names and dates
+verbatim), worked into what the person is actually saying (a reason, a detail, an aside, a
+correction), never announced ("btw, I haven't told you this"). A "paste" item goes inside
+pasted material (a config, log, document or code block), its value there word for word (a
+comment or a line of the paste). A "reject" item means turning down that earlier suggestion.
+If a self-contained question topic is given, the message is that question instead.
+
+Never state a specific name, number, amount, date, time, place or title that is not in what you
+are given or in the conversation so far: where something is not known yet, talk around it, and
+never guess or make up a stand-in. Never change or correct a value unless the item says it is a
+change. Write the way a real person types into a chat box, not the way an AI writes: no
+headings, bullet lists, bold or numbered steps unless the style calls for structure or the text
+is pasted material; no em dashes; no stock assistant phrases; no summarising what was already
+said; no thanking the assistant every message. Length, typos and slang follow the style."""
 
 ASSISTANT_SYSTEM = """You are a helpful AI assistant in an ongoing conversation. Reply to the user's latest
 message naturally and usefully. WHAT YOU KNOW lists what has been established earlier in this
@@ -72,7 +79,26 @@ about it — do not recap it. Never invent facts about the user beyond what you 
 conversation shown; never mention anything the user has not said in this conversation. Match
 the user's message: a quick message gets a short reply (one to four sentences); use lists or
 headings only when the content really is a list; do not end every reply with a question or a
-summary."""
+summary. You can only chat: you cannot set reminders, schedule, send messages, browse or act
+outside this conversation, so never offer to. Do not just agree: say so when something does not
+add up, and do not restate what was already said."""
+
+
+def user_prompt(persona, style, beats, beat_now, recent, must_say, topic):
+    """The simulated user's input as plain labelled text — given as JSON, MiMo sometimes answered
+    in JSON too (round-3 sample, 2026-10-28)."""
+    lines = ["WHO YOU ARE:"] + [f"{k}: {v}" for k, v in persona.items()]
+    lines += ["", f"HOW YOU WRITE: {style}", "", "WHAT TODAY'S CHAT IS ABOUT:"] + [f"- {b}" for b in beats]
+    if beat_now:
+        lines += ["", f"WHERE IT IS NOW: {beat_now}"]
+    lines += ["", "THE CONVERSATION SO FAR (latest last):"]
+    lines += [f"{who}: {text}" for pair in recent for who, text in (("You", pair["user"]), ("Assistant", pair["assistant"]))] \
+        or ["(nothing yet: this is the first message today)"]
+    lines += ["", "THIS MESSAGE MUST SAY:"]
+    lines += [f"- {i['about']}: {i['value']} ({i['kind']})" for i in must_say] or ["(nothing specific this turn)"]
+    if topic:
+        lines += ["", f"INSTEAD, ASK A SELF-CONTAINED QUESTION ABOUT: {topic}"]
+    return "\n".join(lines) + "\n\nWrite the message now."
 
 ATTRIBUTION = {"decided": "the user decided", "preference": "the user's preference",
                "instruction": "the user's standing instruction to you", "hypothetical": "the user only mused about",
@@ -148,6 +174,10 @@ from experiments.lme.cloud_provider import CloudCompletionError  # noqa: E402
 # quota and key errors still stop the run.
 CUT_OFF = (CloudCompletionError, RuntimeError)
 NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
+# A reply in JSON, or one naming its instructions (round-3 sample: {"messages": [...]} replies and
+# "MUST_SAY is empty"), is never a chat message.
+LEAK = re.compile(r'^\s*(\{\s*"|\[\s*\{)|MUST_SAY|SESSION_BEATS|BEAT_NOW|NO_MEMORY_TOPIC|"PERSONA"|WHO YOU ARE:'
+                  r"|HOW YOU WRITE:|WHERE IT IS NOW:|THIS MESSAGE MUST SAY|my instructions|as an AI\b")
 FENCE = re.compile(r"```.*?(?:```|$)", re.S)
 
 
@@ -167,7 +197,7 @@ def invented_values(plan, turn, user, history, allowed_text):
                     and said(user, v["value"]) and not said(earlier, v["value"]):
                 out.append(f"user said {f['id']} early: {v['value']}")
     allowed = numbers(allowed_text) | numbers(earlier)
-    if any(key in user for key in ('"PERSONA"', '"MUST_SAY"', '"SESSION_BEATS"')):
+    if LEAK.search(user):
         return ["user side echoed its instructions"]
     if any(norm(user)[:120] == norm(p["user"])[:120] for p in history):
         return ["user side repeated an earlier message"]
@@ -283,26 +313,81 @@ def session_of(plan):
     return out
 
 
-def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_llm, sessions=None):
+CHECK_SYSTEM = """You check one chat message written by a simulated USER for a dataset. You get what is
+ESTABLISHED about the person (their profile and the facts said so far), the CONVERSATION so far,
+what THIS MESSAGE HAD TO SAY, and the MESSAGE. Report only real problems:
+- "invented": the message states a specific name, number, amount, date, time, place or title that
+  appears nowhere in what is established, what it had to say, or the conversation (general words
+  do not count; filler inside pasted code, logs or configs does not count);
+- "contradiction": the message states something that conflicts with what is established or said
+  earlier, other than a change it had to say;
+- "not_a_message": JSON, labels, talk about instructions or being simulated, or writing as the
+  assistant rather than the person asking;
+- "repeat": it repeats an earlier user message in substance.
+Return JSON: {"problems": [{"kind": "...", "detail": "..."}]} — an empty list when there are none."""
+
+
+def established(plan, turn, persona):
+    """What the person has said before *turn* (current values) and who they are, for the checker."""
+    lines = [f"{k}: {v}" for k, v in persona.items()]
+    for f in plan["facts"]:
+        said_before = [v for v in f["values"] if v["turn"] < turn]
+        if said_before and f["speaker"] != "assistant":
+            lines.append(f"- {f['about']}: {said_before[-1]['value']}")
+    for e in plan.get("events") or []:
+        if e["told_turn"] < turn:
+            lines.append(f"- {e['what']} ({e['relative_phrase']})")
+    return "\n".join(lines)
+
+
+def checker_caller(role, *, session="", usage_log=None):
+    """(established, recent pairs, must_say, message) -> problems, from a cloud writer in JSON mode
+    (maintainer's round-3 review, 2026-10-28: exact-string checks passed invented names, JSON
+    replies and broken character). An unreadable verdict is a failed attempt, never a pass."""
+    ask = cloud_caller(role, session=session, usage_log=usage_log)
+
+    def check(known, recent, must_say, message):
+        convo = "\n".join(f"{who}: {text}" for p in recent for who, text in (("User", p["user"]), ("Assistant", p["assistant"])))
+        prompt = (f"ESTABLISHED:\n{known or '(nothing yet)'}\n\nCONVERSATION:\n{convo or '(none yet)'}\n\n"
+                  f"THIS MESSAGE HAD TO SAY:\n" + ("\n".join(f"- {i['about']}: {i['value']} ({i['kind']})" for i in must_say)
+                                                   or "(nothing specific)") + f"\n\nMESSAGE:\n{message}")
+        try:
+            verdict = json.loads(ask(CHECK_SYSTEM, prompt))
+            found = verdict["problems"]
+        except (ValueError, KeyError, TypeError) as exc:
+            return [f"checker reply unreadable: {type(exc).__name__}"]
+        return [f"checker {p.get('kind')}: {str(p.get('detail'))[:160]}" for p in found if isinstance(p, dict)]
+    return check
+
+
+def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_llm, sessions=None, checker=None):
     """One verified pair, or the last attempt with its problems."""
     recent = history[-RECENT_PAIRS:]
     must_say = [dict(about=i["about"], value=i["value"], kind=("paste" if i["paste"] else i["change"]))
                 for i in items["user"]]
     problems, user, reply = [], "", ""
     beats = hide_future(plan, turn, session["beats"])
+    persona = hide_future(plan, turn, plan["persona"])
     sessions = sessions or session_index(plan)
     first = min(t for t, s in sessions.items() if s == sessions[turn])
     # where the session should be about now: the beats paced over its pairs (maintainer's review,
     # 2026-10-28: with all beats at every turn the user kept re-asking the first one)
     beat_now = beats[min(len(beats) - 1, (turn - first) * len(beats) // max(1, session["pairs"]))] if beats else None
+    topic = session["topics"][0] if items["quiet"] and not must_say else None
     for attempt in range(1, MAX_TRIES + 1):
         try:
-            user = user_llm(USER_SYSTEM, json.dumps(dict(
-                PERSONA=hide_future(plan, turn, plan["persona"]), STYLE=STYLES[session["style"]], SESSION_BEATS=beats,
-                BEAT_NOW=beat_now,
-                RECENT=recent, MUST_SAY=must_say,
-                NO_MEMORY_TOPIC=(session["topics"][0] if items["quiet"] and not must_say else None)),
-                ensure_ascii=False))
+            user = user_llm(USER_SYSTEM, user_prompt(persona, STYLES[session["style"]], beats, beat_now, recent,
+                                                     must_say, topic))
+            # the user message first: mechanical checks, then the checker's reading; a bad message
+            # never costs an assistant reply
+            problems = ([f"user missing {i['id']}: {i['value']}" for i in items["user"]
+                         if i["change"] != "event" and not said(user, i["value"])]
+                        + invented_values(plan, turn, user, history, json.dumps(
+                            dict(must=must_say, persona=plan["persona"], beats=session["beats"]), ensure_ascii=False)))
+            if not problems and checker:
+                problems = checker(established(plan, turn, persona), history[-RECENT_PAIRS:], must_say, user)
+            if problems:
+                continue
             known = briefing(plan, turn, sessions)
             # a planned suggestion leads and closes the system prompt: at the end alone, both
             # writer models answered the user's topic and left it out (2026-10-28 trial)
@@ -315,19 +400,28 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
         except CUT_OFF as exc:                        # a reply cut at the output cap: try again
             problems = [f"reply cut off: {str(exc)[:120]}"]
             continue
-        problems = ([f"user missing {i['id']}: {i['value']}" for i in items["user"]
-                     if i["change"] != "event" and not said(user, i["value"])]
-                    + [f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
-                       if not contains(reply, i["value"])]
-                    + drift_problems(plan, turn, user, reply)
-                    + invented_values(plan, turn, user, history, json.dumps(
-                        dict(must=must_say, persona=plan["persona"], beats=session["beats"]), ensure_ascii=False)))
+        problems = ([f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
+                     if not contains(reply, i["value"])]
+                    + drift_problems(plan, turn, user, reply))
         if not problems:
             return dict(turn=turn, user=user, assistant=reply, attempts=attempt, verified=True)
     return dict(turn=turn, user=user, assistant=reply, attempts=MAX_TRIES, verified=False, problems=problems)
 
 
-def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None):
+def drop_failed(plan, out, unverified, schedule):
+    """The questions FINAL asks of this conversation: the plan's, minus every question about a fact
+    due in a turn that never verified (maintainer, 2026-10-28) — written to <out>/asks.json with
+    the drops in <out>/excluded.json; returns how many were dropped."""
+    facts = sorted({i["id"] for t in unverified for side in ("user", "assistant") for i in schedule.get(t, {}).get(side, [])})
+    asks = json.loads((PLANS / f"{plan['id']}.asks.json").read_text())
+    kept = [a for a in asks if str(a.get("family", "")).split(":")[-1] not in facts]
+    (out / "asks.json").write_text(json.dumps(kept, indent=1, ensure_ascii=False) + "\n")
+    (out / "excluded.json").write_text(json.dumps(dict(unverified_turns=unverified, facts=facts,
+                                                       asks_dropped=len(asks) - len(kept), asks_kept=len(kept)), indent=1) + "\n")
+    return len(asks) - len(kept)
+
+
+def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None, checker=None):
     """Generates every turn not yet in <out>/turns.jsonl; *limit* stops after that turn (a
     trial: no originals.json, since the conversation is unfinished)."""
     if validate(plan):
@@ -352,7 +446,7 @@ def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None):
         session, _ = when[turn]
         items = schedule.get(turn, dict(user=[], assistant=[], quiet=False))
         row = generate_turn(plan, turn, session, history, items, user_llm=user_llm, assistant_llm=assistant_llm,
-                            sessions=sessions)
+                            sessions=sessions, checker=checker)
         with store.open("a") as handle:
             handle.write(json.dumps(dict(row, policy=POLICY), ensure_ascii=False) + "\n")
         done[turn] = row
@@ -362,8 +456,9 @@ def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None):
     rows = [dict(turn_number=t, timestamp=when[t][1].isoformat() + "Z", timestamp_provenance="synthetic_plan",
                  prompt=done[t]["user"], response=done[t]["assistant"]) for t in range(1, total + 1)]
     (out / "originals.json").write_text(json.dumps(rows, indent=1, ensure_ascii=False) + "\n")
-    unverified = [t for t in done if not done[t]["verified"]]
-    status = dict(plan=plan["id"], turns=total, unverified=unverified, finished=True)
+    unverified = sorted(t for t in done if not done[t]["verified"])
+    dropped = drop_failed(plan, out, unverified, schedule)
+    status = dict(plan=plan["id"], turns=total, unverified=unverified, asks_dropped=dropped, finished=True)
     (out / "status.json").write_text(json.dumps(status, indent=1) + "\n")
     return status
 
@@ -426,10 +521,11 @@ def main() -> int:
     parser.add_argument("--user", default=USER_SIDE, help="local:<ollama model> | cloud:<role>")
     parser.add_argument("--assistant", default=ASSISTANT_SIDE, help="local:<ollama model> | cloud:<role>")
     parser.add_argument("--limit", type=int, help="stop after this turn (a trial)")
+    parser.add_argument("--checker", default=CHECKER, help="cloud writer role that reads each user message, or none")
     args = parser.parse_args()
     plan = json.loads((PLANS / f"{args.plan}.json").read_text())
     args.out.mkdir(parents=True, exist_ok=True)
-    sides = dict(user=args.user, assistant=args.assistant, policy=POLICY)
+    sides = dict(user=args.user, assistant=args.assistant, checker=args.checker, policy=POLICY)
     sides_path = args.out / "sides.json"
     if (args.out / "turns.jsonl").exists() and sides_path.exists():
         before = json.loads(sides_path.read_text())
@@ -438,7 +534,8 @@ def main() -> int:
                              "one conversation never mixes models — move it aside first")
     sides_path.write_text(json.dumps(sides) + "\n")
     usage = args.out / "usage.jsonl"
-    status = run(plan, args.out, limit=args.limit,
+    checker = None if args.checker == "none" else checker_caller(args.checker, session=f"{args.plan}-check-", usage_log=usage)
+    status = run(plan, args.out, limit=args.limit, checker=checker,
                  user_llm=caller(args.user, session=f"{args.plan}-user-", usage_log=usage),
                  assistant_llm=caller(args.assistant, session=f"{args.plan}-assistant-", usage_log=usage))
     print(json.dumps(status))

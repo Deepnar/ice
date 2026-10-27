@@ -63,12 +63,13 @@ HISTORIES.update(FINAL_PRIVATE)
 
 
 # FINAL synthetic histories S1-S9 (source clock): originals written by
-# experiments/synth/generate.py into logs/final-synth/<id>/, asks checked and committed
-# beside the plans (experiments/synth/plans/<id>.asks.json).
+# experiments/synth/generate.py into logs/final-synth/<id>/, beside the asks FINAL reads — the
+# committed plan asks (experiments/synth/plans/<id>.asks.json) minus questions about facts due in
+# a turn that never verified (logs/final-synth/<id>/asks.json, excluded.json; 2026-10-28).
 def _synthetic():
     from experiments.synth.plans import BRIEFS
     return {sid: History(sid, f"syn{sid.lower()}", f"logs/final-synth/{sid}/originals.json", brief["pairs"], True,
-                         0, 1.0, 0, asks=f"experiments/synth/plans/{sid}.asks.json")
+                         0, 1.0, 0, asks=f"logs/final-synth/{sid}/asks.json")
             for sid, brief in BRIEFS.items()}
 
 
