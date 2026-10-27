@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # FINAL's private ground truth for A, SW and LAP (Z3 D13: no Muse in the ground truth) — the Z2
 # S1-S5 chain, cloud only: DeepSeek V4.1 Flash and MiMo-V2.6-Flash write and check each other,
-# disputes are not changes (--tie-breaker none), the forward walk is verified by MiMo, and every
-# embedding runs on the CPU so the GPU stays with whatever else is running. Resumable: every model
+# disputes are not changes (--tie-breaker none), the forward walk is verified by MiMo, and the
+# embeddings run on the GPU (maintainer, 2026-10-28: on the CPU they lagged the laptop). Resumable: every model
 # call is durable, so rerunning the same command continues where it stopped.
 #
 #   experiments/final/private_chain.sh            # A SW LAP, side by side
@@ -17,7 +17,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 # Ctrl-C stops everything this started: background jobs of a script ignore it on their own
 trap 'trap - INT TERM; kill 0' INT TERM
-export Z2_EMBED_DEVICE=cpu TIE_BREAKER=none VERIFIER=mimo
+export TIE_BREAKER=none VERIFIER=mimo         # embeddings on the GPU (default device): a ~1.2 GB encoder, seconds not minutes
 UV=$(command -v uv)
 mkdir -p logs/final-ledger logs/final-questions
 
