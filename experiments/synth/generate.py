@@ -251,8 +251,11 @@ def invented_values(plan, turn, user, history):
     # A first value said early is how real people talk (maintainer's round-4 review); a LATER value
     # said before its turn would undo a planned change, so that alone is too early.
     for f in plan["facts"]:
+        # a later value equal to one already due is not early (batch 6: rent £1,150 at turn 34 —
+        # due then — is also its value again at turn 121; office days go 2 -> 3 -> 2)
+        due_now = {norm(v["value"]) for v in f["values"] if v["turn"] <= turn}
         for v in f["values"][1:]:
-            if v["turn"] > turn and (any(c.isdigit() for c in v["value"]) or len(v["value"].split()) >= 2) \
+            if v["turn"] > turn and norm(v["value"]) not in due_now and (any(c.isdigit() for c in v["value"]) or len(v["value"].split()) >= 2) \
                     and said(user, v["value"]) and not said(earlier, v["value"]):
                 out.append(f"user said {f['id']}'s later value early: {v['value']}")
     if LEAK.search(user):
@@ -311,7 +314,7 @@ were be been being has have had do does did it its this that these those she he 
 i me my we our you your which who whom whose what when where why how not no so very too also just only still than
 then there here likes like dislikes dislike prefers prefer hates hate loves love wants want uses use gets get got
 gives give makes make picks pick takes take moved move goes go went lives live works work keeps keep thinks think
-says say always never usually every each per about around roughly approx at""".split())
+says say always never usually every each per about around roughly approx at assistant suggested suggests user rejected""".split())
 
 
 def key_parts(value):
@@ -382,8 +385,9 @@ the topics NOT SETTLED YET, what THIS MESSAGE HAD TO SAY, and the MESSAGE. Repor
 when you are sure, and quote the exact words of the message it is about (for "missing", quote the
 item). Ordinary details people mention (a rent figure, a friend's name, asking for a reminder or
 for help with anything) are fine. Problems:
-- "invented": the message gives a value (a name, number, amount, date, time, place or title) for a
-  topic NOT SETTLED YET, other than what it had to say;
+- "invented": the message gives a concrete value (a name, number, amount, date, time, place or
+  title) for a topic NOT SETTLED YET, other than what it had to say; talking about a topic, asking
+  about it or bringing it up without giving its value is fine;
 - "contradiction": the message states something that conflicts with what is established or said
   earlier, other than a change it had to say;
 - "not_a_message": JSON, labels, talk about instructions or being simulated, or writing as the
@@ -537,8 +541,10 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
             problems = [f"reply cut off: {str(exc)[:120]}"]
             log(dict(turn=turn, attempt=attempt, stage="call", problems=problems))
             continue
+        # a long planned suggestion by its key parts, like the user's items (batch 6: S6's value
+        # "assistant suggested brown rice for Kit's dinners; rejected, he won't eat it")
         problems = ([f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
-                     if not contains(reply, i["value"])]
+                     if not said(reply, i["value"])]
                     + drift_problems(plan, turn, user, reply) + artifacts(reply))
         if not problems and checker:                  # follows, continuity, facts, stays in the chat
             try:
@@ -650,7 +656,7 @@ def cloud_caller(role, *, session="", usage_log=None):
         turns = prompt if isinstance(prompt, list) else [dict(role="user", content=prompt)]
         started = time.time()
         result = gen.generate([dict(role="system", content=system)] + turns,
-                              temperature=0.8, max_output_tokens=4_000, session_id=f"ice-final-synth-{session}{role}")
+                              temperature=0.8, max_output_tokens=8_000, session_id=f"ice-final-synth-{session}{role}")  # 8K: long technical replies were cut at 4K
         if usage_log:
             with Path(usage_log).open("a") as handle:
                 handle.write(json.dumps(dict(role=role, seconds=round(time.time() - started, 2),

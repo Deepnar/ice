@@ -366,3 +366,21 @@ def test_every_rejected_attempt_is_logged_with_its_reason(tmp_path, monkeypatch)
     G.run(p, tmp_path / "out", user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None, limit=3)
     log = [json.loads(l) for l in (tmp_path / "out" / "attempts.jsonl").read_text().splitlines()]
     assert log[0]["stage"] == "user" and log[0]["problems"] == ["unfinished placeholder: [some weeks]"]
+
+
+
+def test_a_later_value_equal_to_one_already_due_is_not_early():
+    """Batch 6: rent £1,150 (turn 34) -> £1,250 (96) -> £1,150 (121); saying £1,150 at 34 is right."""
+    from experiments.synth import generate as G
+    rent = dict(facts=[dict(id="F25", values=[dict(turn=34, value="£1,150 a month"), dict(turn=96, value="£1,250 a month"),
+                                              dict(turn=121, value="£1,150 a month")])])
+    assert G.invented_values(rent, 34, "budget is £1,150 a month", []) == []
+    assert G.invented_values(rent, 40, "now £1,250 a month", [])[0].startswith("user said F25's later value early")
+
+
+
+def test_a_described_suggestion_is_checked_by_its_key_parts():
+    from experiments.synth import generate as G
+    v = "assistant suggested brown rice for Kit's dinners; rejected, he won't eat it"
+    assert G.key_parts(v) == {"brown", "rice", "Kit's", "dinners"}
+    assert G.said("what about brown rice for Kit's dinners this week?", v)
