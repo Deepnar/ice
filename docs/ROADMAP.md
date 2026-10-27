@@ -226,6 +226,9 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ✅ 2026-10-28 clean-up (`5388684`): each public benchmark runs its own way (table: prereg §1);
     LoCoMo speakers on fixed sides, Mem0 per speaker, ICE at a 2K budget + prompt-size column on
     LoCoMo; LongMemEval-S full context; B's parts run dropped. Local phase ≈ 14–17 GPU days.
+  - ✅ 2026-10-28: named LSREP measures (prereg §2 table); public benchmarks scored by field norms only —
+    LoCoMo by Mem0's protocol (`experiments/locomo/grade.py`; category 5 excluded, 1,540 questions),
+    LongMemEval-S by its own judge (`--upstream-only`), BEAM by nuggets.
   - ☐ live trials when the GPU is free must include: a LoCoMo replay slice (124 turns have an empty
     user side, 144 an empty assistant side — never exercised), and one LongMemEval-S full-context read.
   - **Next, in order (2026-10-26):** (1) Z2 local stages finish (~Nov 3–4); (2) GPU free: ~20 generated

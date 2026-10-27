@@ -482,7 +482,10 @@ with the oracle evidence as a read-time control (no separate oracle replay). BEA
 above. **MemoryAgentBench benched** — not run now; reconsidered once FINAL's measured
 time is known. **LoCoMo — revised 2026-10-26 (pre-registration r2): a small, clearly labelled
 extra table** (all 10 conversations, its own questions; ICE and the three memory systems; known
-answer-key errors and the lenient common judge stated). It is the common ground of memory
+answer-key errors and the lenient common judge stated). **Scored the way memory papers score it
+(2026-10-28):** Mem0's protocol — J with its judge prompt verbatim (Apache-2.0), F1, BLEU-1 —
+on categories 1–4, category 5 excluded (1,540 questions); `experiments/locomo/grade.py`.
+LongMemEval-S is scored by its own judge only (`oracle.py grade --upstream-only`). It is the common ground of memory
 papers, so it makes ICE comparable; it is never a headline (histories fit one window).
 
 **FINAL build list and run estimate (2026-10-26, v3).** Rates measured in Z2: replay ~34 s

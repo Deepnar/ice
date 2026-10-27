@@ -31,8 +31,8 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
   | **our data** — synthetic S1–S9, private B, A, SW, LAP | ICE frozen as it runs (`full_default`, every part on, decay live); plain vector search (`bare_vector`, ICE's own token budget); long context (`long_context`, the newest **256K** tokens — a window many providers offer, a quarter of the answerer's 1M); recent turns only (the no-memory floor) | the judge's verdict (§2) |
   | **S9 only** — the parts test | ICE with decay neutral (`full`), each part switched off one at a time, parts added one at a time | the judge's verdict, on the questions built for each part |
   | **BEAM** — 128K tier (20) + 500K tier (5) | ICE, plain vector search, long context (256K); full history on the 500K tier (§4) | BEAM's own nugget score |
-  | **LongMemEval-S** — 100 instances | ICE, plain vector search, full context (every haystack session, ~115K tokens), LongMemEval's own oracle setting (only the answer sessions) | LongMemEval's own yes/no check |
-  | **LoCoMo** — 10 conversations | ICE, ICE at a 2K-token memory budget, plain vector search, full context (each conversation fits 256K whole), Graphiti, Mem0, A-Mem | LoCoMo's own word overlap (F1), plus the judge |
+  | **LongMemEval-S** — 100 instances | ICE, plain vector search, full context (every haystack session, ~115K tokens), LongMemEval's own oracle setting (only the answer sessions) | LongMemEval's own judge (its prompts, yes/no) — nothing else |
+  | **LoCoMo** — 10 conversations | ICE, ICE at a 2K-token memory budget, plain vector search, full context (each conversation fits 256K whole), Graphiti, Mem0, A-Mem | Mem0's protocol, as most memory papers report it: J (LLM judge, its prompt verbatim), F1, BLEU-1; categories 1–4 (category 5 excluded) |
 
   Warm vector (ICE's own vector search alone) appears only inside S9's parts test. On the public
   benchmarks `recent_only` is read — it is the prompt frame plain vector search and long context
@@ -52,10 +52,10 @@ used an outdated value, made an unsupported claim, or abstained.
 *correct* (partial counts as wrong; the judge's *uncertain* is never credited and its rate is
 reported), as LongMemEval, LoCoMo-J, Zep and Mem0 report it; per dataset
 and question type. The **public benchmarks are headlined in their own scoring** — BEAM's nugget
-mean (Kendall tau-b for ordering), LongMemEval's upstream yes/no, LoCoMo's token F1 — because each
-was built to show its own point of view; M1/M2 appear there only where already graded (LoCoMo,
-LongMemEval-S), as a secondary column. ICE's own claim (M2 by distance, P1) is tested on LSREP's
-suites. *Misses:* whether a
+mean (Kendall tau-b for ordering), LongMemEval's own judge, LoCoMo by Mem0's protocol (J, F1, BLEU-1) — because each
+was built to show its own point of view, and memory papers report them that way (§1's table;
+2026-10-28: nothing of ours is added to them). ICE's own claim (M2 by distance, P1) is tested on
+LSREP's suites. *Misses:* whether a
 correct answer also carried an invented or outdated claim, and how hard the question was.
 
 **M2 — Supported current accuracy against distance (the paper's measure; LSREP- and
@@ -74,6 +74,26 @@ of the question, applied to every condition. *This replaces Z2's 1–5 scoring f
 write-time cost per turn (replay wall seconds per turn; model calls per turn are not in the replay
 trace and are reported as not measured). A system can buy accuracy by
 filling the window; M3 shows the price. *Misses:* quality — it is read beside M1/M2, never alone.
+
+**The named measures (2026-10-28)** — the names the paper uses, so each can be cited; two keep paper
+1's names with new, sounder definitions (paper 1's were ratios of a 1–5 score):
+
+| name | what it counts | lineage |
+|---|---|---|
+| **ACC** — accuracy | share of answers the judge calls fully correct (= M1) | the field's standard |
+| **SCA** — supported current accuracy | correct, no outdated value, nothing invented, declines when never said (= M2) | new: LSREP's headline |
+| **SCA-BW** — SCA beyond the window | SCA on questions whose evidence lies beyond the long-context window (P1) | new |
+| **SCA@d** — SCA by evidence distance | SCA in bins of < 32K · 32K–128K · 128K–512K · > 512K tokens back | replaces paper 1's Recency Δ |
+| **UA** — update accuracy | SCA on questions whose answer changed | new: LSREP's evolving key |
+| **TUR** — token utility ratio | correct answers per 1,000 prompt tokens (M3) | paper 1's TUR, now on a yes/no outcome |
+| **SPF** — supporting-fragment precision | share of prompt fragments that carry a needed fact | paper 1's SPF, made length-free |
+| **SFR** — stale-fragment rate | share of prompt fragments that carry a wrong or outdated one | new |
+| **ER** — evidence recall | share of questions whose cited evidence reached the prompt | new |
+| **ICR · NSR · OVR · AER** — the hallucination profile | invented-claim rate · never-said answer rate (confident answers about things never said) · outdated-value rate · attribution-error rate (who said what) | paper 1's Hallucination %, split in four |
+| **MFA** — mechanism fidelity audit | per part: did it run, is its output faithful, does it reach a prompt, does switching it off lower SCA (S9) | paper 1's fidelity audit |
+
+Dropped from paper 1: Win rate (the ranking), Recency Δ (SCA@d replaces it), the 1–5 score as a
+headline (kept as a descriptive column).
 
 ## 3. Primary tests (decided before any result)
 - **The tests (revised 2026-10-28):** ICE as it runs (`full_default`) against `long_context` and
@@ -138,9 +158,9 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   fallback rate (a failed model call becoming an empty note analysis) is reported.
 - **LoCoMo** as a small, clearly labelled extra table (its known answer-key errors — ~6% — and
   lenient common judge stated; every conversation fits a 256K window, so it cannot show
-  out-of-window behaviour), conditions as in §1: categories 1–4 are the headline (as other papers
-  report it), category 5 (never said) only as a confident-answer rate, apart; LoCoMo's word overlap
-  beside the judge's verdict. **Each system's prompt size and its share of the conversation are
+  out-of-window behaviour), conditions and scoring as in §1 — Mem0's protocol (J, F1, BLEU-1) on
+  categories 1–4, category 5 excluded, as memory papers do; J is judged by FINAL's model, so it is
+  labelled non-official. **Each system's prompt size and its share of the conversation are
   shown beside its score** — a short conversation can be "remembered" by reading most of it —
   and ICE also answers at a 2K-token memory budget, the size the memory systems hand the model.
   LoCoMo's first speaker is always ICE's user side and the second its assistant side (124 of its

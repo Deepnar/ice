@@ -365,3 +365,10 @@ budget, plain vector, full context, the three systems; categories 1–4 headline
 LoCoMo speakers on fixed sides; Mem0 per speaker; B's parts run dropped. Table:
 FINAL_PREREGISTRATION.md §1.
 
+**Scoring names and norms, 2026-10-28 (maintainer):** LSREP's measures get citable names (ACC,
+SCA, SCA-BW, SCA@d, UA, TUR, SPF, SFR, ER, ICR/NSR/OVR/AER, MFA — table in
+FINAL_PREREGISTRATION.md §2; TUR and SPF keep paper 1's names with sounder definitions). Public
+benchmarks use their own scoring and the field's norms only: LoCoMo by Mem0's protocol (J, F1,
+BLEU-1; categories 1–4), LongMemEval-S by its own judge, BEAM by its nuggets — no LSREP measure
+is added to them.
+
