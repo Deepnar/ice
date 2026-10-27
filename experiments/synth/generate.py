@@ -29,8 +29,8 @@ sys.path.insert(0, str(ROOT))
 from experiments.synth.plans import PLANS, STYLES, validate  # noqa: E402
 
 POLICY = "ice-final-synth-generate-2"           # 2: cloud sides, invented-value checks (2026-10-28)
-RECENT_PAIRS, MAX_TRIES = 5, 5        # the simulated user sees the plan + the last 5 exchanges; 5 tries
-                                       # (was 3: cheap on the cloud, and a paraphrased value is rerolled)
+RECENT_PAIRS, MAX_TRIES = 5, 8        # the simulated user sees the plan + the last 5 exchanges; 8 tries
+                                       # (was 3: cheap on the cloud; an echo, a cut-off or a stray number is rerolled)
 ASSISTANT_RECENT_PAIRS = 8             # the simulated assistant: a plan-built briefing + the last 8
                                        # exchanges (FINAL_experiments.md §2.1, decided 2026-10-26)
 SESSION_START, TURN_GAP = "19:00", timedelta(minutes=3)
@@ -44,16 +44,21 @@ LOCAL_NUM_CTX = 32_768
 
 USER_SYSTEM = """You write the next message of a USER chatting with an AI assistant, as the person
 described in PERSONA, in exactly the writing style of STYLE. Stay in character; never mention
-being simulated. Follow SESSION_BEATS for what this person wants today. The message MUST
-contain every item in MUST_SAY, worded naturally but with each VALUE written exactly as given
-(numbers, names and dates verbatim). An item marked "paste" goes inside pasted material
+being simulated. SESSION_BEATS is what this person wants from today's chat and BEAT_NOW where it
+should be about now. Move the conversation forward: react to the assistant's last reply (agree,
+push back, follow up, or go on to the next thing) and never re-ask what it already answered.
+Like a real person, sometimes send a very short message (ok / wait what / thanks that helps),
+disagree, change the subject or leave a thought half-finished. The message MUST contain every
+item in MUST_SAY, each VALUE written exactly as given (numbers, names and dates verbatim) and
+worked into what you are actually saying (a reason, a detail, an aside, a correction), never
+announced ("btw, I haven't told you this"). An item marked "paste" goes inside pasted material
 (a config, log, document or code block) that the user pastes, and its VALUE appears there word
 for word (a comment or a line of the paste). An item marked "reject" means
 the user turns down that earlier suggestion. If NO_MEMORY_TOPIC is set, the message is
 instead a self-contained question about it. Never state a specific value (a number, amount,
 date, time, name or place) that is not in MUST_SAY, PERSONA or RECENT: where SESSION_BEATS
 hints at one, talk around it until MUST_SAY gives it, and never correct or change a value unless
-MUST_SAY marks it a change. Write it the way a real person types into a chat
+MUST_SAY marks it a change, and never guess or make up a stand-in for one. Write it the way a real person types into a chat
 box, never the way an AI writes: no headings, bullet lists, bold or numbered steps unless STYLE
 calls for structure or the text is pasted material; no em dashes; no stock assistant phrases
 ("Certainly", "Great question", "I hope this helps"); no summarising what was already said; no
@@ -64,7 +69,10 @@ ASSISTANT_SYSTEM = """You are a helpful AI assistant in an ongoing conversation.
 message naturally and usefully. WHAT YOU KNOW lists what has been established earlier in this
 conversation: use it to stay consistent, but bring a point up only when the user's message is
 about it — do not recap it. Never invent facts about the user beyond what you know and the
-conversation shown."""
+conversation shown; never mention anything the user has not said in this conversation. Match
+the user's message: a quick message gets a short reply (one to four sentences); use lists or
+headings only when the content really is a list; do not end every reply with a question or a
+summary."""
 
 ATTRIBUTION = {"decided": "the user decided", "preference": "the user's preference",
                "instruction": "the user's standing instruction to you", "hypothetical": "the user only mused about",
@@ -152,15 +160,17 @@ def invented_values(plan, turn, user, history, allowed_text):
     writer models put an offer salary in the user's mouth turns before the plan's £58,000):
     a planned value before its turn, or a number outside pasted material that neither the plan's
     items for this turn, the persona, the beats nor the conversation so far contains."""
-    out, said = [], " ".join(f"{p['user']} {p['assistant']}" for p in history)
+    out, earlier = [], " ".join(f"{p['user']} {p['assistant']}" for p in history)
     for f in plan["facts"]:
         for v in f["values"]:
             if v["turn"] > turn and (any(c.isdigit() for c in v["value"]) or len(v["value"].split()) >= 2) \
-                    and contains(user, v["value"]) and not contains(said, v["value"]):
+                    and said(user, v["value"]) and not said(earlier, v["value"]):
                 out.append(f"user said {f['id']} early: {v['value']}")
-    allowed = numbers(allowed_text) | numbers(said)
+    allowed = numbers(allowed_text) | numbers(earlier)
     if any(key in user for key in ('"PERSONA"', '"MUST_SAY"', '"SESSION_BEATS"')):
         return ["user side echoed its instructions"]
+    if any(norm(user)[:120] == norm(p["user"])[:120] for p in history):
+        return ["user side repeated an earlier message"]
     loose = sorted(numbers(FENCE.sub(" ", user)) - allowed)
     if loose:
         out.append(f"user stated values the plan never gave: {', '.join(loose)}")
@@ -168,7 +178,8 @@ def invented_values(plan, turn, user, history, allowed_text):
 
 
 def hide_future(plan, turn, beats):
-    """The beats (or the persona) with every planned value not yet due replaced by what it is about: neither side
+    """The beats (or the persona) with every planned value not yet due replaced by what it is about, as a
+    plain phrase (a bracketed "not said yet" made the user act out withholding it): neither side
     can say early what it never sees (2026-10-28 trial: a game's name in the beats was said
     turns before its plan turn by both writer models)."""
     def hide(text):
@@ -177,7 +188,7 @@ def hide_future(plan, turn, beats):
                 if v["turn"] >= turn:
                     words = [re.escape(w) for w in re.split(r"[\s\-_,.]+", v["value"]) if w]
                     if words:
-                        text = re.sub(r"[\s\-_,.]+".join(words), f"[{f['about']}, not said yet]", text, flags=re.I)
+                        text = re.sub(r"[\s\-_,.]+".join(words), f"the {f['about']}", text, flags=re.I)
         return text
     if isinstance(beats, dict):                        # the persona: every text field
         return {k: hide(v) if isinstance(v, str) else v for k, v in beats.items()}
@@ -193,16 +204,40 @@ def suggest_note(items):
             "decided), even if the user's message is about something else, writing each value exactly as given:"
             f"\n{lines}")
 
-
-
-
-
 def norm(text):
     return re.sub(r"[\s\-_,.]+", " ", (text or "").lower()).strip()
 
 
 def contains(text, value):
     return norm(value) in norm(text)
+
+
+# Words that carry no fact of their own: a long value's first clause is checked without them.
+COMMON = set("""a an the and or but of to in on at for with by from up down out over about into as is are was
+were be been being has have had do does did it its this that these those she he her his him they them their
+i me my we our you your which who whom whose what when where why how not no so very too also just only still than
+then there here likes like dislikes dislike prefers prefer hates hate loves love wants want uses use gets get got
+gives give makes make picks pick takes take moved move goes go went lives live works work keeps keep thinks think
+says say always never usually every each""".split())
+
+
+def key_parts(value):
+    """What a question about a long value needs (maintainer, 2026-10-28: a long value said in other
+    words was a quarter of the unverified turns): its numbers, its capitalised words, and the
+    content words of its first clause — "Ostmere, a lake town up north; she moved away at age 11"
+    needs Ostmere and 11; "dislikes coriander, picks it out of everything" needs coriander."""
+    first = re.split(r"[,;]", value, maxsplit=1)[0]
+    parts = {w for w in re.findall(r"[A-Za-z][\w'\-]*|\d+(?:[.,:]\d+)*", value) if w[0].isdigit() or w[0].isupper()}
+    return parts | {w for w in re.findall(r"[A-Za-z][\w'\-]*", first) if w.lower() not in COMMON and len(w) > 2}
+
+
+def said(text, value):
+    """The value word for word; a value of four words or more may be said in other words, as long
+    as every key part appears as a whole word."""
+    if contains(text, value):
+        return True
+    parts = key_parts(value) if len(value.split()) >= 4 else ()
+    return bool(parts) and all(re.search(rf"(?<!\w){re.escape(norm(p))}(?!\w)", norm(text)) for p in parts)
 
 
 def due(plan):
@@ -255,26 +290,33 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
                 for i in items["user"]]
     problems, user, reply = [], "", ""
     beats = hide_future(plan, turn, session["beats"])
+    sessions = sessions or session_index(plan)
+    first = min(t for t, s in sessions.items() if s == sessions[turn])
+    # where the session should be about now: the beats paced over its pairs (maintainer's review,
+    # 2026-10-28: with all beats at every turn the user kept re-asking the first one)
+    beat_now = beats[min(len(beats) - 1, (turn - first) * len(beats) // max(1, session["pairs"]))] if beats else None
     for attempt in range(1, MAX_TRIES + 1):
         try:
             user = user_llm(USER_SYSTEM, json.dumps(dict(
                 PERSONA=hide_future(plan, turn, plan["persona"]), STYLE=STYLES[session["style"]], SESSION_BEATS=beats,
+                BEAT_NOW=beat_now,
                 RECENT=recent, MUST_SAY=must_say,
                 NO_MEMORY_TOPIC=(session["topics"][0] if items["quiet"] and not must_say else None)),
                 ensure_ascii=False))
             known = briefing(plan, turn, sessions)
             # a planned suggestion leads and closes the system prompt: at the end alone, both
             # writer models answered the user's topic and left it out (2026-10-28 trial)
+            # No beats for the assistant (maintainer's review, 2026-10-28): from them it brought up
+            # what the user had not said yet; it knows the conversation and the briefing only.
             system = (suggest_note(items["assistant"]).strip() + "\n\n" if items["assistant"] else "") + (
                       ASSISTANT_SYSTEM + f"\n\nWHAT YOU KNOW:\n{known or '- nothing yet'}"
-                      + "\n\nTODAY THE USER WANTS:\n" + "\n".join(f"- {b}" for b in beats)
                       + suggest_note(items["assistant"]))
             reply = assistant_llm(system, recent_messages(history, user))
         except CUT_OFF as exc:                        # a reply cut at the output cap: try again
             problems = [f"reply cut off: {str(exc)[:120]}"]
             continue
         problems = ([f"user missing {i['id']}: {i['value']}" for i in items["user"]
-                     if i["change"] != "event" and not contains(user, i["value"])]
+                     if i["change"] != "event" and not said(user, i["value"])]
                     + [f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
                        if not contains(reply, i["value"])]
                     + drift_problems(plan, turn, user, reply)

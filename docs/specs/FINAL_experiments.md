@@ -460,8 +460,17 @@ own) and saying planned values early from the persona and beats, so: planned val
 are hidden from the persona and beats; a user message with a planned value before its turn, a
 number outside pasted material that nothing given contains, or an echo of its instructions is
 regenerated; pasted values appear word for word; a planned suggestion leads the assistant's
-instructions; up to 5 tries. A turn still unverified is recorded for the maintainer (or a local
-model) to fix by hand.
+instructions; up to 8 tries. A turn still unverified is recorded for the maintainer (or a local
+model) to fix by hand. A value of four words or more may be said in other words if its key parts
+appear (its numbers, capitalised words and the content words of its first clause). After the
+maintainer's read of 20 S1 turns (repetitive turns, announced facts, the assistant bringing up
+what was not said yet, long structured replies): the user is given the beat for where the
+session should be now and told to move on, work items in rather than announce them, and
+sometimes be brief, disagree or change topic; a hidden value reads as a plain phrase (a bracketed
+"not said yet" made the user act out withholding it); a repeated user message is regenerated;
+the assistant no longer sees the beats and keeps quick replies short. Not checked, by design:
+whether the assistant's advice is right — the answer key is the plan, and the assistant's words
+count only where the plan has it suggest.
 
 About 3,900 pairs, ~2 days of replay. **Build:** (1) a structured plan per conversation —
 persona, timeline, every planted fact with its introduce / change / correct turns, speaker,

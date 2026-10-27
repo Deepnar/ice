@@ -83,7 +83,8 @@ def test_generator_plants_verifies_retries_and_resumes(tmp_path, monkeypatch):
         calls["user"] += 1
         body = j.loads(prompt)
         vals = " ".join(i["value"] for i in body["MUST_SAY"])
-        return f"hi {vals}" if calls["user"] != 3 else "forgot it"      # third call misses -> retry
+        hello = "".join(chr(97 + int(d)) for d in str(calls["user"]))   # never the same message twice
+        return f"{hello} {vals}" if calls["user"] != 3 else "forgot it"  # third call misses -> retry
     def assistant_llm(system, messages):
         import re
         assert messages[-1]["role"] == "user"                          # the whole conversation, latest last
@@ -192,7 +193,7 @@ def test_future_values_are_hidden_from_the_beats():
     from experiments.synth import generate as G
     plan = dict(facts=[dict(id="F1", about="the game's name", values=[dict(turn=4, value="Ferryman's Ledger")])])
     beats = ["pitches the game, Ferryman's Ledger, to the shop"]
-    assert G.hide_future(plan, 2, beats) == ["pitches the game, [the game's name, not said yet], to the shop"]
+    assert G.hide_future(plan, 2, beats) == ["pitches the game, the the game's name, to the shop"]
     assert G.hide_future(plan, 5, beats) == beats
 
 
@@ -201,5 +202,25 @@ def test_the_persona_is_hidden_too_and_an_echoed_prompt_is_rejected():
     from experiments.synth import generate as G
     plan = dict(facts=[dict(id="F1", about="race day", values=[dict(turn=3, value="22 June 2025")])])
     persona = dict(name="Imogen", situation="training for a half on 22 June 2025", age=38)
-    assert G.hide_future(plan, 1, persona) == dict(name="Imogen", situation="training for a half on [race day, not said yet]", age=38)
+    assert G.hide_future(plan, 1, persona) == dict(name="Imogen", situation="training for a half on the race day", age=38)
     assert G.invented_values(plan, 1, '{"PERSONA": {"name": "Imogen"}}', [], "") == ["user side echoed its instructions"]
+
+
+def test_a_long_value_may_be_said_in_other_words_if_its_key_parts_are_there():
+    from experiments.synth import generate as G
+    v = "Ostmere, a lake town up north; she moved away at age 11"
+    assert G.key_parts(v) == {"Ostmere", "11"}
+    assert G.said("grew up in ostmere, little lake town, left when i was 11", v)
+    assert not G.said("grew up in ostmere, left when i was 12", v)            # 11 is a key part
+    assert G.said("allergic to penicillin, i get hives", "penicillin, which gives her hives")
+    assert not G.said("i love cilantro", "dislikes coriander, picks it out of everything")
+    assert not G.said("start is 1 February", "Monday 1 February 2027")        # every part, whole words
+    assert not G.said("bristol", "Bristol city")                              # short values stay word for word
+
+
+
+def test_a_repeated_user_message_is_regenerated():
+    from experiments.synth import generate as G
+    history = [dict(user="hey so i got a verbal offer, can u help me plan", assistant="sure")]
+    assert G.invented_values(dict(facts=[]), 2, "hey so i got a verbal offer, can u help me plan", history, "") == [
+        "user side repeated an earlier message"]
