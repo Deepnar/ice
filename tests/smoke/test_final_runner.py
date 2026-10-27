@@ -69,15 +69,17 @@ def test_subset_and_cross_family_judge_stages():
         assert f"subset-answers-{h}" in " ".join(sub.cmd_args(ctx, ctx.dir / sub.key))
 
 
-def test_upper_bound_waits_for_its_model_and_never_answers_with_muse():
+def test_upper_bound_is_muse_at_a_600k_ceiling_and_waits_when_unset(monkeypatch):
+    assert F.UPPER_BOUND == dict(answerer="muse12", window=600_000)                # prereg §6, 2026-10-28
     stages = {s.key: s for s in F.final_stages()}
     ctx = type("C", (), {"dir": F.ROOT / "logs/final-run-x", "name": "x"})()
-    build = stages["upper-build-BEAM"].members[0]
-    if not (F.UPPER_BOUND["answerer"] and F.UPPER_BOUND["window"]):
-        assert build.missing(ctx) and "UPPER_BOUND" in build.missing(ctx)[0]
-    answers = stages["upper-answers-BEAM"].members[0]
-    assert answers.answerer != "muse12"
+    assert stages["upper-build-BEAM"].members[0].missing(ctx) == []
+    assert stages["upper-answers-BEAM"].members[0].answerer == "muse12"
     assert len(stages["upper-build-BEAM"].members) == 25                      # 128K (20) + 500K (5)
+    monkeypatch.setattr(F, "UPPER_BOUND", dict(answerer=None, window=None))
+    unset = {s.key: s for s in F.final_stages()}
+    assert "UPPER_BOUND" in unset["upper-build-BEAM"].members[0].missing(ctx)[0]
+    assert unset["upper-answers-BEAM"].members[0].answerer == "unset-upper-bound-model"
 
 
 def test_locomo_and_amem_are_wired_local_then_cloud():

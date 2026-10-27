@@ -400,7 +400,7 @@ result is seen. Exact conversations and file hashes: `experiments/beam/MANIFEST.
 (1 Coding + 1 Math + 3 general, drawn from the 10 with seed 20261028 — `select.py --trim`), so
 BEAM is 25 conversations (≈ 1 + 1 replay days). FINAL already runs many evaluations, and B and other
 histories reach ~1M tokens. BEAM is scored its own way (nuggets) and carries the full-history upper
-bound on both kept tiers.
+bound on both kept tiers (Muse 1.2 at a 600K-token ceiling, pre-registration §6).
 
 **⚑ BEAM conversations chosen** (seed 20261026, revision `3205395e`; ids and hashes in
 `experiments/beam/MANIFEST.json`; regenerate or verify with `experiments/beam/select.py`):

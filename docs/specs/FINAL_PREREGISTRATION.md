@@ -10,7 +10,9 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP (held out)
-  and B (sealed families) + D, labelled development; LSREP synthetic S1–S9; public benchmarks, each
+  and B — stated plainly: Z2 used B to test the system and find bugs, no parameter was tuned on it,
+  and its FINAL questions are sealed families never shown; D, the v3 hyper-parameter tuning history,
+  is not pooled (⚑ dropping it from FINAL proposed 2026-10-28); LSREP synthetic S1–S9; public benchmarks, each
   in its own scoring — BEAM 128K tier (20) + 500K tier (5 of the 10 drawn; the 1M tier dropped
   2026-10-28; MANIFEST seed 20261026, trim seed 20261028), LongMemEval-S (100 instances,
   final_slice.json), LoCoMo (10 conversations, extra table).
@@ -63,8 +65,8 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 - **P1 (the thesis):** on **out-of-window** questions, M2 of `full` vs `long_context`, and M2 of
   `full` vs `bare_vector` (budget-matched retrieval).
 - **P2:** M1 of `full` vs the same two, on all questions.
-- **Per suite, pooled (revised 2026-10-28):** the headline is each suite — LSREP private held out
-  (A, SW, LAP); LSREP private development (B's sealed questions, D); LSREP synthetic (S1–S9; S8,
+- **Per suite, pooled (revised 2026-10-28):** the headline is each suite — LSREP private (A, SW,
+  LAP and B, with B's role disclosed as above); LSREP synthetic (S1–S9; S8,
   S1's style twin, counted once through S1) — with its histories' questions pooled
   (`scoring.pool`; families resampled within their history). Each question is a paired yes/no
   outcome across conditions: McNemar's exact test and a bootstrap interval over question families
@@ -79,8 +81,7 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 
   | suite (the verdicts) | questions | all (P2) | Holm-worst (4 tests) | out-of-window, if 60% (P1) |
   |---|---|---|---|---|
-  | **LSREP private, held out (A, SW, LAP)** | ≈234 | 8.2 | 9.7 | 10.5 |
-  | **LSREP private, development (B sealed, D)** | ≈260 | 7.7 | 9.2 | 10.0 |
+  | **LSREP private (A, SW, LAP, B)** | ≈381 | 6.4 | 7.6 | 8.2 |
   | **LSREP synthetic (S1–S9, S8 once)** | 1,044 | 3.9 | 4.6 | 5.0 |
   | *per conversation (deep dives; no verdict)* | | | | |
   | B (sealed: 64 families; seal not opened, ≈2.3 asks each) | ≈147 | 10.2 | 12.2 | 13.2 |
@@ -93,7 +94,7 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 
   Recomputed from the real counts (and the real out-of-window share) before the first answer;
   private counts follow their question chain. (The 2026-10-27 proposal — no verdict above 15
-  points — is moot: verdicts are per suite, and every suite detects ≤ 10.5 points.)
+  points — is moot: verdicts are per suite, and every suite detects ≤ 8.2 points.)
 - **Hallucination non-inferiority:** ICE's rates of (i) unsupported claims, (ii) confident answers
   to never-said questions, (iii) outdated values, (iv) attribution mix-ups are not worse than
   `bare_vector`'s by more than 2 points (upper interval bound).
@@ -164,6 +165,8 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   per-call cost check; recorded here — and in `UPPER_BOUND` in experiments/final/run_final.py,
   whose stages wait until it is set — before it answers. Found 2026-10-27 (models.dev, the
   catalogue OpenCode uses): **Muse Spark 1.2 Contributor itself has a 1,048,576-token window**
-  ($0.10/M input, $0.002/M cached; list price matched the measured allowance), so the answerer can
-  be its own upper bound — one model for every condition — and BEAM's 500K tier fits too.
-  ⚑ Awaiting the maintainer, with the long-context window this same fact puts in question.
+  ($0.10/M input, $0.002/M cached; list price matched the measured allowance). **Recorded
+  2026-10-28: the upper bound is answered by Muse 1.2 itself — one model for every condition — at a
+  working ceiling of 600K tokens**, well below its window so it is not pushed to its limit; a
+  conversation above the ceiling (likely one of the five 500K-tier ones, ~857K tokens) is reported
+  as too long for the upper bound. The long-context window is still settled at freeze.
