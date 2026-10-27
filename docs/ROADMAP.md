@@ -203,6 +203,15 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     `run_final.py`; audit inventory before reads; ground truth without Muse; scoring r2 + paper-1
     measures (update accuracy, context precision, TUR, fidelity audit) + cross-family judge +
     subset stage — `46349ed`..`afd7b47`. Main has the same scoring as Z2's headline (Z2 D6e).
+  - ✅ 2026-10-27: session summaries removed (`2e9f4ed`); cross-family judge picked at the time, local
+    allowed (`1bf14c8`); detectable difference per dataset in the pre-registration (`a070936`);
+    nomic-embed-text pulled.
+  - ⚑ Open decisions (2026-10-27): (1) no win/loss verdict where the detectable difference > 15 points
+    (SW, LAP; LongMemEval-S out-of-window); (2) BEAM has no M1/M2 verdicts — beam/grade.py scores nuggets
+    only, so P1/P2 cannot be computed on BEAM: add grade.py's verdict for BEAM (~4,800 extra judge calls
+    in FINAL's cloud block); LongMemEval-S's verdicts need wiring into scoring.py (and its claim check);
+    (3) upper bound = Muse 1.2 itself (1M window), tiers 128K (+500K?); (4) the long-context window at
+    freeze, now that the answerer holds 1M tokens.
   - ✅ A-Mem (paper memory layer, pinned), LoCoMo (pinned, exported), BEAM 128K full-history runner —
     `585e3d3`, `bfcb962`, `c6002ac`, `6d0a950` (§2.1 items 15–17). ⚑ Open: the upper-bound model
     (≥ 256K window) — set `UPPER_BOUND` in run_final.py after the cost check.

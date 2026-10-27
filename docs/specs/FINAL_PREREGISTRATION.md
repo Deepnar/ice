@@ -151,4 +151,8 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   LongCat-2.0); recorded here before use.
 - The cloud model for the full-history upper bound (≥ 256K window), picked at the time after the
   per-call cost check; recorded here — and in `UPPER_BOUND` in experiments/final/run_final.py,
-  whose stages wait until it is set — before it answers.
+  whose stages wait until it is set — before it answers. Found 2026-10-27 (models.dev, the
+  catalogue OpenCode uses): **Muse Spark 1.2 Contributor itself has a 1,048,576-token window**
+  ($0.10/M input, $0.002/M cached; list price matched the measured allowance), so the answerer can
+  be its own upper bound — one model for every condition — and BEAM's 500K tier fits too.
+  ⚑ Awaiting the maintainer, with the long-context window this same fact puts in question.
