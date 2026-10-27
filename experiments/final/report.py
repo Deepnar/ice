@@ -95,6 +95,10 @@ SUITES = {
         ("A", "SW", "LAP", "B"),
 }
 
+LABELS = {"full_default": "ICE", "full_b2000": "ICE at a 2K memory budget", "bare_vector": "plain vector search",
+          "long_context": "long context (256K)", "recent_only": "recent turns only", "graphiti": "Graphiti",
+          "mem0": "Mem0", "amem": "A-Mem", "full_history": "full history"}
+
 HEADLINE = ("graded", "m1", "m2", "outdated", "invented", "confident_never_said", "attribution_wrong",
             "prompt_tokens", "tur", "tokens_per_correct")
 
@@ -149,8 +153,10 @@ def locomo(run, exports=ROOT / "logs/final-locomo"):
     answers to category 5 (never said), and LoCoMo's own token F1 on categories 1–4."""
     from experiments.locomo.adapter import native
     from experiments.z2 import scoring as S
+    from experiments.z2.report import unit_index
+    from src.memory.tokens import count
     comparable = ("multi_hop", "temporal", "open_domain", "single_hop")
-    run, rows, f1 = Path(run), {}, {}
+    run, rows, f1, context, length = Path(run), {}, {}, {}, {}
     for grades in sorted(run.glob("grade-*LOCOMO-*/grades.json")):
         name = grades.parent.name                  # grade-LOCOMO-<id> | grade-baseline-<system>-LOCOMO-<id>
         sid = name.split("LOCOMO-", 1)[1]
@@ -162,6 +168,14 @@ def locomo(run, exports=ROOT / "logs/final-locomo"):
                 rows.setdefault(cond, []).append((occ[ask], S.outcome(g, occ[ask]["type"])))
         units = run / (f"local-read-LOCOMO-{sid}" if name.startswith("grade-LOCOMO") else name.replace("grade-", "local-", 1))
         answers = run / name.replace("grade-", "cloud-answers-", 1)
+        if units.exists():
+            if sid not in length:
+                originals = json.loads((Path(exports) / sid / "originals.json").read_text())
+                length[sid] = sum(count(r["prompt"] + "\n" + r["response"]) for r in originals)
+            for key, u in unit_index(units).items():
+                cond = key.split("|", 1)[0]
+                if u.get("prompt_tokens") and key in json.loads(grades.read_text())["graded"]:
+                    context.setdefault(cond, []).append((u["prompt_tokens"], u["prompt_tokens"] / length[sid]))
         if (answers / "index.json").exists():
             for cond, cells in native(units, answers, occ_path).items():
                 acc = f1.setdefault(cond, [0.0, 0])
@@ -172,8 +186,11 @@ def locomo(run, exports=ROOT / "logs/final-locomo"):
     for cond, pairs in rows.items():
         main = S.summary([r for o, r in pairs if o["type"] in comparable])
         never = S.summary([r for o, r in pairs if o["type"] == "adversarial"])
+        ctx = context.get(cond) or []
         out[cond] = dict(graded=main["graded"], m1_categories_1_4=main["m1"], m2_categories_1_4=main["m2"],
                          confident_on_never_said=never["confident_never_said"],
+                         prompt_tokens=round(statistics.fmean(t for t, _ in ctx)) if ctx else None,
+                         share_of_conversation=round(statistics.fmean(sh for _, sh in ctx), 3) if ctx else None,
                          token_f1_categories_1_4=round(f1[cond][0] / f1[cond][1], 4) if f1.get(cond, [0, 0])[1] else None)
     return out or None
 
@@ -210,8 +227,11 @@ def upper_bound(run):
 
 def build(run):
     run = Path(run)
+    from experiments.final.run_final import PRIVATE
+    from experiments.z2.histories import SYNTHETIC
+    ours = set(PRIVATE) | set(SYNTHETIC) | {"S1-repeat"}       # deep dives are our own data only
     histories = sorted(p.name.removeprefix("grade-") for p in run.glob("grade-*")
-                       if (p / "report.json").exists())
+                       if (p / "report.json").exists() and p.name.removeprefix("grade-") in ours)
     tables = {h: history_table(run, h, run / f"local-read-{h}", run / f"cloud-answers-{h}") for h in histories}
     variance = None
     if "S1" in tables and "S1-repeat" in tables:
@@ -323,11 +343,15 @@ def markdown(report):
                     lines.append(f"- {h} {name}: {test['verdict']} ({_pct(test['diff'])} points, {test['pairs']} pairs)")
         lines.append("")
     if report.get("locomo"):
-        lines += ["## LoCoMo (extra table; histories fit one window; answer-key errors and lenient common judge noted)", "",
-                  "| condition | graded (cat. 1–4) | M1 | M2 | confident on never-said (cat. 5) | token F1 |", "|---|---|---|---|---|---|"]
+        lines += ["## LoCoMo (extra table: each conversation fits one window; ~6% of its answer key is wrong and its "
+                  "common judge is lenient — ours is stricter)", "",
+                  "| system | graded (categories 1–4) | correct | correct and current | confident on never-said "
+                  "(category 5, apart) | word overlap (LoCoMo's own) | prompt tokens | share of the conversation |",
+                  "|---|---|---|---|---|---|---|---|"]
         for c, v in report["locomo"].items():
-            lines.append(f"| {c} | {v['graded']} | {_pct(v['m1_categories_1_4'])} | {_pct(v['m2_categories_1_4'])} | "
-                         f"{_pct(v['confident_on_never_said'])} | {v['token_f1_categories_1_4']} |")
+            lines.append(f"| {LABELS.get(c, c)} | {v['graded']} | {_pct(v['m1_categories_1_4'])} | {_pct(v['m2_categories_1_4'])} | "
+                         f"{_pct(v['confident_on_never_said'])} | {v['token_f1_categories_1_4']} | {v['prompt_tokens']} | "
+                         f"{_pct(v['share_of_conversation'])} |")
         lines.append("")
     if report.get("full_history_upper_bound"):
         u = report["full_history_upper_bound"]

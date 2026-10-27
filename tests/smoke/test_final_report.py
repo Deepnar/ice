@@ -76,6 +76,7 @@ def test_locomo_and_upper_bound_sections(tmp_path):
         f"full|{ask(3)}": dict(verdict("correct"), abstention_expected=True, abstained=True)}))
     write(tmp_path / "run/grade-baseline-mem0-LOCOMO-conv-x/grades.json", dict(graded={
         f"mem0|{ask(0)}": verdict("incorrect"), f"mem0|{ask(3)}": dict(verdict("incorrect"), abstention_expected=True, abstained=False)}))
+    write(exports / "conv-x/originals.json", [dict(prompt="Ann: hi", response="Bo: hello")])
     out = F.locomo(tmp_path / "run", exports=exports)
     assert out["full"]["m1_categories_1_4"] == round(2 / 3, 4) and out["full"]["confident_on_never_said"] == 0.0
     assert out["mem0"]["m1_categories_1_4"] == 0.0 and out["mem0"]["confident_on_never_said"] == 1.0

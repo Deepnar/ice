@@ -11,7 +11,7 @@ def test_stage_list_is_consistent():
     for s in stages:
         assert all(n in keys for n in s.needs), (s.key, s.needs)
     reads = {s.history: s for s in stages if isinstance(s, F.FinalRead)}
-    assert reads["B"].preset == "final_main+final_ablation"
+    assert reads["B"].preset == "final_main"                                        # B's parts run dropped 2026-10-28
     assert reads["S9"].preset == "final_main+final_ablation+final_buildup"           # Z3 D10
     assert reads["S1"].preset == "final_main" and set(reads) >= {"A", "SW", "LAP", "S8"} and "D" not in reads
     groups = {s.key: s for s in stages if isinstance(s, F.Group)}
@@ -37,11 +37,25 @@ def test_s1_is_replayed_twice_into_separate_stores():
     assert stages["cloud-answers-S1-repeat"].needs == ("local-read-S1-repeat",)
 
 
-def test_memory_baselines_are_stages_after_the_lme_reads():
+def test_memory_systems_run_on_locomo_only():
     stages = {s.key: s for s in F.final_stages()}
-    for system in ("graphiti", "mem0"):
-        assert stages[f"local-baseline-{system}"].needs == ("local-lmes",)
-        assert stages[f"grade-baseline-{system}"].needs == (f"cloud-answers-baseline-{system}",)
+    for system in F.MEMORY_SYSTEMS:
+        assert f"local-baseline-{system}" not in stages and f"grade-baseline-{system}" not in stages
+        assert stages[f"local-baseline-{system}-LOCOMO"].needs[0] == "local-read-LOCOMO"
+        assert f"grade-baseline-{system}-LOCOMO" in stages
+
+
+def test_each_kind_of_data_answers_only_its_own_conditions():
+    from experiments.z2 import read_passes as R
+    assert R.PRESETS["final_main"] == ["full_default", "recent_only", "bare_vector", "long_context"]
+    assert "warm_vector" not in R.PRESETS["final_main"] and "full" not in R.PRESETS["final_main"]
+    assert R.LONG_CONTEXT_PROMPT_TOKENS == 256_000
+    stages = {s.key: s for s in F.final_stages()}
+    assert stages["cloud-answers-B"].conditions is None                             # our data: all read conditions
+    assert stages["cloud-answers-BEAM100K"].members[0].conditions == F.BEAM_ANSWERED
+    assert stages["cloud-answers-LOCOMO"].members[0].conditions == F.LOCOMO_ANSWERED
+    assert stages["cloud-answers-lmes"].conditions == F.LMES_ANSWERED
+    assert "recent_only" not in F.BEAM_ANSWERED + F.LOCOMO_ANSWERED + F.LMES_ANSWERED
 
 
 def test_audited_histories_freeze_their_inventory_before_any_read_pass():
@@ -87,7 +101,6 @@ def test_locomo_and_amem_are_wired_local_then_cloud():
     keys = list(stages)
     assert len(stages["local-read-LOCOMO"].members) == 10
     assert stages["local-read-LOCOMO"].members[0].preset == "final_locomo"
-    assert "prep-amem-vendor" in stages["local-baseline-amem"].needs
     assert "prep-amem-vendor" in stages["local-baseline-amem-LOCOMO"].needs
     for k in ("local-baseline-amem-LOCOMO", "local-replay-LOCOMO"):
         assert keys.index(k) < keys.index("cloud-answers-LOCOMO") < keys.index("grade-LOCOMO")

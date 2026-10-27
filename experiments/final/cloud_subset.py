@@ -1,7 +1,7 @@
 """FINAL's cloud-answerer subset (Z3 D6, D13): do the conclusions depend on the answerer?
 
 25 questions from each of S9 (the ablation conversation), B (real history) and S5 (time), each
-under full ICE, recent-only and bare vector (225 contexts), chosen by a fixed hash from the read
+under ICE as it runs, plain vector search and long context (225 contexts), chosen by a fixed hash from the read
 passes, answered by a model of a non-Meta family (the main answerer is Muse 1.2), and graded
 exactly like the main answers. Compare: does full ICE keep its margin over the baselines? The
 same contexts feed the cross-family judge check (run_final's crossjudge-* stages).
@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 HISTORIES = ("S9", "B", "S5")
-CONDITIONS = ("full_default", "recent_only", "bare_vector")      # ICE as it runs (2026-10-28)
+CONDITIONS = ("full_default", "bare_vector", "long_context")     # the main comparison (2026-10-28)
 POLICY = "ice-final-cloud-subset-1"
 
 

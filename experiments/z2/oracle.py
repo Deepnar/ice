@@ -59,6 +59,16 @@ def select_dataset(name):
 TURN_GAP = timedelta(minutes=2)
 CONDITIONS = ("full", "warm_vector", "recent_only", "bare_vector", "all_evidence")
 ARMS = {"full": "full", "warm_vector": "vector_only", "recent_only": "recent_only"}
+# FINAL's LongMemEval-S slice (2026-10-28): run the way LongMemEval's own field runs it — ICE,
+# plain vector search, full context (every haystack session, ~115K tokens) and LongMemEval's own
+# oracle setting (only the answer sessions). recent_only is read only as the others' prompt frame;
+# FINAL does not answer it.
+CONDITIONS_S = ("full", "recent_only", "bare_vector", "all_evidence", "full_context")
+ARMS_S = {"full": "full", "recent_only": "recent_only"}
+
+
+def conditions_now():
+    return CONDITIONS_S if DATASET == "s" else CONDITIONS
 
 
 # ── the dataset ─────────────────────────────────────────────────────────────
@@ -193,12 +203,13 @@ def evidence_state(db, plan):
                 min_decay=min((v["decay_score"] for v in live.values() if v["decay_score"] is not None), default=None))
 
 
-def all_evidence_messages(recent_stage, plan):
+def all_evidence_messages(recent_stage, plan, every=False):
     """recent_only's envelope with the evidence sessions as the evidence pair (in the
-    oracle file every session is evidence; in LongMemEval-S only answer_session_ids)."""
+    oracle file every session is evidence; in LongMemEval-S only answer_session_ids).
+    *every*: all sessions in date order — LongMemEval-S's full-context condition."""
     from experiments.z2.read_passes import CONTEXT_ACK, CONTEXT_HEADER
     parts = []
-    for s in [s for s in plan["sessions"] if s.get("evidence", True)]:
+    for s in [s for s in plan["sessions"] if every or s.get("evidence", True)]:
         lines = [f"[Session {s['session_id']}, {s['start'][:16]}]"]
         for row in plan["conversations"][s["slug"]]:
             lines.append(f"User: {row['prompt']}\nAssistant: {row['response']}")
@@ -224,7 +235,7 @@ def read(inst, plan, out, reader):
         db.commit()
         qid = str(query.id)
     stages = {}
-    for name, arm in ARMS.items():
+    for name, arm in (ARMS_S if DATASET == "s" else ARMS).items():
         with SessionLocal() as db:
             stages[name] = reader.read(db, qid, ask, arm, now)
     with SessionLocal() as db:
@@ -246,7 +257,11 @@ def read(inst, plan, out, reader):
     evidence = all_evidence_messages(stages["recent_only"], plan)
     stages["all_evidence"] = dict(prompt_messages=evidence, selected_tokens=None,
                                   prompt_tokens=tokens.count(json.dumps(evidence, ensure_ascii=False)))
-    for name in CONDITIONS:
+    if DATASET == "s":
+        everything = all_evidence_messages(stages["recent_only"], plan, every=True)
+        stages["full_context"] = dict(prompt_messages=everything, selected_tokens=None,
+                                      prompt_tokens=tokens.count(json.dumps(everything, ensure_ascii=False)))
+    for name in conditions_now():
         R.write_unit(R.unit_path(out, name, ask["id"]), dict(
             policy=POLICY, history="lme-oracle", condition=name, ask=ask, checkpoint=None,
             question_time=now, decay_overlay="live", stage=stages[name], evidence_decay=decay))

@@ -68,12 +68,14 @@ def prompt_sha(messages):
     return hashlib.sha256(json.dumps(messages, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
-def load_units(units_dir):
+def load_units(units_dir, conditions=None):
     """[(condition, ask_id, messages, cache session or None)] for every S9 unit. A unit may name
     a `cache_session` (FINAL's full-history prompts share one per conversation, so the provider
     can reuse the cached transcript); otherwise each prompt has its own session."""
     out = []
     for path in sorted(Path(units_dir).glob("units/*/*.json")):
+        if conditions and path.parent.name not in conditions:
+            continue                              # read only as another condition's prompt frame
         unit = json.loads(path.read_text())
         out.append((unit["condition"], unit["ask"]["id"], unit["stage"]["prompt_messages"],
                     unit["stage"].get("cache_session")))
@@ -262,7 +264,7 @@ def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_e
 
 
 def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1, pace=False,
-        output_tokens=OUTPUT_TOKENS["local"]):
+        output_tokens=OUTPUT_TOKENS["local"], conditions=None):
     from concurrent.futures import ThreadPoolExecutor
     out.mkdir(parents=True, exist_ok=True)
     store = Store(out / "answers.jsonl")
@@ -270,7 +272,7 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
     if saved - {meta.get("model")}:
         raise MixedAnswerers(f"{out / 'answers.jsonl'} holds answers from {sorted(map(str, saved))}; "
                              f"this run answers with {meta.get('model')} — move the old file aside first")
-    units = load_units(units_dir)
+    units = load_units(units_dir, conditions)
     index = {f"{c}|{a}": prompt_sha(m) for c, a, m, _ in units}
     prompts = {prompt_sha(m): m for _, _, m, _ in units}
     sessions = {prompt_sha(m): s for _, _, m, s in units if s}
@@ -304,19 +306,21 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
 _PROMPTS = {}
 
 
-def prompt_set(units_dir):
+def prompt_set(units_dir, conditions=None):
     """Distinct prompt hashes of an S9 directory, re-read only when its unit files change
     (the runner's meter asks every few seconds; S9 B alone is ~7 GB of unit JSON)."""
-    paths = sorted(Path(units_dir).glob("units/*/*.json")) if Path(units_dir).exists() else []
+    paths = sorted(p for p in Path(units_dir).glob("units/*/*.json") if not conditions or p.parent.name in conditions) \
+        if Path(units_dir).exists() else []
     key = (len(paths), max((p.stat().st_mtime for p in paths), default=0))
-    cached = _PROMPTS.get(str(units_dir))
+    cache_key = f"{units_dir}|{sorted(conditions or ())}"
+    cached = _PROMPTS.get(cache_key)
     if cached is None or cached[0] != key:
-        cached = _PROMPTS[str(units_dir)] = (key, {prompt_sha(m) for _, _, m, _ in load_units(units_dir)})
+        cached = _PROMPTS[cache_key] = (key, {prompt_sha(m) for _, _, m, _ in load_units(units_dir, conditions)})
     return cached[1]
 
 
-def progress(units_dir, out):
-    prompts = prompt_set(units_dir)
+def progress(units_dir, out, conditions=None):
+    prompts = prompt_set(units_dir, conditions)
     path = Path(out) / "answers.jsonl"
     done = set()
     if path.exists():
@@ -328,6 +332,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--units", type=Path, required=True, help="an S9 output directory")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--conditions", help="answer only these conditions (comma-separated); others are prompt frames")
     parser.add_argument("--answerer", default="muse12",
                         help="muse12 (D6d, default) | local | luna | cloud:<role> (FINAL's cloud-answerer subset)")
     args = parser.parse_args()
@@ -339,7 +344,8 @@ def main() -> int:
         answerer = Answerer(role)
         cap, workers = OUTPUT_TOKENS.get(role, OUTPUT_TOKENS["muse12"]), WORKERS.get(role, WORKERS["muse12"])
         status = run(args.units, args.out, generate=answerer.generate, meta=dict(metadata(role), output_tokens=cap),
-                     reload_env=answerer.refresh, workers=workers, pace=role == "luna", output_tokens=cap)
+                     reload_env=answerer.refresh, workers=workers, pace=role == "luna", output_tokens=cap,
+                     conditions=args.conditions.split(",") if args.conditions else None)
     else:
         answerer = LocalAnswerer()
         try:

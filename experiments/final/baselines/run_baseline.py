@@ -1,21 +1,24 @@
-"""FINAL memory-system baselines (Z3 D11, D13; pre-registration r2 §4): Graphiti, Mem0 and
-A-Mem, open source, run locally, so only the memory system differs from ICE.
+"""FINAL's published memory systems on LoCoMo (Z3 D11, D13; pre-registration r2 §4; LoCoMo only
+since 2026-10-28 — the benchmark all three report on): Graphiti, Mem0 and A-Mem, open source, run
+locally, so only the memory system differs from ICE.
 
-Runs in this folder's own environment (isolated from ICE's). A fresh store per LongMemEval-S
-instance (the pinned slice) or per LoCoMo conversation; every session ingested in date order
-through the system's own write path, with FINAL's background model (gemma4:e4b via Ollama) doing
-its LLM work and the system's own documented local embedder (Graphiti, Mem0: nomic-embed-text via
-Ollama; A-Mem: all-MiniLM-L6-v2 on CPU); then, per question, the system's own search returns its
-top MEMORIES results, placed in exactly the evidence position of ICE's bare-vector condition
-(ICE's recent_only envelope for the same question) and written as a read unit that
-experiments/z2/answers.py and the graders take unchanged (answered by FINAL's answerer).
-Durable per instance / conversation (done.json): a store left half-ingested by a crash is wiped
-and rebuilt, never ingested twice; a rerun resumes.
+Runs in this folder's own environment (isolated from ICE's). A fresh store per LoCoMo
+conversation; every session ingested in date order through the system's own write path, with
+FINAL's background model (gemma4:e4b via Ollama, temperature 0) doing its LLM work and the
+system's own documented local embedder (Graphiti, Mem0: nomic-embed-text via Ollama; A-Mem:
+all-MiniLM-L6-v2 on CPU). LoCoMo is two named people talking; each system gets them as its own
+LoCoMo evaluation did: Graphiti and A-Mem read the messages with each speaker's name in the text;
+Mem0 keeps one memory per speaker, that speaker's messages as the "user" (it remembers facts
+about its user), and each question searches both. Per question the system's own search returns
+its top MEMORIES results (Mem0: per speaker, each labelled with whose memory it is), placed in
+exactly the evidence position of ICE's bare-vector condition (ICE's recent_only envelope for
+the same question) and written as a read unit that experiments/z2/answers.py and grade.py take
+unchanged (answered by FINAL's answerer). Durable per conversation (done.json): a store left
+half-ingested by a crash is wiped and rebuilt, never ingested twice.
 
     cd experiments/final/baselines
-    UV_PROJECT_ENVIRONMENT=$PWD/.venv uv run --no-sync python run_baseline.py --system graphiti \
-        --ice-units ../../../logs/final-run-main/local-lmes --out ../../../logs/final-run-main/local-baseline-graphiti
-    ... --dataset locomo --history LOCOMO-conv-26 --ice-units <its local-read folder> --out <dir>
+    UV_PROJECT_ENVIRONMENT=$PWD/.venv uv run --no-sync python run_baseline.py --system mem0 \
+        --history LOCOMO-conv-26 --ice-units <its local-read folder> --out <dir>
 """
 
 import argparse
@@ -23,12 +26,10 @@ import asyncio
 import json
 import shutil
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-DATA = ROOT / "experiments/lme/data/longmemeval_s"
-SLICE = ROOT / "experiments/lme/final_slice.json"
 OLLAMA = "http://localhost:11434"
 LLM_MODEL, EMBED_MODEL = "gemma4:e4b", "nomic-embed-text"
 MEMORIES = 10
@@ -39,20 +40,15 @@ CONTEXT_HEADER = "=== RETRIEVED CONTEXT ==="
 CONTEXT_ACK = "Understood — I have the background context. What would you like to know?"
 
 
-def parse_date(raw):
-    """LongMemEval dates, e.g. '2023/05/20 (Sat) 02:21'."""
-    return datetime.strptime(raw.split(" (")[0] + " " + raw.split(") ")[-1], "%Y/%m/%d %H:%M").replace(tzinfo=timezone.utc)
-
-
-def sessions(inst):
-    """[(date, session id, [{role, content}])] in date order."""
-    rows = [(parse_date(d), sid, msgs) for d, sid, msgs in
-            zip(inst["haystack_dates"], inst["haystack_session_ids"], inst["haystack_sessions"])]
-    return sorted(rows, key=lambda r: r[0])
-
-
 def session_text(msgs):
-    return "\n".join(f"{m['role']}: {m['content']}" for m in msgs)
+    """The session as Graphiti reads it: each message already names its speaker."""
+    return "\n".join(m["content"] for m in msgs)
+
+
+def from_side(msgs, speaker):
+    """Mem0's view for one speaker: their messages as the user's, the other person's as replies."""
+    return [dict(role="user" if m["content"].startswith(f"{speaker}: ") else "assistant", content=m["content"])
+            for m in msgs]
 
 
 def envelope(recent_unit, memories, question):
@@ -112,14 +108,21 @@ class Mem0Memory:
     async def setup(self):
         return None
 
+    speakers = ()                                  # set by conversation(): (speaker_a, speaker_b)
+
     async def add(self, when, sid, msgs):
-        self.m.add(msgs, user_id="lme", metadata=dict(session=sid, date=when.isoformat()))
+        for speaker in self.speakers:
+            self.m.add(from_side(msgs, speaker), user_id=speaker, metadata=dict(session=sid, date=when.isoformat()))
 
     async def search(self, question):
-        found = self.m.search(question, user_id="lme", limit=MEMORIES)
-        items = found.get("results", found) if isinstance(found, dict) else found
-        return [i.get("memory", "") + (f" (from {i['metadata']['date'][:10]})" if i.get("metadata", {}).get("date") else "")
-                for i in items]
+        out = []
+        for speaker in self.speakers:
+            found = self.m.search(question, user_id=speaker, limit=MEMORIES)
+            items = found.get("results", found) if isinstance(found, dict) else found
+            out += [f"{speaker}: " + i.get("memory", "")
+                    + (f" (from {i['metadata']['date'][:10]})" if i.get("metadata", {}).get("date") else "")
+                    for i in items]
+        return out
 
 
 class AMemMemory:
@@ -153,8 +156,8 @@ class AMemMemory:
         return None
 
     async def add(self, when, sid, msgs):
-        for m in msgs:
-            self.m.add_note(f"{m['role']}: {m['content']}", time=when.strftime("%Y-%m-%d %H:%M"))
+        for m in msgs:                             # one note per message; it names its speaker
+            self.m.add_note(m["content"], time=when.strftime("%Y-%m-%d %H:%M"))
 
     async def search(self, question):
         block = self.m.find_related_memories_raw(question, k=MEMORIES)
@@ -189,38 +192,19 @@ def originals_sessions(originals, gap=timedelta(hours=6)):
         when = datetime.fromisoformat(r["timestamp"].replace("Z", "+00:00"))
         if last is None or when - last >= gap:
             out.append((when, f"s{len(out) + 1}", []))
-        out[-1][2].append(dict(role="user", content=r["prompt"]))
+        if r["prompt"]:                            # a session the second speaker opens has no user side
+            out[-1][2].append(dict(role="user", content=r["prompt"]))
         if r["response"]:
             out[-1][2].append(dict(role="assistant", content=r["response"]))
         last = when
     return out
 
 
-async def one(system, inst, recent_unit, out):
-    qid = inst["question_id"]
-    d = out / "instances" / qid
-    if (d / "done.json").exists():
-        return
-    fresh_store(d)
-    started = time.time()
-    memory = SYSTEMS[system](d)
-    await memory.setup()
-    for when, sid, msgs in sessions(inst):
-        await memory.add(when, sid, msgs)
-    ingest = time.time() - started
-    memories = await memory.search(inst["question"])
-    messages = envelope(recent_unit, memories, inst["question"])
-    unit = dict(policy=POLICY, history="lme-s", condition=system, ask=recent_unit["ask"], checkpoint=None,
-                question_time=recent_unit.get("question_time"),
-                stage=dict(prompt_messages=messages, memories=memories,
-                           selected_tokens=sum(len(m) for m in memories) // 4))
-    path = out / "units" / system / f"{qid}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(unit, ensure_ascii=False, indent=1) + "\n")
-    (d / "done.json").write_text(json.dumps(dict(policy=POLICY, system=system, question_id=qid,
-                                                 ingest_seconds=round(ingest, 1),
-                                                 sessions=len(inst["haystack_sessions"]),
-                                                 memories=len(memories), stats=stats(memory))) + "\n")
+def speakers(originals):
+    """(speaker_a, speaker_b) from the exported originals' name prefixes."""
+    name = lambda text: text.split(": ", 1)[0]
+    return (name(next(r["prompt"] for r in originals if r["prompt"])),
+            name(next(r["response"] for r in originals if r["response"])))
 
 
 async def conversation(system, history, originals, asks, ice_units, out):
@@ -231,6 +215,7 @@ async def conversation(system, history, originals, asks, ice_units, out):
     fresh_store(d)
     started = time.time()
     memory = SYSTEMS[system](d)
+    memory.speakers = speakers(originals)
     await memory.setup()
     groups = originals_sessions(originals)
     for when, sid, msgs in groups:
@@ -254,25 +239,14 @@ async def conversation(system, history, originals, asks, ice_units, out):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--system", choices=sorted(SYSTEMS), required=True)
-    parser.add_argument("--dataset", choices=("lme-s", "locomo"), default="lme-s")
-    parser.add_argument("--history", help="locomo: the history key, e.g. LOCOMO-conv-26")
+    parser.add_argument("--history", required=True, help="the LoCoMo history key, e.g. LOCOMO-conv-26")
     parser.add_argument("--ice-units", type=Path, required=True, help="ICE's read folder (recent_only envelopes)")
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--limit", type=int)
     args = parser.parse_args()
-    if args.dataset == "locomo":
-        sid = args.history.removeprefix("LOCOMO-")
-        base = ROOT / "logs/final-locomo" / sid
-        asyncio.run(conversation(args.system, args.history, json.loads((base / "originals.json").read_text()),
-                                 json.loads((base / "asks.json").read_text()), args.ice_units, args.out))
-        print(json.dumps(dict(history=args.history, done=True)), flush=True)
-        return 0
-    ids = json.loads(SLICE.read_text())["question_ids"][:args.limit] if args.limit else json.loads(SLICE.read_text())["question_ids"]
-    data = {i["question_id"]: i for i in json.loads(DATA.read_text())}
-    for qid in ids:
-        recent = json.loads((args.ice_units / "units" / "recent_only" / f"{qid}.json").read_text())
-        asyncio.run(one(args.system, data[qid], recent, args.out))
-        print(json.dumps(dict(question_id=qid, done=True)), flush=True)
+    base = ROOT / "logs/final-locomo" / args.history.removeprefix("LOCOMO-")
+    asyncio.run(conversation(args.system, args.history, json.loads((base / "originals.json").read_text()),
+                             json.loads((base / "asks.json").read_text()), args.ice_units, args.out))
+    print(json.dumps(dict(history=args.history, done=True)), flush=True)
     return 0
 
 

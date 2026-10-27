@@ -1,5 +1,6 @@
-"""FINAL memory-system baselines: the pure parts — date parsing, session order, and the
-evidence envelope identical to ICE's bare-vector position (constants in sync)."""
+"""FINAL memory-system baselines (LoCoMo): the evidence envelope identical to ICE's bare-vector
+position, sessions on the source clock without blank sides, each speaker's own view for Mem0, and
+half-built stores wiped."""
 
 import importlib.util
 
@@ -17,12 +18,6 @@ def test_constants_match_ice_and_envelope_places_memories_like_bare_vector():
     assert [m["role"] for m in msgs] == ["system", "user", "assistant", "user"]
     assert msgs[1]["content"].startswith(R.CONTEXT_HEADER) and msgs[-1]["content"] == "Q?"
     assert B.envelope(recent, [], "Q?") == recent["stage"]["prompt_messages"]
-
-
-def test_sessions_in_date_order():
-    inst = dict(haystack_dates=["2023/05/21 (Sun) 10:00", "2023/05/20 (Sat) 02:21"], haystack_session_ids=["b", "a"],
-                haystack_sessions=[[dict(role="user", content="2")], [dict(role="user", content="1")]])
-    assert [sid for _, sid, _ in B.sessions(inst)] == ["a", "b"]
 
 
 def test_locomo_sessions_split_on_the_source_clock_and_half_stores_are_wiped(tmp_path):
@@ -47,3 +42,15 @@ def test_amem_is_pinned_to_its_paper_layer():
     pin = json.loads(open("experiments/final/baselines/AMEM.json").read())
     assert pin["repository"].endswith("WujiangXu/A-mem") and len(pin["commit"]) == 40 and len(pin["sha256"]) == 64
     assert "amem" in B.SYSTEMS
+
+
+
+def test_each_speaker_gets_their_own_view_and_names_come_from_the_originals():
+    originals = [dict(turn_number=1, timestamp="2023-05-08T13:56:00Z", prompt="", response="Bo: hi"),
+                 dict(turn_number=2, timestamp="2023-05-08T13:59:00Z", prompt="Ann: hello", response="Bo: cat?")]
+    assert B.speakers(originals) == ("Ann", "Bo")
+    msgs = B.originals_sessions(originals)[0][2]
+    assert [m["content"] for m in msgs] == ["Bo: hi", "Ann: hello", "Bo: cat?"]          # no blank message
+    assert [m["role"] for m in B.from_side(msgs, "Ann")] == ["assistant", "user", "assistant"]
+    assert [m["role"] for m in B.from_side(msgs, "Bo")] == ["user", "assistant", "user"]
+    assert B.session_text(msgs).splitlines()[0] == "Bo: hi"                               # no role label

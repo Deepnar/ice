@@ -1159,3 +1159,13 @@ ROADMAP G77 "DECIDED (maintainer, 2026-10-17 b)".
 | `session_summaries` table / `SessionSummary` model | **LEFT** | `delete_conversation` still clears old rows (forget must reach them); no migration |
 | `tests/smoke/test_procedural_evidence.py`, `tests/test_services.py` | updated | they stubbed / expected the summary |
 
+**2026-10-28 — fix-pass branch, FINAL made clean (maintainer: public benchmarks run their own way):**
+
+| what | action | note |
+|---|---|---|
+| `experiments/final/baselines/run_baseline.py` LongMemEval-S path (`parse_date`, `sessions`, `one`, `--dataset lme-s`, DATA/SLICE) | **DELETED** | the memory systems run on LoCoMo only; recover from the branch history before this commit |
+| `tests/smoke/test_final_baselines.py::test_sessions_in_date_order` | **DELETED** with it | tested the LongMemEval date parsing only |
+| `run_final.Baseline` (LongMemEval-S stage) + its answers / grade stages | **REPLACED** | `Baseline` is now the base of `LoCoMoBaseline` only |
+| `warm_vector` in `final_main` | **REMOVED** from the main experiment | ICE's own vector leg alone belongs to S9's parts test |
+| B's `final_ablation` preset | **REMOVED** | the parts test runs on S9 only |
+

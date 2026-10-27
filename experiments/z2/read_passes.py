@@ -181,13 +181,16 @@ def build_final_asks(split_dir, occurrences_path):
 # FINAL condition sets (FINAL_experiments.md §2.1; Z3 D4, D5, D10). "z2" = everything Z2 read.
 PRESETS = {
     # the main experiment: ICE frozen, as it runs, against the baselines (maintainer, 2026-10-28) —
-    # `full` (decay neutral) belongs to the ablations only
-    "final_main": ["full_default", "warm_vector", "recent_only", "bare_vector", "long_context"],
+    # `full` (decay neutral) and ICE's own vector leg alone belong to S9's parts test only
+    "final_main": ["full_default", "recent_only", "bare_vector", "long_context"],
     "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER],
     "final_buildup": ["full", "recent_only"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))],
     # LoCoMo (an extra table, prereg r2 §4): every history fits the long-context window; recent_only
     # is the envelope the memory systems' prompts reuse
-    "final_locomo": ["full_default", "recent_only", "bare_vector", "long_context"],
+    # LoCoMo: its whole conversations fit 256K, so long_context is the field's "full context"; ICE
+    # also at a 2K-token memory budget, the size the published memory systems hand the model
+    # (their top 10 memories), so the comparison is not won by reading most of a short chat
+    "final_locomo": ["full_default", "full_b2000", "recent_only", "bare_vector", "long_context"],
 }
 
 

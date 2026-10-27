@@ -4,10 +4,13 @@ LoCoMo — snap-research/locomo at commit 3eb6f2c (data/locomo10.json, sha256 79
 MANIFEST.json; the repository states no licence, which the paper says): 10 conversations between
 two named people, 19–32 dated sessions each, 1,986 questions asked after the last session.
 
-To Z2-format originals: inside a session, consecutive messages pair up in order — the first of
-each pair on ICE's user side, the second on its assistant side — each prefixed with its
-speaker's name, so who said what survives the role mapping; a shared photo becomes "[shares a
-photo: <caption>]"; an unpaired last message keeps an empty side. Turns are timed from the
+To Z2-format originals: the conversation's first speaker (speaker_a) is always on ICE's user
+side and the second (speaker_b) always on its assistant side — never swapped between sessions
+(124 of LoCoMo's 272 sessions open with speaker_b; pairing by position would hand that person
+the user side there, the role mix other LoCoMo setups were criticised for). A pair is a
+speaker_a message and the speaker_b reply after it; a session opened by speaker_b starts with an
+empty user side, one closed by speaker_a ends with an empty assistant side. Each text keeps its
+speaker's name; a shared photo becomes "[shares a photo: <caption>]". Turns are timed from the
 session's own date, TURN_GAP apart, so the replay runs on LoCoMo's clock (provenance
 "locomo_session_date", a source clock — experiments/z2/clock.py).
 
@@ -67,18 +70,29 @@ def sessions(conv):
     return [(n, session_date(conv[f"session_{n}_date_time"]), conv[f"session_{n}"]) for n in numbers]
 
 
+def pairs(messages, user):
+    """(user-side message or None, assistant-side message or None) in order; *user* is speaker_a."""
+    out = []
+    for m in messages:
+        if m["speaker"] == user or not out or out[-1][1] is not None:
+            out.append([m, None] if m["speaker"] == user else [None, m])
+        else:
+            out[-1][1] = m
+    return out
+
+
 def to_originals(sample):
     """[{turn_number, timestamp, timestamp_provenance, prompt, response}] and dia_id -> turn."""
     out, dia_to_turn, turn = [], {}, 0
+    user = sample["conversation"]["speaker_a"]
     for _, start, messages in sessions(sample["conversation"]):
-        for k in range(0, len(messages), 2):
-            first, second = messages[k], (messages[k + 1] if k + 1 < len(messages) else None)
+        for k, (first, second) in enumerate(pairs(messages, user)):
             turn += 1
             for m in (first, second):
                 if m is not None:
                     dia_to_turn[m["dia_id"]] = turn
-            out.append(dict(turn_number=turn, timestamp=(start + (k // 2) * TURN_GAP).isoformat() + "Z",
-                            timestamp_provenance=PROVENANCE, prompt=message_text(first),
+            out.append(dict(turn_number=turn, timestamp=(start + k * TURN_GAP).isoformat() + "Z",
+                            timestamp_provenance=PROVENANCE, prompt=message_text(first) if first else "",
                             response=message_text(second) if second else ""))
     return out, dia_to_turn
 

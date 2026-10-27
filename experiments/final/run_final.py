@@ -43,7 +43,13 @@ SUBSET_ANSWERER = "cloud:longcat"           # a non-Meta family; picked at the t
 # the time — a local model ("local:<ollama model>") or a cheap cloud role — qualified on the planted
 # controls first, and run last. Until it is set here, its stages wait.
 CROSS_JUDGE = None
-MEMORY_SYSTEMS = ("graphiti", "mem0", "amem")
+MEMORY_SYSTEMS = ("graphiti", "mem0", "amem")    # on LoCoMo only — the benchmark all three report on
+# Which conditions are ANSWERED per kind of data (maintainer, 2026-10-28). recent_only is read
+# everywhere — it is the prompt frame bare vector and long context are built in — but on the
+# public benchmarks it is not answered: each benchmark runs the way its own field runs it.
+BEAM_ANSWERED = ("full_default", "bare_vector", "long_context")
+LOCOMO_ANSWERED = ("full_default", "full_b2000", "bare_vector", "long_context")
+LMES_ANSWERED = ("full", "bare_vector", "full_context", "all_evidence")    # oracle.py's ICE is `full`
 # Pre-registration §6 (maintainer, 2026-10-28): the answerer itself, Muse 1.2, within its own
 # 1,048,576-token window — one model answers every condition. Set to None to make the stages wait.
 UPPER_BOUND = dict(answerer="muse12", window=1_048_576)
@@ -52,8 +58,8 @@ UPPER_BOUND = dict(answerer="muse12", window=1_048_576)
 # 256K window whole, so there long context IS full history.
 BEAM_TIERS = tuple(t for t in ("100K", "500K", "1M") if any(k.startswith(f"BEAM-{t}-") for k in BEAM))
 UPPER_TIERS = ("500K",)
-PRESET = {"B": "final_main+final_ablation",                                       # D5
-          "S9": "final_main+final_ablation+final_buildup"}                         # D5 + D10 (yes, 2026-10-26)
+# The parts test (switch one part off / add parts one by one) on S9 only — B's run dropped 2026-10-28
+PRESET = {"S9": "final_main+final_ablation+final_buildup"}                         # D5 + D10
 PRESET.update({k: "final_locomo" for k in LOCOMO})                               # prereg r2 §4
 REPLAY_SECONDS = {"B": 35.0, "S3": 120.0}          # per pair; long pastes are slower (Z2's C ran ~160 s)
 
@@ -125,10 +131,10 @@ class FinalRead(Z.Stage):
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
-def answers(history, planned, repeat=""):
+def answers(history, planned, repeat="", conditions=None):
     return Z.Answers(history, key=f"cloud-answers-{history}{repeat}", title=f"answers {history}{repeat}",
                      units_key=f"local-read-{history}{repeat}", needs=(f"local-read-{history}{repeat}",),
-                     planned=planned)
+                     planned=planned, conditions=conditions)
 
 
 def references(history):
@@ -457,30 +463,13 @@ class UpperBuild(Z.Stage):
 
 
 class Baseline(Z.Stage):
-    """A memory-system baseline on the LongMemEval-S slice, run in its own environment
-    (experiments/final/baselines/run_baseline.py)."""
+    """A published memory system, run in its own environment (experiments/final/baselines/
+    run_baseline.py) — subclassed per dataset (LoCoMo only since 2026-10-28)."""
 
     BASE = ROOT / "experiments/final/baselines"
 
-    def __init__(self, system):
-        super().__init__(key=f"local-baseline-{system}", title=f"baseline {system} (LongMemEval-S)",
-                         needs=("local-lmes",), unit="questions", estimate=2_400.0)
-        self.system = system
-
     def out(self, ctx):
         return ctx.dir / self.key
-
-    def total(self, ctx):
-        return json.loads((ROOT / "experiments/lme/final_slice.json").read_text())["size"]
-
-    def done(self, ctx):
-        return len(list((self.out(ctx) / "instances").glob("*/done.json")))
-
-    def complete(self, ctx):
-        return self.done(ctx) >= self.total(ctx)
-
-    def args(self, ctx):
-        return ["--ice-units", str(ctx.dir / "local-lmes")]
 
     def run(self, ctx):
         import os
@@ -566,7 +555,7 @@ def final_stages(limit=None):
                 derived_paths(), derive_synth),
            Once("prep-asks-B", "B's FINAL asks (sealed families)", [b_asks], write_b_asks,
                 inputs=[z2q / "split/final-sealed.json", z2q / "occurrences.json"]),
-           Once("prep-beam-export", "BEAM export (40 conversations)",
+           Once("prep-beam-export", f"BEAM export ({len(BEAM)} conversations)",
                 [HISTORIES[k].path("asks") for k in BEAM], export_beam),
            Once("prep-locomo-export", "LoCoMo export (10 conversations)",
                 [HISTORIES[k].path("asks") for k in LOCOMO], export_locomo),
@@ -603,16 +592,17 @@ def final_stages(limit=None):
                   Group(dk, f"read passes BEAM {tier}",
                         [FinalRead(k, HISTORIES[k].path("asks"), r) for k, r in zip(keys, beam_replays)], "contexts",
                         needs=(rk,))]
-        cloud.append(Group(f"cloud-answers-BEAM{tier}", f"answers BEAM {tier}", [answers(k, planned=120) for k in keys],
-                           "answers", needs=(dk,)))
+        cloud.append(Group(f"cloud-answers-BEAM{tier}", f"answers BEAM {tier}",
+                           [answers(k, planned=60, conditions=BEAM_ANSWERED) for k in keys], "answers", needs=(dk,)))
     lk = sorted(LOCOMO)
     loco_replays = [FinalReplay(k, limit) for k in lk]
     local += [Group("local-replay-LOCOMO", f"replay LoCoMo ({len(lk)})", loco_replays, "turns", needs=("prep-locomo-export",)),
               Group("local-read-LOCOMO", "read passes LoCoMo",
                     [FinalRead(k, HISTORIES[k].path("asks"), r) for k, r in zip(lk, loco_replays)], "contexts",
                     needs=("local-replay-LOCOMO",))]
-    cloud.append(Group("cloud-answers-LOCOMO", "answers LoCoMo", [answers(k, planned=HISTORIES[k].planned_asks * 4) for k in lk],
-                       "answers", needs=("local-read-LOCOMO",)))
+    cloud.append(Group("cloud-answers-LOCOMO", "answers LoCoMo",
+                       [answers(k, planned=HISTORIES[k].planned_asks * len(LOCOMO_ANSWERED), conditions=LOCOMO_ANSWERED)
+                        for k in lk], "answers", needs=("local-read-LOCOMO",)))
     for system in MEMORY_SYSTEMS:
         local.append(Group(f"local-baseline-{system}-LOCOMO", f"baseline {system} LoCoMo",
                            [LoCoMoBaseline(system, k) for k in lk], "questions",
@@ -624,15 +614,7 @@ def final_stages(limit=None):
                             for k in lk], "answers", needs=(f"local-baseline-{system}-LOCOMO",)))
     local.append(LongMemEvalS())
     cloud.append(Z.Answers("lmes", key="cloud-answers-lmes", title="answers LongMemEval-S", units_key="local-lmes",
-                           needs=("local-lmes",), planned=600))
-    for system in MEMORY_SYSTEMS:                  # their ingestion is local (gemma4:e4b); answers Muse 1.2
-        stage = Baseline(system)
-        if system == "amem":
-            stage.needs = stage.needs + ("prep-amem-vendor",)
-        local.append(stage)
-        cloud.append(Z.Answers(f"baseline-{system}", key=f"cloud-answers-baseline-{system}",
-                               title=f"answers baseline {system}", units_key=f"local-baseline-{system}",
-                               needs=(f"local-baseline-{system}",), planned=100))
+                           needs=("local-lmes",), planned=100 * len(LMES_ANSWERED), conditions=LMES_ANSWERED))
 
     # ── cloud: answers above, then audits, grading, the subset, the cross-family judge
     cloud += [FinalAudit(k, replays[k]) for k in AUDITED]
@@ -655,7 +637,7 @@ def final_stages(limit=None):
                     needs=tuple(f"local-read-BEAM{t}" for t in UPPER_TIERS if t in BEAM_TIERS)),
               Group("upper-answers-BEAM", "full-history answers BEAM " + " + ".join(UPPER_TIERS),
                     [Z.Answers(k, key=f"upper-answers-{k}", title=f"full-history answers {k}", units_key=f"upper-read-{k}",
-                               needs=(f"upper-build-{k}",), planned=40,
+                               needs=(f"upper-build-{k}",), planned=20,
                                answerer=UPPER_BOUND["answerer"] or "unset-upper-bound-model") for k in upper],
                     "answers", needs=("upper-build-BEAM",)),
               Group("upper-grade-BEAM", "grade full history BEAM " + " + ".join(UPPER_TIERS),
@@ -665,12 +647,6 @@ def final_stages(limit=None):
                              "--units", str(Z._rel(ctx.dir / "local-lmes")), "--answers",
                              str(Z._rel(ctx.dir / "cloud-answers-lmes")), "--out", str(Z._rel(out))]
     cloud.append(FinalGrade("grade-lmes", "grade LongMemEval-S", lmes, ("cloud-answers-lmes",)))
-    for system in MEMORY_SYSTEMS:
-        args = (lambda sysname: lambda ctx, out: ["experiments/z2/oracle.py", "grade", "--dataset", "s",
-                "--units", str(Z._rel(ctx.dir / f"local-baseline-{sysname}")), "--answers",
-                str(Z._rel(ctx.dir / f"cloud-answers-baseline-{sysname}")), "--out", str(Z._rel(out))])(system)
-        cloud.append(FinalGrade(f"grade-baseline-{system}", f"grade baseline {system}", args,
-                                (f"cloud-answers-baseline-{system}",)))
     subset = lambda ctx, out: ["experiments/final/cloud_subset.py", "--run", str(Z._rel(ctx.dir)),
                                "--answerer", SUBSET_ANSWERER]
     cloud.append(FinalGrade("subset", f"cloud-answerer subset ({SUBSET_ANSWERER})", subset,

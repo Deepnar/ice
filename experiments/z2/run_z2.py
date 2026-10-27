@@ -437,11 +437,11 @@ class Answers(Stage):
     distinct prompt (experiments/z2/answers.py)."""
 
     def __init__(self, history, *, key=None, title=None, units_key=None, needs=None, planned=None,
-                 estimate=10.0, answerer=None):
+                 estimate=10.0, answerer=None, conditions=None):
         # Muse 1.2, four workers: a planning guess until the stage measures its own rate.
         super().__init__(key=key or f"s10-{history}", title=title or f"S10 answers {history}",
                          needs=needs or (f"s9-{history}",), unit="answers", estimate=estimate)
-        self.history, self.answerer = history, answerer or ANSWERER
+        self.history, self.answerer, self.conditions = history, answerer or ANSWERER, conditions
         self.units_key = units_key or f"s9-{history}"
         self.planned = planned
 
@@ -455,11 +455,11 @@ class Answers(Stage):
         from experiments.z2 import answers
         # ~35 read conditions per question; identical prompts collapse to ~20 distinct
         planned = self.planned or PLANNED_ASKS[self.history] * 20
-        return answers.progress(self.units(ctx), self.out(ctx))[1] or planned
+        return answers.progress(self.units(ctx), self.out(ctx), self.conditions)[1] or planned
 
     def done(self, ctx):
         from experiments.z2 import answers
-        return answers.progress(self.units(ctx), self.out(ctx))[0]
+        return answers.progress(self.units(ctx), self.out(ctx), self.conditions)[0]
 
     def rate(self, ctx):
         path = self.out(ctx) / "answers.jsonl"
@@ -479,7 +479,8 @@ class Answers(Stage):
         def attempt():
             (self.out(ctx) / "status.json").unlink(missing_ok=True)
             cmd = [sys.executable, "experiments/z2/answers.py", "--units", str(self.units(ctx).relative_to(ROOT)),
-                   "--out", str(self.out(ctx).relative_to(ROOT)), "--answerer", self.answerer]
+                   "--out", str(self.out(ctx).relative_to(ROOT)), "--answerer", self.answerer] \
+                + (["--conditions", ",".join(self.conditions)] if self.conditions else [])
             rc = ctx.run_child(cmd, log_path)
             return rc, _tail(log_path)
 
