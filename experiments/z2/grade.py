@@ -45,6 +45,9 @@ OUTPUT_TOKENS = 8_000
 MAX_ERRORS = 3
 SEARCH_K = 8
 CLAIM_WORKERS = 4                  # claim checks side by side, like the answers (were one at a time)
+# per call (one answer's claims, B: median 7, at most 23): each claim's best entries and passages
+# taken in turn up to these, so every claim keeps its strongest evidence and no call balloons
+CLAIM_ENTRIES, CLAIM_PASSAGES = 32, 24
 
 GRADE_SYSTEM = """You grade an AI assistant's ANSWER to a user's QUESTION about their own long
 conversation with the assistant. REQUIRED lists what a correct answer must contain (meaning, not
@@ -63,13 +66,13 @@ Return only JSON:
                          not support, copied briefly"],
  "reason": "one sentence"}"""
 
-CLAIM_LEDGER_SYSTEM = """CLAIM is a statement an AI assistant made about a conversation. ENTRIES are
-facts recorded from that conversation. Which entries state CLAIM's content (meaning, not wording)?
-Return only JSON: {"stated_by": ["id", ...]}"""
-
-CLAIM_SOURCE_SYSTEM = """CLAIM is a statement an AI assistant made about a conversation with a user.
-PASSAGES are original messages from that conversation. Does any passage state or directly support
-CLAIM? Return only JSON: {"found": true|false, "passage": <index or null>, "reason": "..."}"""
+# One call per answer, all its claims together (maintainer, 2026-10-28: one or two calls per claim
+# made B's 19,063 claims 19,000-38,000 calls); per claim, the same two questions as before.
+CLAIMS_SYSTEM = """CLAIMS are statements an AI assistant made about a conversation with a user. ENTRIES are
+facts recorded from that conversation; PASSAGES are original messages from it. For EACH claim:
+which entries state its content (meaning, not wording), and does any passage state or directly
+support it? Return only JSON: {"claims": [{"id": "C1", "stated_by": ["E3", ...], "found": true|false,
+"passage": <index or null>}, ...]} — one item for every claim."""
 
 RANK_SYSTEM = """Several ANSWERS respond to the same QUESTION about a user's long conversation with an
 AI assistant. REQUIRED lists what a correct answer must contain; SOURCES are the passages it comes
@@ -179,7 +182,8 @@ def grade_answers(contexts, out, ask, *, say=print):
 
 
 def check_claims(results, contexts, ledger, originals, index, ask, out):
-    """Each unsupported claim: ledger (any status) → originals → verdict, per the maintainer's rules."""
+    """Each unsupported claim: ledger (any status) → originals → verdict, per the maintainer's rules —
+    one judge call per answer (its claims at its checkpoint), answers side by side."""
     import numpy as np
     from experiments.z2.questions import embed
     errors = Errors(out / "claims-errors.json")
@@ -187,59 +191,80 @@ def check_claims(results, contexts, ledger, originals, index, ask, out):
     rows, vectors = index
     vectors = np.asarray(vectors)
     vectors = vectors / (np.linalg.norm(vectors, axis=1, keepdims=True) + 1e-12)
-    verdicts, pending = {}, 0
-    claims = sorted({(c, checkpoint[k]) for k, r in results.items() if r.get("status") == "graded"
-                     for c in r["unsupported_claims"]})
-    claim_vecs = claim_vectors(out, [c for c, _ in claims], embed) if claims else []
+    # an answer's claims at its checkpoint; identical answers (one prompt in several conditions)
+    # are one group
+    groups = sorted({(checkpoint[k], tuple(sorted(set(r["unsupported_claims"]))))
+                     for k, r in results.items() if r.get("status") == "graded" and r["unsupported_claims"]})
+    texts = sorted({c for _, claims in groups for c in claims})
+    vec = dict(zip(texts, claim_vectors(out, texts, embed))) if texts else {}
     lock = threading.Lock()
 
-    def one(item):
-        """(key, verdict), or "pending" after a failed call (retried on the next run)."""
-        (claim, cp), qv = item
-        key = _sha(claim, cp)
+    def passages_for(claim, cp):
+        q = np.asarray(vec[claim]) / (np.linalg.norm(vec[claim]) + 1e-12)
+        within = [i for i, (turn, _, _) in enumerate(rows) if turn <= cp]
+        by_vec = sorted(within, key=lambda i: -float(vectors[i] @ q))[:SEARCH_K]
+        words = [w for w in re.findall(r"[A-Za-z0-9][\w'-]{3,}", claim)][:6]
+        by_word = [i for i in within if words and sum(w.lower() in rows[i][2].lower() for w in words) >= min(3, len(words))][:SEARCH_K]
+        return by_vec + by_word
+
+    def one(group):
+        """{claim key: verdict} for one answer, or "pending" after a failed or incomplete call."""
+        cp, claims = group
+        key = _sha(cp, *claims)
         if errors.given_up(key):
-            return None
+            return {}
         try:
             entries = [e for e in ledger if e["valid_from_turn"] <= cp]
-            near = sorted(entries, key=lambda e: -_overlap(claim, e["value"]))[:SEARCH_K]
-            alias = {f"E{i}": e for i, e in enumerate(near, 1)}
-            stated = (ask(CLAIM_LEDGER_SYSTEM, json.dumps(dict(CLAIM=claim, ENTRIES=[dict(id=a, text=e["value"])
-                                                                              for a, e in alias.items()]),
-                                                     ensure_ascii=False)) or {}).get("stated_by") or []
-            hits = [alias[a] for a in stated if a in alias]
-            if any(e.get("usable_for_questions") for e in hits):
-                return key, "in_ledger"
-            if hits:
-                return key, "unconfirmed_source"
-            q = np.asarray(qv) / (np.linalg.norm(qv) + 1e-12)
-            within = [i for i, (turn, _, _) in enumerate(rows) if turn <= cp]
-            by_vec = sorted(within, key=lambda i: -float(vectors[i] @ q))[:SEARCH_K]
-            words = [w for w in re.findall(r"[A-Za-z0-9][\w'-]{3,}", claim)][:6]
-            by_word = [i for i in within if words and sum(w.lower() in rows[i][2].lower() for w in words) >= min(3, len(words))][:SEARCH_K]
-            shown = list(dict.fromkeys(by_vec + by_word))
-            passages = [dict(index=n, turn=rows[i][0], role=rows[i][1], text=rows[i][2][:3000])
-                        for n, i in enumerate(shown)]
-            found = (ask(CLAIM_SOURCE_SYSTEM, json.dumps(dict(CLAIM=claim, PASSAGES=passages), ensure_ascii=False))
-                     or {}).get("found") is True
-            return key, ("ledger_miss" if found else "confirmed_invented")
+            near = in_turn([sorted(range(len(entries)), key=lambda i: -_overlap(c, entries[i]["value"]))[:SEARCH_K]
+                            for c in claims], CLAIM_ENTRIES)
+            alias = {f"E{n}": entries[i] for n, i in enumerate(near, 1)}
+            shown = in_turn([passages_for(c, cp) for c in claims], CLAIM_PASSAGES)
+            ids = {f"C{n}": c for n, c in enumerate(claims, 1)}
+            reply = ask(CLAIMS_SYSTEM, json.dumps(dict(
+                CLAIMS=[dict(id=i, text=c) for i, c in ids.items()],
+                ENTRIES=[dict(id=a, text=e["value"]) for a, e in alias.items()],
+                PASSAGES=[dict(index=n, turn=rows[i][0], role=rows[i][1], text=rows[i][2][:3000]) for n, i in enumerate(shown)]),
+                ensure_ascii=False)) or {}
+            items = {str(item.get("id")): item for item in reply.get("claims") or [] if isinstance(item, dict)}
+            if set(items) < set(ids):                 # every claim must be answered; else retried
+                raise ValueError(f"verdicts for {len(set(items) & set(ids))} of {len(ids)} claims")
+            decided = {}
+            for cid, claim in ids.items():
+                hits = [alias[a] for a in items[cid].get("stated_by") or [] if a in alias]
+                decided[_sha(claim, cp)] = ("in_ledger" if any(e.get("usable_for_questions") for e in hits)
+                                        else "unconfirmed_source" if hits
+                                        else "ledger_miss" if items[cid].get("found") is True else "confirmed_invented")
+            return decided
         except Exception as exc:
             with lock:
                 errors.failed(key, exc)
             return "pending"
 
-    # side by side (maintainer, 2026-10-28: B's 19,063 claims, one at a time at ~14 s a call, were
-    # days of work); every call is durable, so a restart keeps what was checked
+    verdicts, pending = {}, 0
+    # answers side by side; every call is durable, so a restart keeps what was checked
     with ThreadPoolExecutor(max_workers=CLAIM_WORKERS) as pool:
-        for result in pool.map(one, zip(claims, claim_vecs)):
+        for result in pool.map(one, groups):
             if result == "pending":
                 pending += 1
-            elif result:
-                verdicts[result[0]] = result[1]
+            else:
+                verdicts.update(result)
     for k, r in results.items():
         if r.get("status") == "graded":
             r["claims"] = {c: verdicts.get(_sha(c, checkpoint[k]), "pending") for c in r["unsupported_claims"]}
             r["invented"] = sum(v == "confirmed_invented" for v in r["claims"].values())
     return verdicts, pending
+
+
+def in_turn(lists, cap):
+    """Each list's first item, then each one's second, ... — distinct, at most *cap*."""
+    picked = []
+    for rank in range(max((len(x) for x in lists), default=0)):
+        for x in lists:
+            if rank < len(x) and x[rank] not in picked:
+                picked.append(x[rank])
+                if len(picked) == cap:
+                    return picked
+    return picked
 
 
 def claim_vectors(out, texts, embed):
