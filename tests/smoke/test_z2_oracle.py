@@ -39,3 +39,25 @@ def test_layout_sorts_sessions_and_keeps_every_turn():
 def test_upstream_verdict_parses_the_first_yes_or_no():
     assert O._yes("Yes.") is True and O._yes("no, it misses the date") is False
     assert O._yes("The response is correct: yes") is True and O._yes("unclear") is None
+
+
+def test_grade_oracle_grades_answers_side_by_side(tmp_path, monkeypatch):
+    """S12 grading: LongMemEval's own yes/no and the Muse grade per answer, incomplete ones ungraded
+    (answers 4 at a time since 2026-10-28; S12's ~2,500 grades one at a time were ~10 hours)."""
+    import json
+    from experiments.z2 import oracle as O
+    from experiments.z2 import read_passes as R
+    inst = dict(question_id="q1", haystack_sessions=[[dict(role="user", content="my dog is Rex", has_answer=True)]])
+    monkeypatch.setattr(O, "load_instances", lambda: [inst])
+    ask = dict(id="q1", type="single-session-user", question="dog?", answer="Rex", abstention=False)
+    answers = tmp_path / "answers"
+    answers.mkdir()
+    rows = [dict(prompt_sha256="a", finish="complete", text="Rex"), dict(prompt_sha256="b", finish="incomplete", text="")]
+    (answers / "answers.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    (answers / "index.json").write_text(json.dumps(dict(index={"full|q1": "a", "bare_vector|q1": "b"})))
+    for cond in ("full", "bare_vector"):
+        R.write_unit(R.unit_path(tmp_path / "units", cond, "q1"), dict(condition=cond, ask=ask))
+    results = O.grade_oracle(tmp_path / "units", answers, tmp_path / "out",
+                             ask=lambda system, prompt: dict(grade="correct", score=5), ask_text=lambda prompt: "yes")
+    assert results["full|q1"]["upstream"] is True and results["full|q1"]["grade"] == "correct"
+    assert results["bare_vector|q1"]["status"] == "ungraded"
