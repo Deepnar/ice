@@ -48,7 +48,10 @@ MEMORY_SYSTEMS = ("graphiti", "mem0", "amem")
 # time, after the per-call cost check, and recorded there; until it is set here its stages wait.
 # e.g. UPPER_BOUND = dict(answerer="cloud:<role>", window=262_144)
 UPPER_BOUND = dict(answerer=None, window=None)
-UPPER_TIER = "100K"                         # BEAM's 128K tier (~100K–225K tokens per conversation)
+# BEAM after the 2026-10-28 trim (experiments/beam/select.py): 128K tier (20) and 500K tier (5); both
+# fit a 1M-token window, so the upper bound covers both.
+BEAM_TIERS = tuple(t for t in ("100K", "500K", "1M") if any(k.startswith(f"BEAM-{t}-") for k in BEAM))
+UPPER_TIERS = ("100K", "500K")
 PRESET = {"B": "final_main+final_ablation",                                       # D5
           "S9": "final_main+final_ablation+final_buildup"}                         # D5 + D10 (yes, 2026-10-26)
 PRESET.update({k: "final_locomo" for k in LOCOMO})                               # prereg r2 §4
@@ -592,7 +595,7 @@ def final_stages(limit=None):
     again.needs = ("prep-generate-S1",)
     local += [again, FinalRead("S1", HISTORIES["S1"].path("asks"), again, preset="final_main")]
     cloud.append(answers("S1", planned=600, repeat="-repeat"))
-    for tier in ("100K", "500K", "1M"):
+    for tier in BEAM_TIERS:
         keys = [k for k in BEAM if k.startswith(f"BEAM-{tier}-")]
         beam_replays = [FinalReplay(k, limit) for k in keys]
         rk, dk = f"local-replay-BEAM{tier}", f"local-read-BEAM{tier}"
@@ -635,7 +638,7 @@ def final_stages(limit=None):
     cloud += [FinalAudit(k, replays[k]) for k in AUDITED]
     cloud += [grade_stage(k) for k in PRIVATE + list(SYNTHETIC)]
     cloud.append(grade_stage("S1", repeat="-repeat"))
-    for tier in ("100K", "500K", "1M"):
+    for tier in BEAM_TIERS:
         keys = [k for k in BEAM if k.startswith(f"BEAM-{tier}-")]
         cloud.append(Group(f"grade-BEAM{tier}", f"grade BEAM {tier}", [beam_grade(k) for k in keys], "conversations",
                            needs=(f"cloud-answers-BEAM{tier}",)))
@@ -646,15 +649,16 @@ def final_stages(limit=None):
                            [grade_stage(k, units=f"local-baseline-{system}-{k}", answers_dir=f"cloud-answers-baseline-{system}-{k}",
                                         key=f"grade-baseline-{system}-{k}", replay=False, needs=())
                             for k in lk], "conversations", needs=(f"cloud-answers-baseline-{system}-LOCOMO",)))
-    upper = sorted(k for k in BEAM if k.startswith(f"BEAM-{UPPER_TIER}-"))
-    cloud += [Group("upper-build-BEAM", f"full-history prompts BEAM {UPPER_TIER}", [UpperBuild(k) for k in upper], "files",
-                    needs=(f"local-read-BEAM{UPPER_TIER}",)),
-              Group("upper-answers-BEAM", f"full-history answers BEAM {UPPER_TIER}",
+    upper = sorted(k for k in BEAM if k.split("-")[1] in UPPER_TIERS)
+    cloud += [Group("upper-build-BEAM", "full-history prompts BEAM " + " + ".join(UPPER_TIERS),
+                    [UpperBuild(k) for k in upper], "files",
+                    needs=tuple(f"local-read-BEAM{t}" for t in UPPER_TIERS if t in BEAM_TIERS)),
+              Group("upper-answers-BEAM", "full-history answers BEAM " + " + ".join(UPPER_TIERS),
                     [Z.Answers(k, key=f"upper-answers-{k}", title=f"full-history answers {k}", units_key=f"upper-read-{k}",
                                needs=(f"upper-build-{k}",), planned=40,
                                answerer=UPPER_BOUND["answerer"] or "unset-upper-bound-model") for k in upper],
                     "answers", needs=("upper-build-BEAM",)),
-              Group("upper-grade-BEAM", f"grade full history BEAM {UPPER_TIER}",
+              Group("upper-grade-BEAM", "grade full history BEAM " + " + ".join(UPPER_TIERS),
                     [beam_grade(k, units=f"upper-read-{k}", answers_dir=f"upper-answers-{k}", out_key=f"upper-grade-{k}")
                      for k in upper], "conversations", needs=("upper-answers-BEAM",))]
     lmes = lambda ctx, out: ["experiments/z2/oracle.py", "grade", "--dataset", "s",

@@ -15,12 +15,13 @@ def test_stage_list_is_consistent():
     assert reads["S9"].preset == "final_main+final_ablation+final_buildup"           # Z3 D10
     assert reads["S1"].preset == "final_main" and set(reads) >= {"A", "D", "SW", "LAP", "S8"}
     groups = {s.key: s for s in stages if isinstance(s, F.Group)}
-    assert groups["local-read-BEAM1M"].needs == ("local-replay-BEAM1M",) and len(groups["local-read-BEAM1M"].members) == 10
+    assert groups["local-read-BEAM500K"].needs == ("local-replay-BEAM500K",) and len(groups["local-read-BEAM500K"].members) == 5
+    assert "local-read-BEAM1M" not in groups and F.BEAM_TIERS == ("100K", "500K")                  # trimmed 2026-10-28
     member = groups["local-read-BEAM100K"].members[0]
     assert member.replay is groups["local-replay-BEAM100K"].members[0]
     assert next(s for s in stages if s.key == "local-replay-S5").needs == ("prep-generate-S5",)
     grades = [s for s in stages if s.key.startswith("grade-")]
-    assert {"grade-B", "grade-S9", "grade-S1-repeat", "grade-BEAM1M", "grade-lmes"} <= {g.key for g in grades}
+    assert {"grade-B", "grade-S9", "grade-S1-repeat", "grade-BEAM500K", "grade-lmes"} <= {g.key for g in grades}
     last_local = max(i for i, k in enumerate(keys) if k.startswith(("prep-", "local-")))
     first_cloud = min(i for i, k in enumerate(keys) if not k.startswith(("prep-", "local-")))
     assert last_local < first_cloud                                          # all local, then all cloud (Z3 D13)
@@ -76,7 +77,7 @@ def test_upper_bound_waits_for_its_model_and_never_answers_with_muse():
         assert build.missing(ctx) and "UPPER_BOUND" in build.missing(ctx)[0]
     answers = stages["upper-answers-BEAM"].members[0]
     assert answers.answerer != "muse12"
-    assert len(stages["upper-build-BEAM"].members) == 20
+    assert len(stages["upper-build-BEAM"].members) == 25                      # 128K (20) + 500K (5)
 
 
 def test_locomo_and_amem_are_wired_local_then_cloud():

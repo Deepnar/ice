@@ -208,8 +208,8 @@
   },
   "500K": {
    "available": 35,
-   "chosen": 10,
-   "user_messages": 5311,
+   "chosen": 5,
+   "user_messages": 2676,
    "conversations": [
     {
      "conversation_id": "11",
@@ -239,39 +239,12 @@
      "questions": 20
     },
     {
-     "conversation_id": "2",
-     "category": "Coding",
-     "title": "Creating an AI-Powered Resume Analyzer with Python and NLP",
-     "sessions": 10,
-     "user_messages": 440,
-     "approx_tokens": 509524,
-     "questions": 20
-    },
-    {
-     "conversation_id": "26",
-     "category": "Education & Learning",
-     "title": "Exploring Performing Arts: Acting, Theater, and Dance",
-     "sessions": 10,
-     "user_messages": 533,
-     "approx_tokens": 537942,
-     "questions": 20
-    },
-    {
      "conversation_id": "24",
      "category": "Health & Wellness",
      "title": "Understanding and Managing Chronic Illness",
      "sessions": 10,
      "user_messages": 509,
      "approx_tokens": 501805,
-     "questions": 20
-    },
-    {
-     "conversation_id": "35",
-     "category": "Legal and Administrative",
-     "title": "Filing for a Marriage-Based Green Card in the United States",
-     "sessions": 10,
-     "user_messages": 501,
-     "approx_tokens": 499402,
      "questions": 20
     },
     {
@@ -282,123 +255,14 @@
      "user_messages": 512,
      "approx_tokens": 322518,
      "questions": 20
-    },
-    {
-     "conversation_id": "8",
-     "category": "Math",
-     "title": "Exploring Conic Sections in Depth",
-     "sessions": 10,
-     "user_messages": 623,
-     "approx_tokens": 536335,
-     "questions": 20
-    },
-    {
-     "conversation_id": "18",
-     "category": "Therapy and Emotional Support",
-     "title": "Coping with Post-Breakup Emotional Pain and Relationship Trauma",
-     "sessions": 10,
-     "user_messages": 538,
-     "approx_tokens": 556496,
-     "questions": 20
     }
-   ]
-  },
-  "1M": {
-   "available": 35,
-   "chosen": 10,
-   "user_messages": 10387,
-   "conversations": [
-    {
-     "conversation_id": "12",
-     "category": "Career and Professional Development",
-     "title": "Landing Your Next Job: From Resume to Job Offer",
-     "sessions": 10,
-     "user_messages": 1107,
-     "approx_tokens": 1291558,
-     "questions": 20
-    },
-    {
-     "conversation_id": "3",
-     "category": "Coding",
-     "title": "Creating an Autonomous Stock Trading Bot",
-     "sessions": 10,
-     "user_messages": 778,
-     "approx_tokens": 903516,
-     "questions": 20
-    },
-    {
-     "conversation_id": "4",
-     "category": "Coding",
-     "title": "Implementing a Custom Image Captioning Model",
-     "sessions": 10,
-     "user_messages": 800,
-     "approx_tokens": 909256,
-     "questions": 20
-    },
-    {
-     "conversation_id": "19",
-     "category": "Education & Learning",
-     "title": "Mastering a New Language for Real-World Communication",
-     "sessions": 10,
-     "user_messages": 985,
-     "approx_tokens": 1133635,
-     "questions": 20
-    },
-    {
-     "conversation_id": "14",
-     "category": "Financial Investment",
-     "title": "Navigating the World of Cryptocurrency",
-     "sessions": 10,
-     "user_messages": 1347,
-     "approx_tokens": 1446881,
-     "questions": 20
-    },
-    {
-     "conversation_id": "21",
-     "category": "Home & Real Estate",
-     "title": "Selling Your Home for Maximum Value",
-     "sessions": 10,
-     "user_messages": 1167,
-     "approx_tokens": 1263108,
-     "questions": 20
-    },
-    {
-     "conversation_id": "10",
-     "category": "Math",
-     "title": "Exploring Non-Euclidean Geometry",
-     "sessions": 10,
-     "user_messages": 888,
-     "approx_tokens": 809479,
-     "questions": 20
-    },
-    {
-     "conversation_id": "7",
-     "category": "Math",
-     "title": "Solving Ordinary Differential Equations (ODEs)",
-     "sessions": 10,
-     "user_messages": 831,
-     "approx_tokens": 727952,
-     "questions": 20
-    },
-    {
-     "conversation_id": "18",
-     "category": "Relationship & Family",
-     "title": "Strengthening Communication in Romantic Relationships",
-     "sessions": 10,
-     "user_messages": 1306,
-     "approx_tokens": 1429353,
-     "questions": 20
-    },
-    {
-     "conversation_id": "30",
-     "category": "Trip Planning",
-     "title": "Preparing for a Week-Long Hiking and Camping Adventure in Patagonia",
-     "sessions": 10,
-     "user_messages": 1178,
-     "approx_tokens": 1141621,
-     "questions": 20
-    }
-   ]
+   ],
+   "trimmed_from": 10
   }
+ },
+ "trim": {
+  "date": "2026-10-28",
+  "seed": 20261028,
+  "rule": "1M tier dropped; 500K: 1 Coding + 1 Math + 3 general from the 10 drawn"
  }
 }
