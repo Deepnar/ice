@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT))
 
 from experiments.synth.plans import PLANS, STYLES, validate  # noqa: E402
 
-POLICY = "ice-final-synth-generate-3"           # 3: plain-text prompts, the checker (2026-10-28)
+POLICY = "ice-final-synth-generate-4"           # 4: semantic items, reply check, stop on a failed turn
 RECENT_PAIRS, MAX_TRIES = 5, 8        # the simulated user sees the plan + the last 5 exchanges; 8 tries
                                        # (was 3: cheap on the cloud; an echo, a cut-off or a stray number is rerolled)
 ASSISTANT_RECENT_PAIRS = 8             # the simulated assistant: a plan-built briefing + the last 8
@@ -62,7 +62,10 @@ verbatim), worked into what the person is actually saying (a reason, a detail, a
 correction), never announced ("btw, I haven't told you this"). A "paste" item goes inside
 pasted material (a config, log, document or code block), its value there word for word (a
 comment or a line of the paste). A "reject" item means turning down that earlier suggestion.
-If a self-contained question topic is given, the message is that question instead.
+If a self-contained question topic is given, the message is that question instead. A "…" marks
+something not settled yet: leave it out, do not refer to it. Your own files, code, logs and
+documents are yours: the assistant cannot see them unless you paste them, so never ask it to send
+them to you.
 
 Never state a specific name, number, amount, date, time, place or title that is not in what you
 are given or in the conversation so far: where something is not known yet, talk around it, and
@@ -84,7 +87,7 @@ outside this conversation, so never offer to. Do not just agree: say so when som
 add up, and do not restate what was already said."""
 
 
-def user_prompt(persona, style, beats, beat_now, recent, must_say, topic):
+def user_prompt(persona, style, beats, beat_now, recent, must_say, topic, last=False):
     """The simulated user's input as plain labelled text — given as JSON, MiMo sometimes answered
     in JSON too (round-3 sample, 2026-10-28)."""
     lines = ["WHO YOU ARE:"] + [f"{k}: {v}" for k, v in persona.items()]
@@ -98,6 +101,8 @@ def user_prompt(persona, style, beats, beat_now, recent, must_say, topic):
     lines += [f"- {i['about']}: {i['value']} ({i['kind']})" for i in must_say] or ["(nothing specific this turn)"]
     if topic:
         lines += ["", f"INSTEAD, ASK A SELF-CONTAINED QUESTION ABOUT: {topic}"]
+    lines += ["", "This is your last message in today's chat." if last else
+              "Today's chat goes on after this message: no goodbyes or wrapping up."]
     return "\n".join(lines) + "\n\nWrite the message now."
 
 ATTRIBUTION = {"decided": "the user decided", "preference": "the user's preference",
@@ -187,16 +192,19 @@ def numbers(text):
 
 def invented_values(plan, turn, user, history, allowed_text):
     """The user side may only say what the plan has given it (maintainer, 2026-10-28 trial: both
-    writer models put an offer salary in the user's mouth turns before the plan's £58,000):
-    a planned value before its turn, or a number outside pasted material that neither the plan's
-    items for this turn, the persona, the beats nor the conversation so far contains."""
+    writer models put an offer salary in the user's mouth turns before the plan's £58,000): a
+    changing fact's later value before its turn, or a number outside pasted material that nothing
+    given, no planned first value and no earlier turn contains; a reply in JSON or naming its
+    instructions; a repeat."""
     out, earlier = [], " ".join(f"{p['user']} {p['assistant']}" for p in history)
+    # A first value said early is how real people talk (maintainer's round-4 review); a LATER value
+    # said before its turn would undo a planned change, so that alone is too early.
     for f in plan["facts"]:
-        for v in f["values"]:
+        for v in f["values"][1:]:
             if v["turn"] > turn and (any(c.isdigit() for c in v["value"]) or len(v["value"].split()) >= 2) \
                     and said(user, v["value"]) and not said(earlier, v["value"]):
-                out.append(f"user said {f['id']} early: {v['value']}")
-    allowed = numbers(allowed_text) | numbers(earlier)
+                out.append(f"user said {f['id']}'s later value early: {v['value']}")
+    allowed = numbers(allowed_text) | numbers(earlier) | {n for f in plan["facts"] for n in numbers(f["values"][0]["value"])}
     if LEAK.search(user):
         return ["user side echoed its instructions"]
     if any(norm(user)[:120] == norm(p["user"])[:120] for p in history):
@@ -208,8 +216,9 @@ def invented_values(plan, turn, user, history, allowed_text):
 
 
 def hide_future(plan, turn, beats):
-    """The beats (or the persona) with every planned value not yet due replaced by what it is about, as a
-    plain phrase (a bracketed "not said yet" made the user act out withholding it): neither side
+    """The beats (or the persona) with every planned value not yet due replaced by "…" (a bracketed
+    "not said yet" made the user act it out; "the destination city" was copied word for word —
+    maintainer's round-4 review), its numbers too: neither side
     can say early what it never sees (2026-10-28 trial: a game's name in the beats was said
     turns before its plan turn by both writer models)."""
     def hide(text):
@@ -218,13 +227,13 @@ def hide_future(plan, turn, beats):
                 if v["turn"] >= turn:
                     words = [re.escape(w) for w in re.split(r"[\s\-_,.]+", v["value"]) if w]
                     if words:
-                        text = re.sub(r"[\s\-_,.]+".join(words), f"the {f['about']}", text, flags=re.I)
+                        text = re.sub(r"[\s\-_,.]+".join(words), "…", text, flags=re.I)
                     # its numbers too, wherever they stand alone (round 4: a persona's "2,400 USD"
                     # budget was said turns before the plan's "2400 usd all in, flights included")
                     for n in (x for x in NUMBER.findall(v["value"]) if len(x.replace(",", "")) >= 2):
-                        text = re.sub(rf"(?<![\d.,]){re.escape(n)}(?![\d.,])", "a figure", text)
+                        text = re.sub(rf"(?<![\d.,]){re.escape(n)}(?![\d.,])", "…", text)
                         if "," not in n and len(n) >= 4:          # 2400 also as 2,400
-                            text = re.sub(rf"(?<![\d.,]){n[:-3]},{n[-3:]}(?![\d.,])", "a figure", text)
+                            text = re.sub(rf"(?<![\d.,]){n[:-3]},{n[-3:]}(?![\d.,])", "…", text)
         return text
     if isinstance(beats, dict):                        # the persona: every text field
         return {k: hide(v) if isinstance(v, str) else v for k, v in beats.items()}
@@ -329,8 +338,26 @@ what THIS MESSAGE HAD TO SAY, and the MESSAGE. Report only real problems:
   earlier, other than a change it had to say;
 - "not_a_message": JSON, labels, talk about instructions or being simulated, or writing as the
   assistant rather than the person asking;
-- "repeat": it repeats an earlier user message in substance.
+- "repeat": it repeats an earlier user message in substance;
+- "missing": an item listed under CHECK THESE ITEMS is not clearly conveyed. Same meaning counts:
+  its names and numbers must be there but in any format ("10 April 2025, 9:10" for "thursday 10
+  april 2025 at 9:10am"); a "reject" item only needs that suggestion clearly turned down; a
+  "mention" item only needs it referred to with its value.
+"contradiction" includes continuity: a decision, a split, what a label or number refers to, where
+the person lives or is moving, who has which file — anything that silently changes from earlier.
+"not_a_message" includes role reversal: explaining like an assistant, or asking the assistant for
+something only the person has (their own code, logs, files).
 Return JSON: {"problems": [{"kind": "...", "detail": "..."}]} — an empty list when there are none."""
+
+REPLY_CHECK = """You check one ASSISTANT reply in a chat for a dataset. You get the CONVERSATION so far,
+the USER's latest message and the REPLY. Report only real problems:
+- "off": the reply does not answer or follow the user's latest message;
+- "contradiction": it conflicts with what was said earlier, or claims the user said something
+  they did not;
+- "impossible": it offers to do anything outside the chat (reminders, scheduling, sending,
+  browsing) or to look at something the user has not pasted.
+Return JSON: {"problems": [{"kind": "...", "detail": "..."}]} — an empty list when there are none."""
+CHECK_RECENT = 10                       # exchanges the checkers see (continuity reaches further back)
 
 
 def established(plan, turn, persona):
@@ -347,22 +374,28 @@ def established(plan, turn, persona):
 
 
 def checker_caller(role, *, session="", usage_log=None):
-    """(established, recent pairs, must_say, message) -> problems, from a cloud writer in JSON mode
-    (maintainer's round-3 review, 2026-10-28: exact-string checks passed invented names, JSON
-    replies and broken character). An unreadable verdict is a failed attempt, never a pass."""
+    """check(established, recent pairs, must_say, message, unconfirmed=(), reply=None) -> problems,
+    from a cloud writer in JSON mode (maintainer's reviews, 2026-10-28: exact-string checks passed
+    invented names, JSON replies and broken character, and failed items said in other words).
+    With *reply*, it reads the assistant's reply instead. An unreadable verdict is a failed
+    attempt, never a pass."""
     ask = cloud_caller(role, session=session, usage_log=usage_log)
 
-    def check(known, recent, must_say, message):
-        convo = "\n".join(f"{who}: {text}" for p in recent for who, text in (("User", p["user"]), ("Assistant", p["assistant"])))
-        prompt = (f"ESTABLISHED:\n{known or '(nothing yet)'}\n\nCONVERSATION:\n{convo or '(none yet)'}\n\n"
-                  f"THIS MESSAGE HAD TO SAY:\n" + ("\n".join(f"- {i['about']}: {i['value']} ({i['kind']})" for i in must_say)
-                                                   or "(nothing specific)") + f"\n\nMESSAGE:\n{message}")
+    def verdict(system, prompt):
         try:
-            verdict = json.loads(ask(CHECK_SYSTEM, prompt))
-            found = verdict["problems"]
+            found = json.loads(ask(system, prompt))["problems"]
         except (ValueError, KeyError, TypeError) as exc:
             return [f"checker reply unreadable: {type(exc).__name__}"]
         return [f"checker {p.get('kind')}: {str(p.get('detail'))[:160]}" for p in found if isinstance(p, dict)]
+
+    def check(known, recent, must_say, message, unconfirmed=(), reply=None):
+        convo = "\n".join(f"{who}: {text}" for p in recent for who, text in (("User", p["user"]), ("Assistant", p["assistant"])))
+        if reply is not None:
+            return verdict(REPLY_CHECK, f"CONVERSATION:\n{convo or '(none yet)'}\n\nUSER:\n{message}\n\nREPLY:\n{reply}")
+        items = "\n".join(f"- {i['about']}: {i['value']} ({i['kind']})" for i in must_say) or "(nothing specific)"
+        doubt = "\n".join(f"- {i['about']}: {i['value']} ({i['kind']})" for i in unconfirmed) or "(none)"
+        return verdict(CHECK_SYSTEM, f"ESTABLISHED:\n{known or '(nothing yet)'}\n\nCONVERSATION:\n{convo or '(none yet)'}"
+                                     f"\n\nTHIS MESSAGE HAD TO SAY:\n{items}\n\nCHECK THESE ITEMS:\n{doubt}\n\nMESSAGE:\n{message}")
     return check
 
 
@@ -380,18 +413,23 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
     # 2026-10-28: with all beats at every turn the user kept re-asking the first one)
     beat_now = beats[min(len(beats) - 1, (turn - first) * len(beats) // max(1, session["pairs"]))] if beats else None
     topic = session["topics"][0] if items["quiet"] and not must_say else None
+    last = turn == first + session["pairs"] - 1
     for attempt in range(1, MAX_TRIES + 1):
         try:
             user = user_llm(USER_SYSTEM, user_prompt(persona, STYLES[session["style"]], beats, beat_now, recent,
-                                                     must_say, topic))
+                                                     must_say, topic, last))
             # the user message first: mechanical checks, then the checker's reading; a bad message
-            # never costs an assistant reply
-            problems = ([f"user missing {i['id']}: {i['value']}" for i in items["user"]
-                         if i["change"] != "event" and not said(user, i["value"])]
-                        + invented_values(plan, turn, user, history, json.dumps(
-                            dict(must=must_say, persona=plan["persona"], beats=session["beats"]), ensure_ascii=False)))
-            if not problems and checker:
-                problems = checker(established(plan, turn, persona), history[-RECENT_PAIRS:], must_say, user)
+            # never costs an assistant reply. An item not found word for word goes to the checker,
+            # which judges it by meaning (round-4 review: a date in another format, a rejection in
+            # other words); without a checker it fails.
+            unconfirmed = [m for i, m in zip(items["user"], must_say) if i["change"] == "event" or not said(user, i["value"])]
+            problems = invented_values(plan, turn, user, history, json.dumps(
+                dict(must=must_say, persona=plan["persona"], beats=session["beats"]), ensure_ascii=False))
+            if not checker:
+                problems += [f"user missing: {m['value']}" for m, i in zip(must_say, items["user"])
+                             if m in unconfirmed and i["change"] != "event"]
+            elif not problems:
+                problems = checker(established(plan, turn, persona), history[-CHECK_RECENT:], must_say, user, unconfirmed)
             if problems:
                 continue
             known = briefing(plan, turn, sessions)
@@ -409,27 +447,23 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
         problems = ([f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
                      if not contains(reply, i["value"])]
                     + drift_problems(plan, turn, user, reply))
+        if not problems and checker:                  # does the reply follow, keep continuity, stay in the chat
+            try:
+                problems = checker("", history[-CHECK_RECENT:], [], user, reply=reply)
+            except CUT_OFF as exc:
+                problems = [f"reply cut off: {str(exc)[:120]}"]
         if not problems:
             return dict(turn=turn, user=user, assistant=reply, attempts=attempt, verified=True)
     return dict(turn=turn, user=user, assistant=reply, attempts=MAX_TRIES, verified=False, problems=problems)
 
 
-def drop_failed(plan, out, unverified, schedule):
-    """The questions FINAL asks of this conversation: the plan's, minus every question about a fact
-    due in a turn that never verified (maintainer, 2026-10-28) — written to <out>/asks.json with
-    the drops in <out>/excluded.json; returns how many were dropped."""
-    facts = sorted({i["id"] for t in unverified for side in ("user", "assistant") for i in schedule.get(t, {}).get(side, [])})
-    asks = json.loads((PLANS / f"{plan['id']}.asks.json").read_text())
-    kept = [a for a in asks if str(a.get("family", "")).split(":")[-1] not in facts]
-    (out / "asks.json").write_text(json.dumps(kept, indent=1, ensure_ascii=False) + "\n")
-    (out / "excluded.json").write_text(json.dumps(dict(unverified_turns=unverified, facts=facts,
-                                                       asks_dropped=len(asks) - len(kept), asks_kept=len(kept)), indent=1) + "\n")
-    return len(asks) - len(kept)
-
-
 def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None, checker=None):
     """Generates every turn not yet in <out>/turns.jsonl; *limit* stops after that turn (a
-    trial: no originals.json, since the conversation is unfinished)."""
+    trial: no originals.json, since the conversation is unfinished). A turn that never verifies
+    STOPS the conversation (maintainer's round-4 review: a failed turn left a blank reply the
+    next turns talked past): it is written to <out>/stopped.json, never kept, and the run ends
+    unfinished. Rerunning tries it again; <out>/repair-<turn>.json ({"user": ..., "assistant": ...},
+    written by hand) is used as that turn."""
     if validate(plan):
         raise ValueError(f"{plan['id']}: plan does not validate")
     out.mkdir(parents=True, exist_ok=True)
@@ -445,26 +479,32 @@ def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None, checker=No
     total = len(when)
     for turn in range(1, total + 1):
         if limit and turn > limit:
-            return dict(plan=plan["id"], turns=limit, unverified=[t for t in done if not done[t]["verified"]],
-                        finished=False)
+            return dict(plan=plan["id"], turns=limit, finished=False)
         if turn in done:
             continue
         session, _ = when[turn]
         items = schedule.get(turn, dict(user=[], assistant=[], quiet=False))
-        row = generate_turn(plan, turn, session, history, items, user_llm=user_llm, assistant_llm=assistant_llm,
-                            sessions=sessions, checker=checker)
+        repair = out / f"repair-{turn}.json"
+        if repair.exists():
+            fixed = json.loads(repair.read_text())
+            row = dict(turn=turn, user=fixed["user"], assistant=fixed["assistant"], attempts=0, verified=True, repaired=True)
+        else:
+            row = generate_turn(plan, turn, session, history, items, user_llm=user_llm, assistant_llm=assistant_llm,
+                                sessions=sessions, checker=checker)
+        if not row["verified"]:
+            (out / "stopped.json").write_text(json.dumps(dict(row, policy=POLICY), indent=1, ensure_ascii=False) + "\n")
+            say(f"STOPPED {plan['id']} at turn {turn}: no attempt verified in {MAX_TRIES}: {row['problems']} — "
+                f"rerun to try again, or write {repair} by hand")
+            return dict(plan=plan["id"], turns=total, stopped_at=turn, problems=row["problems"], finished=False)
+        (out / "stopped.json").unlink(missing_ok=True)
         with store.open("a") as handle:
             handle.write(json.dumps(dict(row, policy=POLICY), ensure_ascii=False) + "\n")
         done[turn] = row
         history.append(dict(user=row["user"], assistant=row["assistant"]))
-        if not row["verified"]:
-            say(f"WARNING {plan['id']} turn {turn}: unverified after {MAX_TRIES} tries: {row['problems']}")
     rows = [dict(turn_number=t, timestamp=when[t][1].isoformat() + "Z", timestamp_provenance="synthetic_plan",
                  prompt=done[t]["user"], response=done[t]["assistant"]) for t in range(1, total + 1)]
     (out / "originals.json").write_text(json.dumps(rows, indent=1, ensure_ascii=False) + "\n")
-    unverified = sorted(t for t in done if not done[t]["verified"])
-    dropped = drop_failed(plan, out, unverified, schedule)
-    status = dict(plan=plan["id"], turns=total, unverified=unverified, asks_dropped=dropped, finished=True)
+    status = dict(plan=plan["id"], turns=total, repaired=sorted(t for t in done if done[t].get("repaired")), finished=True)
     (out / "status.json").write_text(json.dumps(status, indent=1) + "\n")
     return status
 
@@ -545,7 +585,7 @@ def main() -> int:
                  user_llm=caller(args.user, session=f"{args.plan}-user-", usage_log=usage),
                  assistant_llm=caller(args.assistant, session=f"{args.plan}-assistant-", usage_log=usage))
     print(json.dumps(status))
-    return 0 if not status["unverified"] else 3
+    return 0 if status["finished"] or args.limit else 4               # 4: stopped at a turn for repair
 
 
 if __name__ == "__main__":

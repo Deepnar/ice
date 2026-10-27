@@ -477,6 +477,14 @@ broken character and repeats; the assistant only chats; questions about a fact d
 never verified are dropped (logs/final-synth/<id>/asks.json, excluded.json). Sample: no leaks, no
 invented titles, no reminder offers; 7-8% of turns unverified (scattered: long dates or phrases not
 written out, values said early, a missed suggestion, checker contradictions).
+**Round 5 (after the round-4 review):** an item not found word for word is judged by the checker by
+meaning (a date in another format, a rejection in other words); a first value said early is allowed
+(only a changing fact's later value is too early); the checker also reads each reply (follows the
+message, continuity, nothing outside the chat) and checks continuity and role reversal over the
+last 10 exchanges; hidden values show as "…"; the user knows whether a message ends the day. A turn
+that never verifies STOPS its conversation (never kept; relaunched up to 3 times, then repaired by
+hand via repair-<turn>.json) — the dropped-questions rule of round 4 is withdrawn: every kept turn
+is verified, so FINAL reads the committed asks.
 
 About 3,900 pairs, ~2 days of replay. **Build:** (1) a structured plan per conversation —
 persona, timeline, every planted fact with its introduce / change / correct turns, speaker,

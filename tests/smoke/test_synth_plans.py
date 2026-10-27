@@ -95,7 +95,7 @@ def test_generator_plants_verifies_retries_and_resumes(tmp_path, monkeypatch):
         assert messages[-1]["role"] == "user"                          # the whole conversation, latest last
         return "ok " + " ".join(re.findall(r"- [^:]+: (.+)", system))
     status = G.run(p, tmp_path, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
-    assert status["turns"] == 50 and not status["unverified"]
+    assert status["turns"] == 50 and status["finished"]
     rows = j_rows = __import__("json").loads((tmp_path / "originals.json").read_text())
     assert "2,000 euros" in rows[2]["prompt"] and "TransEuropa" in rows[4]["response"]
     assert "TransEuropa" not in rows[4]["prompt"]                      # a suggestion is the assistant's
@@ -187,7 +187,9 @@ def test_the_user_side_never_says_what_the_plan_has_not_given_it():
                        dict(id="F2", values=[dict(turn=2, value="£44,800 a year")])])
     history = [dict(user="my salary is £44,800 a year", assistant="noted, 2 options")]
     given = "persona: Ana, 31"
-    assert G.invented_values(plan, 3, "offer is £58,000 a year!", history, given)[0].startswith("user said F5 early")
+    assert G.invented_values(plan, 3, "offer is £58,000 a year!", history, given) == []        # a first value early: fine
+    later = dict(facts=[dict(id="F7", values=[dict(turn=1, value="£40,000 a year"), dict(turn=8, value="£52,000 a year")])])
+    assert G.invented_values(later, 3, "now its £52,000 a year", history, given)[0].startswith("user said F7's later value early")
     assert G.invented_values(plan, 3, "they offered 47,500 plus 5%", history, given) == [
         "user stated values the plan never gave: 47500, 5"]
     assert G.invented_values(plan, 3, "still on 44,800, im 31, weighing the 2 options", history, given) == []
@@ -198,7 +200,7 @@ def test_future_values_are_hidden_from_the_beats():
     from experiments.synth import generate as G
     plan = dict(facts=[dict(id="F1", about="the game's name", values=[dict(turn=4, value="Ferryman's Ledger")])])
     beats = ["pitches the game, Ferryman's Ledger, to the shop"]
-    assert G.hide_future(plan, 2, beats) == ["pitches the game, the the game's name, to the shop"]
+    assert G.hide_future(plan, 2, beats) == ["pitches the game, …, to the shop"]
     assert G.hide_future(plan, 5, beats) == beats
 
 
@@ -207,7 +209,7 @@ def test_the_persona_is_hidden_too_and_an_echoed_prompt_is_rejected():
     from experiments.synth import generate as G
     plan = dict(facts=[dict(id="F1", about="race day", values=[dict(turn=3, value="22 June 2025")])])
     persona = dict(name="Imogen", situation="training for a half on 22 June 2025", age=38)
-    assert G.hide_future(plan, 1, persona) == dict(name="Imogen", situation="training for a half on the race day", age=38)
+    assert G.hide_future(plan, 1, persona) == dict(name="Imogen", situation="training for a half on …", age=38)
     assert G.invented_values(plan, 1, '{"PERSONA": {"name": "Imogen"}}', [], "") == ["user side echoed its instructions"]
 
 
@@ -240,19 +242,6 @@ def test_json_replies_and_named_instructions_are_never_messages():
     assert G.invented_values(dict(facts=[]), 2, "here's the log:\n```\n{\"a\": 1}\n```", [], "1") == []
 
 
-def test_questions_about_facts_in_a_failed_turn_are_dropped(tmp_path, monkeypatch):
-    import json
-    from experiments.synth import generate as G
-    plans = tmp_path / "plans"; plans.mkdir()
-    monkeypatch.setattr(G, "PLANS", plans)
-    asks = [dict(id="X:F001@9#0", family="X:F001"), dict(id="X:F002@9#0", family="X:F002"), dict(id="X:N01@9#0", family="X:N01")]
-    (plans / "X.asks.json").write_text(json.dumps(asks))
-    schedule = {4: dict(user=[dict(id="F002")], assistant=[])}
-    assert G.drop_failed(dict(id="X"), tmp_path, [4], schedule) == 1
-    assert [a["family"] for a in json.loads((tmp_path / "asks.json").read_text())] == ["X:F001", "X:N01"]
-    assert json.loads((tmp_path / "excluded.json").read_text())["facts"] == ["F002"]
-
-
 def test_the_checker_reports_problems_and_never_passes_an_unreadable_verdict(monkeypatch):
     from experiments.synth import generate as G
     replies = iter(['{"problems": [{"kind": "invented", "detail": "the title Tideways"}]}', '{"problems": []}', "not json"])
@@ -268,5 +257,53 @@ def test_numbers_of_future_values_are_hidden_from_the_persona_and_filler_is_not_
     from experiments.synth import generate as G
     plan = dict(facts=[dict(id="F6", about="Oaxaca budget", values=[dict(turn=9, value="2400 usd all in, flights included")])])
     persona = dict(situation="planning Oaxaca on a 2,400 USD budget, 3 friends")
-    assert G.hide_future(plan, 2, persona) == dict(situation="planning Oaxaca on a a figure USD budget, 3 friends")
+    assert G.hide_future(plan, 2, persona) == dict(situation="planning Oaxaca on a … USD budget, 3 friends")
     assert G.key_parts("about 90 minutes per game") == {"90", "minutes", "game"}
+
+
+
+def test_a_turn_that_never_verifies_stops_the_conversation_and_a_repair_is_used(tmp_path, monkeypatch):
+    """Round-4 review: a failed turn left a blank reply the next turns talked past. Now it is never
+    kept — the run stops there; rerunning tries again; a hand-written repair is used as the turn."""
+    import json
+    from experiments.synth import generate as G
+    monkeypatch.setattr(G, "validate", lambda p: [])
+    monkeypatch.setattr(G, "MAX_TRIES", 2)
+    p = plan()
+    calls = {"n": 0}
+
+    def user_llm(system, prompt):
+        calls["n"] += 1
+        must = prompt.split("THIS MESSAGE MUST SAY:\n")[1].split("\n\n")[0].splitlines()
+        vals = " ".join(line.split(": ", 1)[1].rsplit(" (", 1)[0] for line in must if line.startswith("- "))
+        hello = "".join(chr(97 + int(d)) for d in str(calls["n"]))
+        return "forgot it" if "2,000 euros" in vals else f"{hello} {vals}"    # turn 3 never verifies
+    assistant_llm = lambda system, messages: "ok " + " ".join(__import__("re").findall(r"- [^:]+: (.+)", system))
+    out = tmp_path / "out"
+    status = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
+    assert status == dict(plan=p["id"], turns=50, stopped_at=3, problems=status["problems"], finished=False)
+    kept = [json.loads(l)["turn"] for l in (out / "turns.jsonl").read_text().splitlines()]
+    assert kept == [1, 2] and json.loads((out / "stopped.json").read_text())["turn"] == 3
+    (out / "repair-3.json").write_text(json.dumps(dict(user="my budget is 2,000 euros", assistant="noted")))
+    status = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
+    assert status["finished"] and status["repaired"] == [3]
+    rows = [json.loads(l) for l in (out / "turns.jsonl").read_text().splitlines()]
+    assert rows[2]["repaired"] and rows[2]["user"] == "my budget is 2,000 euros" and not (out / "stopped.json").exists()
+
+
+def test_an_item_said_in_other_words_goes_to_the_checker_and_replies_are_checked():
+    """Round-4 review: a date in another format and a rejection in other words failed the exact
+    check. Such items go to the checker, which judges meaning; then the reply is checked too."""
+    from experiments.synth import generate as G
+    seen = []
+
+    def checker(known, recent, must_say, message, unconfirmed=(), reply=None):
+        seen.append("reply" if reply is not None else [i["value"] for i in unconfirmed])
+        return []
+    items = dict(user=[dict(id="F4", about="passport appointment", value="thursday 10 april 2025 at 9:10am", change="introduce",
+                            status="decided", paste=False)], assistant=[], quiet=False)
+    plan = dict(id="T", facts=[], persona=dict(name="Ana"), sessions=[dict(index=1, pairs=3, style="casual", beats=["a"], topics=["t"])])
+    session = plan["sessions"][0]
+    row = G.generate_turn(plan, 1, session, [], items, user_llm=lambda s, p: "passport is 10 April 2025, 9:10",
+                          assistant_llm=lambda s, m: "got it", sessions={1: 1, 2: 1, 3: 1}, checker=checker)
+    assert row["verified"] and seen == [["thursday 10 april 2025 at 9:10am"], "reply"]
