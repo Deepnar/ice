@@ -504,8 +504,8 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
 9. LongMemEval-S: `oracle.py` generalised to haystack instances (per-instance store,
    question-time maintenance, `all_evidence` control).
 10. Long-context baseline condition (newest history packed into the 49,152-token window).
-11. ~~Second judge (Claude Haiku 5.5)~~ → cross-family judge on ~300 answers (GLM-5.3-Flash,
-    Z3 D13): D6a qualification with planted controls; agreement report.
+11. ~~Second judge (Claude Haiku 5.5)~~ → cross-family judge on ~450 answers (a fresh non-Meta model picked at the time — local or a cheap cloud model — run as the last pass;
+    `CROSS_JUDGE` in run_final.py, Z3 D13): D6a qualification with planted controls; agreement report.
 12. Cloud-answerer subset (~200 answers) for answerer sensitivity.
 13. FINAL report: per-dataset tables, never pooled.
 

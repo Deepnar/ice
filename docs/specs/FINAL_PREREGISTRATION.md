@@ -111,10 +111,10 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   questions planned for it, interval excluding 0); **run-to-run variance** (S1 replayed twice);
   **answerer sensitivity** — the cloud-answerer subset: 25 asks from each of S9, B, S5 under
   `full`, `recent_only`, `bare_vector` (225 contexts) answered by a non-Meta model and graded the
-  same way: does ICE keep its margin?; the **cross-family judge check** — GLM-5.3-Flash gives
+  same way: does ICE keep its margin?; the **cross-family judge check** — a fresh non-Meta model picked at the time — local or a cheap cloud model — run as the last pass — gives
   verdicts on those 225 contexts' Muse 1.2 answers and on the subset's answers (~450 calls); the
-  family effect is Muse 1.3's leniency against GLM on Muse 1.2's answers minus its leniency on the
-  non-Meta answers, with a 95% interval over question families (reported, with agreement and
+  family effect is Muse 1.3's leniency against that judge on Muse 1.2's answers minus its leniency
+  on the non-Meta answers, with a 95% interval over question families (reported, with agreement and
   kappa on each side); **judge vs the maintainer** (exact, kappa).
 
 ## 5. Handling rules
@@ -128,8 +128,9 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   synthetic main runs.
 
 ## 6. Left open by design (approved as such)
-- The cross-family judge (GLM-5.3-Flash as of 2026-10-27, Z3 D13) qualifies on the planted
-  controls before use; if it fails, another non-Meta family replaces it, recorded here.
+- The cross-family judge: a fresh non-Meta model picked at the time — a local model or a cheap
+  cloud one — qualified on the planted controls before use, run as the last pass; recorded here
+  (and in `CROSS_JUDGE`, run_final.py, whose stages wait until it is set).
 - The cloud-answerer subset's model, picked at the time from a non-Meta family (default
   LongCat-2.0); recorded here before use.
 - The cloud model for the full-history upper bound (≥ 256K window), picked at the time after the

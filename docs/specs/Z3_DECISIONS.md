@@ -132,7 +132,8 @@ show whether the conclusions depend on the answerer.
 ## D7 ⚑ Judges
 
 **Superseded 2026-10-27 by D13:** judge Muse 1.3; no second full judge — a cross-family
-judge (GLM-5.3-Flash) re-grades ~300 answers. The Haiku pick below is dropped.
+judge — a fresh non-Meta model picked at the time, local or cheap cloud, the last pass —
+re-grades ~450 answers. The Haiku pick below is dropped.
 
 **Benched 2026-10-26 (maintainer; confirmed the same day — benched until a cheap model is available
 at the time):** no second judge is fixed yet — no cheap model at hand
@@ -300,7 +301,7 @@ the time, recorded before use — never silently):
 | | mechanical jobs (quote finding, dedupe, format) | a small local model |
 | Answers (cloud) | answerer, every condition | Muse Spark 1.2 |
 | Grading (cloud) | judge | Muse Spark 1.3 |
-| | cross-family judge, ~300 answers | GLM-5.3-Flash (qualified on the planted controls) |
+| | cross-family judge, ~450 answers | a fresh non-Meta model picked at the time — local or cheap cloud — qualified on the planted controls, the last pass (revised 2026-10-27; not GLM by default) |
 | | background-content audit second opinion | DeepSeek V4.1 Flash, 20% sample |
 | Comparisons (cloud) | cloud-answerer subset (~200) | a non-Meta family, picked at the time |
 | | BEAM 128K full-history upper bound | a ≥ 256K-window model, picked after the cost check |
@@ -334,7 +335,7 @@ histories A, D, SW, LAP.
 inventory locally before any read pass (the read passes restore checkpoints into the replay's
 database, so a later inventory would see a checkpoint, not the final store); the private ground
 truth runs with `--tie-breaker none` and `--verifier mimo`; the cross-family judge and the
-cloud-answerer subset are runner stages (GLM-5.3-Flash; default LongCat-2.0). Also built the same
+cloud-answerer subset are runner stages (judge picked at the time, `CROSS_JUDGE`; subset default LongCat-2.0). Also built the same
 day: A-Mem (the memory layer its paper evaluated — the library skips note construction), the LoCoMo
 adapter, and the full-history upper-bound runner (FINAL_experiments.md §2.1 items 15–17). The
 upper-bound model is the one choice left open (pre-registration §6).

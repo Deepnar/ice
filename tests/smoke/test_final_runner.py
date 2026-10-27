@@ -60,7 +60,9 @@ def test_subset_and_cross_family_judge_stages():
     ctx = type("C", (), {"dir": F.ROOT / "logs/final-run-x", "name": "x"})()
     for h in F.SUBSET:
         main, sub = stages[f"crossjudge-{h}-main"], stages[f"crossjudge-{h}-subset"]
-        assert main.judge == sub.judge == F.CROSS_JUDGE and main.needs == ("subset",)
+        assert main.judge == sub.judge and main.needs == ("subset",)
+        if F.CROSS_JUDGE is None:
+            assert main.judge == "unset-cross-judge" and "CROSS_JUDGE" in main.missing(ctx)[0]
         args = main.cmd_args(ctx, ctx.dir / main.key)
         assert "--verdicts-only" in args and f"subset-read-{h}" in " ".join(args) and f"cloud-answers-{h}" in " ".join(args)
         assert f"subset-answers-{h}" in " ".join(sub.cmd_args(ctx, ctx.dir / sub.key))
@@ -90,3 +92,12 @@ def test_locomo_and_amem_are_wired_local_then_cloud():
     ctx = type("C", (), {"dir": F.ROOT / "logs/final-run-x", "name": "x"})()
     args = " ".join(member.cmd_args(ctx, ctx.dir / member.key))
     assert "--occurrences logs/final-locomo/" in args and "--replay" not in args and "local-baseline-mem0-LOCOMO-" in args
+
+
+
+def test_a_local_model_can_be_a_judge_role():
+    from experiments.z2.profiles import metadata, profile
+    p = profile("local:qwen3.8:27b")
+    assert p.model == "qwen3.8:27b" and p.endpoint == "chat_completions" and "11434" in p.resolved_base_url()
+    assert metadata("local:qwen3.8:27b")["model"] == "qwen3.8:27b"
+    assert profile("muse").model == "muse-spark-1.3-contributor"

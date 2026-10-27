@@ -39,7 +39,10 @@ PRIVATE = ["B", "A", "D", "SW", "LAP"]
 AUDITED = ("B", "S9")                       # fidelity audit (pre-registration r2 §4)
 SUBSET = ("S9", "B", "S5")                  # experiments/final/cloud_subset.py HISTORIES
 SUBSET_ANSWERER = "cloud:longcat"           # a non-Meta family; picked at the time (prereg §6)
-CROSS_JUDGE = "glm"                         # GLM-5.3-Flash (Z3 D13)
+# The cross-family judge (Z3 D13, revised 2026-10-27): a fresh model of a non-Meta family, picked at
+# the time — a local model ("local:<ollama model>") or a cheap cloud role — qualified on the planted
+# controls first, and run last. Until it is set here, its stages wait.
+CROSS_JUDGE = None
 MEMORY_SYSTEMS = ("graphiti", "mem0", "amem")
 # Pre-registration §6: the full-history model (a window of at least 256K tokens) is picked at the
 # time, after the per-call cost check, and recorded there; until it is set here its stages wait.
@@ -345,9 +348,12 @@ class LongMemEvalS(Z.Oracle):
 class FinalGrade(Z.Stage):
     """Cloud judging of one history's answers (experiments/z2/grade.py, or a dataset's own grader)."""
 
-    def __init__(self, key, title, cmd_args, needs, judge="muse"):
+    def __init__(self, key, title, cmd_args, needs, judge="muse", waits=None):
         super().__init__(key=key, title=title, needs=tuple(needs), unit="calls", estimate=3.0)
-        self.cmd_args, self.judge = cmd_args, judge
+        self.cmd_args, self.judge, self.waits = cmd_args, judge, waits
+
+    def missing(self, ctx):
+        return self.waits() if self.waits else []
 
     def out(self, ctx):
         return ctx.dir / self.key
@@ -376,7 +382,7 @@ class FinalGrade(Z.Stage):
 
 
 def grade_stage(history, repeat="", judge="muse", *, units=None, answers_dir=None, key=None, verdicts_only=False,
-                needs=None, replay=True):
+                needs=None, replay=True, waits=None):
     """grade.py with the references and ledger each kind of history uses; the scoring report
     gets the replay's timings and, for B and S9, the background audit (fidelity)."""
     rel = lambda path: str(Z._rel(path))
@@ -395,7 +401,7 @@ def grade_stage(history, repeat="", judge="muse", *, units=None, answers_dir=Non
                 "--answers", rel(ctx.dir / ans), *refs["questions"], *refs["ledger"], *extra, "--out", rel(out)]
     key = key or f"grade-{history}{repeat}"
     return FinalGrade(key, key.replace("-", " "), args, needs or ((ans,) + ((f"audit-{history}",) if audited else ())),
-                      judge)
+                      judge, waits)
 
 
 def beam_grade(key, judge="muse", *, units=None, answers_dir=None, out_key=None):
@@ -667,8 +673,11 @@ def final_stages(limit=None):
                             tuple(f"grade-{h}" for h in SUBSET)))
     for h in SUBSET:
         for side, ans in (("main", f"cloud-answers-{h}"), ("subset", f"subset-answers-{h}")):
-            cloud.append(grade_stage(h, judge=CROSS_JUDGE, units=f"subset-read-{h}", answers_dir=ans,
-                                     key=f"crossjudge-{h}-{side}", verdicts_only=True, needs=("subset",)))
+            cloud.append(grade_stage(h, judge=CROSS_JUDGE or "unset-cross-judge", units=f"subset-read-{h}",
+                                     answers_dir=ans, key=f"crossjudge-{h}-{side}", verdicts_only=True,
+                                     needs=("subset",), waits=lambda: [] if CROSS_JUDGE else
+                                     ["CROSS_JUDGE in experiments/final/run_final.py — the fresh non-Meta judge "
+                                      "(local:<model> or a cloud role), qualified first (Z3 D13)"]))
     return out + local + cloud
 
 

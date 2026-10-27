@@ -30,8 +30,8 @@ Z2_PROFILES = {
     # Z2's answerer from 2026-10-27 (spec D6d): Muse 1.2 on the Responses API, like 1.3.
     "muse12": ProviderProfile(name="opencode-muse12", endpoint="responses", model="muse-spark-1.2-contributor",
                               base_url_env="PROBE_API_BASE_URL", api_key_env="PROBE_API_KEY"),
-    # FINAL's cross-family judge on ~300 answers (Z3 D13): a family other than Muse (Meta) and the
-    # ground-truth writers (DeepSeek, MiMo); qualified on the planted controls before use (D6a).
+    # A cheap non-Meta cloud candidate for FINAL's cross-family judge — not chosen: the judge is
+    # picked at the time, local or cloud (Z3 D13, revised 2026-10-27), and qualified first (D6a).
     "glm": _go("opencode-glm53-flash", "glm-5.3-flash"),
 }
 
@@ -67,11 +67,21 @@ class _Injecting:
         return self._client.chat.completions.create(**kwargs)
 
 
+def profile(role):
+    """A named cloud role, or "local:<ollama model>" — a model on this machine's Ollama (e.g. a
+    FINAL judge run as the last, local pass)."""
+    if role.startswith("local:"):
+        model = role.split(":", 1)[1]
+        return ProviderProfile(name=f"ollama-{model}", endpoint="chat_completions", model=model,
+                               base_url=os.environ.get("OLLAMA_OPENAI_BASE", "http://localhost:11434/v1"))
+    return Z2_PROFILES[role]
+
+
 def _thinking_off(role):
     """Writers, and any chat-completions tie-breaker, run with thinking off. Muse
     is served on the Responses API, which this wrapper does not cover; it runs
     with the provider's default reasoning, recorded in its metadata as such."""
-    return (role in WRITERS or role == TIE_BREAK) and Z2_PROFILES[role].endpoint == "chat_completions"
+    return (role in WRITERS or role == TIE_BREAK) and profile(role).endpoint == "chat_completions"
 
 
 # Transient provider failures are retried, never quota or auth (ProviderAccessError
@@ -114,7 +124,7 @@ def retrying(generate, role, *, waits=RETRY_WAITS, sleep=None):
 def generator(role):
     from experiments.lme.cloud_provider import TextGenerator, load_selected_env
     load_selected_env()
-    generator = TextGenerator(Z2_PROFILES[role])
+    generator = TextGenerator(profile(role))
     if _thinking_off(role):
         generator.client = _Injecting(generator.client, WRITER_EXTRA_BODY)
     generator.generate = retrying(generator.generate, role)
@@ -123,7 +133,7 @@ def generator(role):
 
 def metadata(role):
     """Public identity of a role's calls, including any fixed request fields."""
-    meta = dict(Z2_PROFILES[role].metadata())
+    meta = dict(profile(role).metadata())
     if _thinking_off(role):
         meta["extra_body"] = WRITER_EXTRA_BODY
     return meta
