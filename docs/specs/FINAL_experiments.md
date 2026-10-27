@@ -461,9 +461,9 @@ every planted fact present at its turn, nothing contradicting the plan, failed t
 regenerated; questions phrased and checked by Z2's question machinery. Releasable. Size
 the generation from 20 measured calls (TRAPS 148).
 
-**⚑ Ablations — decided by the maintainer, 2026-10-26.** Leave-one-out (the 10 groups) on
-**S9, a purpose-built ablation conversation**, plus the FINAL-sealed B families as the
-real-data check. S9: ~1,000 pairs, mixed styles, ~250 questions planned **per component
+**⚑ Ablations — decided by the maintainer, 2026-10-26; S9 only since 2026-10-28** (B's run dropped:
+its questions were not written per part, and Z2 already ran it). Leave-one-out (the 10 groups) on
+**S9, a purpose-built ablation conversation**. S9: ~1,000 pairs, mixed styles, ~250 questions planned **per component
 group** (~20–25 each), so every ablation has questions it should hurt — exact rare terms
 (BM25), paraphrased recall (vector + reranker), facts linking across turns (codex), long
 turns (summaries), the conversation fold (notes), how-to steps (procedures), the memory
@@ -509,8 +509,8 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
 9. LongMemEval-S: `oracle.py` generalised to haystack instances (per-instance store,
    question-time maintenance, `all_evidence` control).
 10. Long-context baseline condition (newest history packed into a 256K-token window — maintainer,
-    2026-10-28; was 37.5K while the answerer was local). Main experiment = ICE as it runs
-    (`full_default`), bare / warm vector, recent only, long context; `full` only in the ablations.
+    2026-10-28; was 37.5K while the answerer was local). What runs where — our data vs each public
+    benchmark run its own way — is the table in FINAL_PREREGISTRATION.md §1 (2026-10-28).
 11. ~~Second judge (Claude Haiku 5.5)~~ → cross-family judge on ~450 answers (a fresh non-Meta model picked at the time — local or a cheap cloud model — run as the last pass;
     `CROSS_JUDGE` in run_final.py, Z3 D13): D6a qualification with planted controls; agreement report.
 12. Cloud-answerer subset (~200 answers) for answerer sensitivity.
@@ -542,10 +542,10 @@ answers, graded.
 
 *Run estimate (GPU, continuous):* replays — B 0.5 d, private 0.5 d, synthetic ~2 d, BEAM ~2 d
 (was ~7.3 d before the 2026-10-28 trim), LME-S ~4 d (≈ 9 d); reads ~2 d (~16,000 contexts); answers on the cloud (Muse 1.2, Z3 D13 —
-~11,500 distinct prompts; were ~10 GPU days locally); S9 build-up ~0.3 d of reads (its ~2,300 answers on the cloud); memory-system baselines ~2–4 d; **r2 additions:** A-Mem ~2 d,
-LoCoMo (ICE + three systems) ~2–3 d; synthetic generation (local) ~1–1.5 d. **≈ 18–22 GPU days of
-local work after the BEAM trim (≈ 23–27 before it; ≈ 35–38 with local answers) — ≈ 5½–7 weeks at
-~11 GPU hours a day.** Cloud: the private
+~11,500 distinct prompts; were ~10 GPU days locally); S9 build-up ~0.3 d of reads (its ~2,300 answers on the cloud); LoCoMo (ICE ~1.5 d with its reads;
+the three memory systems ~0.5–1 d — on LoCoMo only since 2026-10-28); synthetic generation (local)
+~1–1.5 d. **≈ 14–17 GPU days of local work after the 2026-10-28 clean-up (the runner's planning meter
+says ~20 until rates are measured) — ≈ 4½–5½ weeks at ~11 GPU hours a day.** Cloud: the private
 ground truth inside Z2's cloud block; then one block — answers, the judge, the cross-family
 sample, the cloud-answerer subset, the full-history upper bound — sized from real calls by
 `experiments/z2/allowance.py` (TRAPS 148), ≈ 1–2 plan periods. Levers if it runs long: fewer main conditions on BEAM,

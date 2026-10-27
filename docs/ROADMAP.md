@@ -213,17 +213,21 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     upper bound = Muse 1.2 (`UPPER_BOUND`) — revised the same day: full window, BEAM 500K tier only.
   - ✅ 2026-10-28: D dropped from FINAL (the v3 hyper-parameter tuning history) — runner, registry,
     extractor, docs. Private FINAL = B (disclosed), A, SW, LAP.
-  - ✅ 2026-10-28: main experiment = ICE as it runs (`full_default`) vs bare / warm vector, recent only,
-    long context at 256K (`full` only in ablations); tests M1 + M2 on all questions, P1 out-of-window where
+  - ✅ 2026-10-28: main experiment = ICE as it runs (`full_default`) vs plain vector, recent only,
+    long context at 256K (`full`, warm vector only in S9's parts test); tests M1 + M2 on all questions, P1 out-of-window where
     ≥ 100 pairs; synthetic suite carries the claims, private is the real-world check; full history on BEAM
     500K in Muse's 1M window, compared with ICE and long context from the main grades.
   - ✅ A-Mem (paper memory layer, pinned), LoCoMo (pinned, exported), BEAM 128K full-history runner —
-    `585e3d3`, `bfcb962`, `c6002ac`, `6d0a950` (§2.1 items 15–17). ⚑ Open: the upper-bound model
-    (≥ 256K window) — set `UPPER_BOUND` in run_final.py after the cost check.
+    `585e3d3`, `bfcb962`, `c6002ac`, `6d0a950` (§2.1 items 15–17); upper bound set (Muse 1.2).
   - ✅ r2 machinery (FINAL_experiments.md §2.1 items 14–17) built 2026-10-27.
-  - ✅ memory-system baselines: Graphiti + Mem0 in an isolated env (`experiments/final/baselines/`,
-    adapter `run_baseline.py`, runner stages); live run needs `nomic-embed-text` pulled (⚑ OK) + GPU.
+  - ✅ memory systems Graphiti, Mem0, A-Mem in an isolated env (`experiments/final/baselines/`), **on
+    LoCoMo only** (2026-10-28); `nomic-embed-text` pulled; live run needs the GPU.
   - ✅ S9 build-up decided yes (preset final_main+final_ablation+final_buildup).
+  - ✅ 2026-10-28 clean-up (`5388684`): each public benchmark runs its own way (table: prereg §1);
+    LoCoMo speakers on fixed sides, Mem0 per speaker, ICE at a 2K budget + prompt-size column on
+    LoCoMo; LongMemEval-S full context; B's parts run dropped. Local phase ≈ 14–17 GPU days.
+  - ☐ live trials when the GPU is free must include: a LoCoMo replay slice (124 turns have an empty
+    user side, 144 an empty assistant side — never exercised), and one LongMemEval-S full-context read.
   - **Next, in order (2026-10-26):** (1) Z2 local stages finish (~Nov 3–4); (2) GPU free: ~20 generated
     S1 turns for the maintainer to read, fix-pass GPU tests, short BEAM/LME-S/baseline trials; (3) plan
     renews (~Nov 8): Z2 grading, the 20-call cost check, private question chain + review; (4) Z2

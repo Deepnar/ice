@@ -22,11 +22,21 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
   family is measured, not assumed away: a cross-family judge re-grades ~450 answers (§4) and the
   blind human sample is reported per condition; Muse writes none of the ground truth.
   No tuning on any FINAL data.
-- **The main experiment (maintainer, 2026-10-28):** ICE frozen, exactly as it runs (`full_default`,
-  every part on, decay live) against `bare_vector`, `warm_vector`, `recent_only` and `long_context`
-  — the newest **256K tokens** of the conversation (a window many providers offer; a quarter of
-  the answerer's 1M), named in every table "long context, 256K". `full` (decay neutral) and the
-  switched-off variants appear only in the ablations (S9, B's sealed ablation run).
+- **What runs where (maintainer, 2026-10-28) — our data may combine anything; each public
+  benchmark runs the way its own field runs it, in its own scoring, never mixed with ours (BEAM,
+  built for long conversations, is the one place long context and full history meet ICE):**
+
+  | data | conditions answered | scored by |
+  |---|---|---|
+  | **our data** — synthetic S1–S9, private B, A, SW, LAP | ICE frozen as it runs (`full_default`, every part on, decay live); plain vector search (`bare_vector`, ICE's own token budget); long context (`long_context`, the newest **256K** tokens — a window many providers offer, a quarter of the answerer's 1M); recent turns only (the no-memory floor) | the judge's verdict (§2) |
+  | **S9 only** — the parts test | ICE with decay neutral (`full`), each part switched off one at a time, parts added one at a time | the judge's verdict, on the questions built for each part |
+  | **BEAM** — 128K tier (20) + 500K tier (5) | ICE, plain vector search, long context (256K); full history on the 500K tier (§4) | BEAM's own nugget score |
+  | **LongMemEval-S** — 100 instances | ICE, plain vector search, full context (every haystack session, ~115K tokens), LongMemEval's own oracle setting (only the answer sessions) | LongMemEval's own yes/no check |
+  | **LoCoMo** — 10 conversations | ICE, ICE at a 2K-token memory budget, plain vector search, full context (each conversation fits 256K whole), Graphiti, Mem0, A-Mem | LoCoMo's own word overlap (F1), plus the judge |
+
+  Warm vector (ICE's own vector search alone) appears only inside S9's parts test. On the public
+  benchmarks `recent_only` is read — it is the prompt frame plain vector search and long context
+  are built in — but never answered.
 
 ## 2. The claim, and the three headline measures
 
@@ -117,18 +127,25 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   scoring. On the 128K tier (≤ 225K tokens) long context already holds the whole conversation, so
   there it *is* full history. 100 questions: reported, no verdict.
 - **Other memory systems,** run by us in the same setup (same answerer, judge, data):
-  Graphiti (Zep), Mem0, A-Mem — on the LongMemEval-S slice and on LoCoMo. Each ingests through
-  its own write path with FINAL's background model (gemma4:e4b) at temperature 0 and its own
-  documented embedder, is searched with the raw question, and its top 10 results sit in exactly
-  bare_vector's evidence position. A-Mem is the memory layer its paper evaluated (pinned in
+  Graphiti (Zep), Mem0, A-Mem — **on LoCoMo only**, the benchmark all three report on (maintainer,
+  2026-10-28). Each ingests through its own write path with FINAL's background model (gemma4:e4b)
+  at temperature 0 and its own documented embedder, is searched with the raw question, and its top
+  10 results sit in exactly bare_vector's evidence position. LoCoMo's two speakers reach each
+  system as its own LoCoMo evaluation fed them: Graphiti and A-Mem read every message with its
+  speaker's name; Mem0 keeps one memory per speaker, that speaker as its "user", and searches both
+  (each memory labelled with whose it is). A-Mem is the memory layer its paper evaluated (pinned in
   `experiments/final/baselines/AMEM.json`) — its library package skips note construction; its
   fallback rate (a failed model call becoming an empty note analysis) is reported.
-- **LoCoMo** as a small, clearly labelled extra table (its known answer-key errors and lenient
-  common judge stated; every history fits the long-context window, so it cannot show
-  out-of-window behaviour): all 10 conversations under `full`, `recent_only`, `bare_vector`,
-  `long_context` and the three memory systems; M1/M2 on categories 1–4 (the comparable number),
-  category 5 (never said) as confident-answer rate, and LoCoMo's token F1. It is the common
-  ground of most memory papers.
+- **LoCoMo** as a small, clearly labelled extra table (its known answer-key errors — ~6% — and
+  lenient common judge stated; every conversation fits a 256K window, so it cannot show
+  out-of-window behaviour), conditions as in §1: categories 1–4 are the headline (as other papers
+  report it), category 5 (never said) only as a confident-answer rate, apart; LoCoMo's word overlap
+  beside the judge's verdict. **Each system's prompt size and its share of the conversation are
+  shown beside its score** — a short conversation can be "remembered" by reading most of it —
+  and ICE also answers at a 2K-token memory budget, the size the memory systems hand the model.
+  LoCoMo's first speaker is always ICE's user side and the second its assistant side (124 of its
+  272 sessions open with the second speaker; pairing by position would swap them). It is the
+  common ground of most memory papers.
 - **Evidence recall (turn-cited):** is every current cited turn a prompt fragment's source or
   inside the recent window? Separates "memory did not find it" from "the model misread it".
   Literal by design — a summary or fact carrying the content without citing every turn is not
@@ -137,22 +154,23 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   *update accuracy* — M2 on the questions whose answer changed, asked after the change
   (LSREP's evolving key: did the system follow the update?); *context precision* — the share
   of prompt fragments that carry a required item, and the share that carry a wrong or outdated
-  one, for `full` and `bare_vector` (paper 1's SPF, made independent of fragment length: it
+  one, for ICE and `bare_vector` (paper 1's SPF, made independent of fragment length: it
   separates "memory served stale evidence" from "the model chose the old value"); M3 is
   reported as **TUR** — correct answers per 1,000 prompt tokens (paper 1's ratio, now on a
-  yes/no outcome, so it is a real rate); the **fidelity audit** on B and S9 — per component:
-  did it run, is its output faithful (background-content audit), does it reach the prompt,
-  does switching it off lower M2 → *defective / unexercised / contributing / no measurable
+  yes/no outcome, so it is a real rate); the **fidelity audit** — per component: did it run, is
+  its output faithful (background-content audit, on B and S9), does it reach the prompt, and (S9
+  only) does switching it off lower M2 → *defective / unexercised / contributing / no measurable
   effect*; the judge's 1–5 score and per-type tables as descriptive columns.
   *Dropped:* the multi-answer ranking (win rate) — M1/M2 already compare conditions question
   by question, and a preference ranking is where a same-family judge is most exposed;
   recency Δ (the distance curve replaces it); ordinal net superiority (McNemar replaces it).
   Human grades never enter an aggregate (paper 1 merged 72 of them); they are agreement only.
-- **Retention (S4)** by distance; **style invariance** S1 vs S8; **ablations** — leave-one-out on
-  S9 and sealed B, build-up on S9 (a group earns its place when switching it off lowers M2 on the
+- **Retention (S4)** by distance; **style invariance** S1 vs S8; **the parts test** — on S9 only
+  (B's run dropped 2026-10-28): each part switched off one at a time, parts added one at a time (a
+  group earns its place when switching it off lowers M2 on the
   questions planned for it, interval excluding 0); **run-to-run variance** (S1 replayed twice);
-  **answerer sensitivity** — the cloud-answerer subset: 25 asks from each of S9, B, S5 under
-  `full`, `recent_only`, `bare_vector` (225 contexts) answered by a non-Meta model and graded the
+  **answerer sensitivity** — the cloud-answerer subset: 25 asks from each of S9, B, S5 under ICE,
+  plain vector search and long context (225 contexts) answered by a non-Meta model and graded the
   same way: does ICE keep its margin?; the **cross-family judge check** — a fresh non-Meta model picked at the time — local or a cheap cloud model — run as the last pass — gives
   verdicts on those 225 contexts' Muse 1.2 answers and on the subset's answers (~450 calls); the
   family effect is Muse 1.3's leniency against that judge on Muse 1.2's answers minus its leniency
@@ -164,7 +182,7 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   condition, and a condition with >5% ungraded is flagged.
 - Questions a history's review dropped stay dropped. Controls (no-memory questions) are reported
   apart.
-- If time runs short, the drop order is fixed in advance: LoCoMo; A-Mem; LongMemEval-S 100 → 50; the S9 build-up; BEAM conditions 6 → 4. Never dropped: the
+- If time runs short, the drop order is fixed in advance: LoCoMo; A-Mem; LongMemEval-S 100 → 50; the S9 build-up. Never dropped: the
   primary tests, the hallucination measures, the full-history upper bound, the private and
   synthetic main runs.
 

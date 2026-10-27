@@ -102,6 +102,10 @@ LongMemEval-S is already downloaded (`experiments/lme/data/longmemeval_s`, pinne
 ## D4 Conditions and baselines — **built as proposed** (`final_main`: full_default, full, warm_vector,
 recent_only, bare_vector, long_context); not changed by the maintainer, not explicitly confirmed
 
+**Superseded 2026-10-28 (maintainer):** our data runs ICE as it runs, plain vector, long context
+(256K) and recent only; `full` and warm vector live in S9's parts test only; each public benchmark
+runs its own way — the table in FINAL_PREREGISTRATION.md §1.
+
 **Pick:** `recent_only`, `bare_vector` (budget-matched), `warm_vector`, `full` (neutral
 decay) and `full_default`, plus **a long-context baseline**: the newest history packed into
 the answerer's window (49,152 tokens for the local answerer; for FINAL fixed at freeze, D13), no memory system — the "just use a long
@@ -113,6 +117,8 @@ on a ~50-question sample if a venue requires it (cost per call ~the whole histor
 
 **Decided 2026-10-26:** leave-one-out on S9 (a purpose-built ablation conversation) plus sealed B;
 see FINAL_experiments.md §2.1. The text below is the original proposal.
+**Revised 2026-10-28 (maintainer):** S9 only — B's questions were not written per part, and Z2 already
+ran B's switched-off conditions; B keeps its background-content audit.
 
 Z2's ablations are development evidence (fixes were made against them), so FINAL repeats
 them on the frozen post-fix system (FINAL_experiments.md §2.7). **Pick:** the 10
@@ -239,7 +245,7 @@ What a reviewer will look for that the current plan does not yet give:
 | Item | When |
 |---|---|
 | 3 Pre-registration note | **before FINAL runs** — and it includes the hallucination measures: invented claims per answer (Z2's claim chain: confirmed_invented), wrong answers to never-said questions (abstention accuracy on negatives), use of a superseded value, attribution mix-ups (assistant suggestion reported as the user's decision) |
-| 1 A published memory system as a baseline | **in FINAL**, on the LongMemEval-S slice (its native benchmark); system chosen below |
+| 1 A published memory system as a baseline | **in FINAL**, ~~on the LongMemEval-S slice~~ **on LoCoMo only** (2026-10-28: the benchmark Graphiti, Mem0 and A-Mem all report on); Graphiti, Mem0, A-Mem |
 | 4 Run-to-run variance | **in FINAL**: replay one history twice (S1, ~4 h) |
 | 5 Cost and speed | **in FINAL**: logged per run, reported beside scores |
 | 2 Judge vs a human | **during FINAL grading**: ~100 answers blind-graded by the maintainer |
@@ -276,7 +282,7 @@ others miss — full text in [FINAL_PREREGISTRATION.md](FINAL_PREREGISTRATION.md
   out-of-window. LSREP's thesis measure; replaces Z2's paired 1–5 scoring.
 - **M3 cost per correct answer** — prompt tokens per answer and write-time cost per turn.
 
-Comparison set: own baselines (bare_vector, warm_vector, recent_only, long_context);
+Comparison set (superseded in detail by FINAL_PREREGISTRATION.md §1, 2026-10-28): own baselines (bare_vector, recent_only, long_context; warm_vector only in S9's parts test);
 **Graphiti, Mem0 and A-Mem** run locally in the same setup; a **full-history upper bound** on
 BEAM 128K (cloud model, ≥ 256K window — the tier runs 100K–225K tokens, 15 of 20 over 128K)
 with ICE's contexts answered by the same model; **LoCoMo** as an extra table. Drop order and
@@ -346,9 +352,16 @@ private development, B's sealed questions + D; synthetic, S8 once), public bench
 own scoring, then every conversation as a deep dive under its built-for aspect; no per-conversation
 verdicts. BEAM trimmed to the 128K tier (20) + 5 of the 500K tier; the 1M tier dropped.
 **Revised 2026-10-28 (maintainer), main experiment:** ICE frozen as it runs (`full_default`) against
-bare vector, warm vector, recent only and long context — now the newest 256K tokens; decay-off
-(`full`) and every switched-off variant only in the ablations (S9, B). Tests: M1 and M2 on all
+plain vector, recent only and long context — now the newest 256K tokens; decay-off (`full`), warm
+vector and every switched-off variant only in S9's parts test. Tests: M1 and M2 on all
 questions, P1 out-of-window where a suite has ≥ 100 pairs. The synthetic suite carries the claims
 (releasable); private is the real-world check (not releasable). Full history on BEAM's 500K tier, in
 Muse 1.2's own window, compared with ICE and long context on the same questions.
+
+**Made clean 2026-10-28 (maintainer: "if it's ours we can do anything; public benchmarks run their
+own way, BEAM the exception"):** memory systems on LoCoMo only; LongMemEval-S as its field runs it
+(ICE, plain vector, full context, its oracle setting); LoCoMo as its field runs it (ICE, ICE at a 2K
+budget, plain vector, full context, the three systems; categories 1–4 headline; prompt size shown);
+LoCoMo speakers on fixed sides; Mem0 per speaker; B's parts run dropped. Table:
+FINAL_PREREGISTRATION.md §1.
 
