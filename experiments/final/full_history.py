@@ -1,9 +1,10 @@
 """FINAL's full-history upper bound (pre-registration r2 §4, FINAL_experiments.md §2.1 item 17).
 
-On BEAM's 128K tier (keys BEAM-100K-*, conversations ~100K–225K tokens) a cloud model with a
-window of at least 256K tokens answers every question from the ENTIRE conversation; the same
-model also answers ICE's `full` contexts for those questions, so ICE vs full history compares
-memory, not answerers.
+On BEAM's 500K tier (5 conversations, ~320K–857K tokens — beyond the 256K long-context window)
+the answerer, Muse 1.2, answers every question from the ENTIRE conversation, within its own
+1,048,576-token window (maintainer, 2026-10-28). Every other condition is answered by the same
+model, so the comparison with ICE and long context on the same questions comes straight from
+BEAM's main grades — nothing is answered twice.
 
 Built exactly like the long_context condition (experiments/z2/read_passes.py): recent_only's
 envelope for the same question, the older history rendered as the same chunks in the evidence
@@ -12,14 +13,13 @@ conversation's prompts share one cache session, so the provider can reuse the ca
 transcript across its questions. A prompt that would not fit WINDOW with the output cap is
 recorded in too-long.json, never truncated.
 
-    uv run --no-sync python experiments/final/full_history.py --history BEAM-100K-<id> \
-        --read logs/final-run-main/local-read-BEAM-100K-<id> --out logs/final-run-main/upper-read-BEAM-100K-<id> \
-        --window 262144
+    uv run --no-sync python experiments/final/full_history.py --history BEAM-500K-<id> \
+        --read logs/final-run-main/local-read-BEAM-500K-<id> --out logs/final-run-main/upper-read-BEAM-500K-<id> \
+        --window 1048576
 """
 
 import argparse
 import json
-import shutil
 import sys
 from pathlib import Path
 
@@ -41,8 +41,7 @@ def full_messages(recent_stage, originals, question, checkpoint):
 
 
 def build(history, read_dir, out_dir, window, count=None):
-    """Writes units/full_history/ (whole conversation) and units/full/ (ICE's own contexts,
-    copied) under *out_dir*; returns a summary."""
+    """Writes units/full_history/ (the whole conversation) under *out_dir*; returns a summary."""
     from experiments.z2.ledger import load_history
     from experiments.z2.read_passes import unit_path, write_unit
     if count is None:
@@ -68,10 +67,6 @@ def build(history, read_dir, out_dir, window, count=None):
                         checkpoint=recent["checkpoint"], question_time=recent.get("question_time"),
                         stage=dict(prompt_messages=messages, prompt_tokens=tokens, cache_session=session,
                                    selected=[dict(turn=c.turn, role=c.role) for c, _ in chosen])))
-        ice = read_dir / "units" / "full" / path.name
-        target = unit_path(out_dir, "full", ask["id"])
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ice, target)
         built += 1
     summary = dict(policy=POLICY, history=history, window=window, built=built, too_long=len(too_long),
                    max_prompt_tokens=max(sizes) if sizes else None)

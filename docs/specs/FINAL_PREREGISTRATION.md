@@ -22,8 +22,11 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
   family is measured, not assumed away: a cross-family judge re-grades ~450 answers (§4) and the
   blind human sample is reported per condition; Muse writes none of the ground truth.
   No tuning on any FINAL data.
-- The long-context window is fixed at freeze from the chosen answerer's window and the
-  measured cost per call, and named in every table ("long context, N K window").
+- **The main experiment (maintainer, 2026-10-28):** ICE frozen, exactly as it runs (`full_default`,
+  every part on, decay live) against `bare_vector`, `warm_vector`, `recent_only` and `long_context`
+  — the newest **256K tokens** of the conversation (a window many providers offer; a quarter of
+  the answerer's 1M), named in every table "long context, 256K". `full` (decay neutral) and the
+  switched-off variants appear only in the ablations (S9, B's sealed ablation run).
 
 ## 2. The claim, and the three headline measures
 
@@ -53,7 +56,7 @@ thing was never said. Reported as a curve over **how far the evidence lies from 
 the history's tokens between the farthest turn holding the *current* evidence and the question (a
 superseded value's turn is not evidence): < 32K · 32K–128K · 128K–512K · > 512K — and split
 **in-window / out-of-window**: exactly, from the turns `long_context`'s prompt held; where no
-`long_context` read exists, distance > 37,500 tokens (its prompt budget). The split is a property
+`long_context` read exists, distance > 256,000 tokens (its prompt budget). The split is a property
 of the question, applied to every condition. *This replaces Z2's 1–5 scoring for FINAL.*
 *Misses:* cost. Implementation: `experiments/z2/scoring.py`.
 
@@ -63,12 +66,18 @@ trace and are reported as not measured). A system can buy accuracy by
 filling the window; M3 shows the price. *Misses:* quality — it is read beside M1/M2, never alone.
 
 ## 3. Primary tests (decided before any result)
-- **P1 (the thesis):** on **out-of-window** questions, M2 of `full` vs `long_context`, and M2 of
-  `full` vs `bare_vector` (budget-matched retrieval).
-- **P2:** M1 of `full` vs the same two, on all questions.
-- **Per suite, pooled (revised 2026-10-28):** the headline is each suite — LSREP private (A, SW,
-  LAP and B, with B's role disclosed as above); LSREP synthetic (S1–S9; S8,
-  S1's style twin, counted once through S1) — with its histories' questions pooled
+- **The tests (revised 2026-10-28):** ICE as it runs (`full_default`) against `long_context` and
+  `bare_vector` (budget-matched retrieval): **M1 on all questions** and **M2 on all questions** —
+  with a 256K window the long-context model often reads the whole conversation, so the question
+  is whether ICE matches it, stays current (that model sees every old value beside the new one)
+  and invents nothing, at a fraction of the tokens (M3 beside) — and **P1, M2 on out-of-window
+  questions**, tested only where a suite has at least 100 paired questions whose evidence lies
+  beyond 256K (B, the longest synthetic chats); otherwise reported as too few, with the count.
+- **Per suite, pooled (revised 2026-10-28):** the headline is each suite — **LSREP synthetic
+  carries the claims** (S1–S9; S8, S1's style twin, counted once through S1; plans, questions,
+  answer keys and conversations released, so anyone can inspect them); **LSREP private is the
+  real-world check** (A, SW, LAP and B, with B's role disclosed as above; not releasable — it
+  supports the claims, never carries one alone) — with its histories' questions pooled
   (`scoring.pool`; families resampled within their history). Each question is a paired yes/no
   outcome across conditions: McNemar's exact test and a bootstrap interval over question families
   (10,000 resamples, seed 0); Holm–Bonferroni across a suite's primary tests. A win = interval
@@ -101,9 +110,12 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   `bare_vector`'s by more than 2 points (upper interval bound).
 
 ## 4. Comparisons and diagnostics (reported, no win/loss claim beyond §3)
-- **Upper bound — full history:** on BEAM's 128K tier (~100K–225K tokens) and 500K tier (5
-  conversations) a cloud model with a window that holds them answers from the **entire** conversation; ICE's own contexts are
-  answered by the **same cloud model**, so ICE vs full history compares memory, not answerers.
+- **Full history vs long context vs ICE (revised 2026-10-28):** on BEAM's 500K tier (5
+  conversations, ~320K–857K tokens) the answerer itself, Muse 1.2, answers from the **entire**
+  conversation within its own 1,048,576-token window; ICE and long context (256K) answer the same
+  questions with the same model, so the three compare memory, not answerers, in BEAM's own
+  scoring. On the 128K tier (≤ 225K tokens) long context already holds the whole conversation, so
+  there it *is* full history. 100 questions: reported, no verdict.
 - **Other memory systems,** run by us in the same setup (same answerer, judge, data):
   Graphiti (Zep), Mem0, A-Mem — on the LongMemEval-S slice and on LoCoMo. Each ingests through
   its own write path with FINAL's background model (gemma4:e4b) at temperature 0 and its own
@@ -162,12 +174,7 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   (and in `CROSS_JUDGE`, run_final.py, whose stages wait until it is set).
 - The cloud-answerer subset's model, picked at the time from a non-Meta family (default
   LongCat-2.0); recorded here before use.
-- The cloud model for the full-history upper bound (≥ 256K window), picked at the time after the
-  per-call cost check; recorded here — and in `UPPER_BOUND` in experiments/final/run_final.py,
-  whose stages wait until it is set — before it answers. Found 2026-10-27 (models.dev, the
-  catalogue OpenCode uses): **Muse Spark 1.2 Contributor itself has a 1,048,576-token window**
-  ($0.10/M input, $0.002/M cached; list price matched the measured allowance). **Recorded
-  2026-10-28: the upper bound is answered by Muse 1.2 itself — one model for every condition — at a
-  working ceiling of 600K tokens**, well below its window so it is not pushed to its limit; a
-  conversation above the ceiling (likely one of the five 500K-tier ones, ~857K tokens) is reported
-  as too long for the upper bound. The long-context window is still settled at freeze.
+- ~~The full-history model, picked at the time~~ — **recorded 2026-10-28:** Muse 1.2 itself
+  (models.dev: a 1,048,576-token window, $0.10/M input, $0.002/M cached — list price matched the
+  measured allowance), within its own window (`UPPER_BOUND` in experiments/final/run_final.py); a
+  prompt that would not fit is reported, never cut. The long-context window is fixed: 256K (§1).

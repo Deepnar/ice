@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 HISTORIES = ("S9", "B", "S5")
-CONDITIONS = ("full", "recent_only", "bare_vector")
+CONDITIONS = ("full_default", "recent_only", "bare_vector")      # ICE as it runs (2026-10-28)
 POLICY = "ice-final-cloud-subset-1"
 
 

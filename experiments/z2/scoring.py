@@ -18,10 +18,13 @@ means the evidence lies before what `long_context`'s prompt held: exactly, from 
 turns, where that condition was read; otherwise distance > LONG_CONTEXT_WINDOW. The split is
 a property of the question, so every condition is scored on the same split.
 
-**Tests** (§3): McNemar's exact test on paired yes/no outcomes, the paired difference with a
+**Tests** (§3, revised 2026-10-28): ICE as it runs (`full_default`) against long context and
+bare vector — M1 and M2 on all questions, and M2 out of window where at least MIN_OUT_OF_WINDOW
+pairs exist; McNemar's exact test on paired yes/no outcomes, the paired difference with a
 bootstrap interval over question families (10,000 resamples, seed 0), Holm–Bonferroni across a
-dataset's primary tests, the detectable difference (80% power, 5% two-sided), and
-non-inferiority of the hallucination rates against `bare_vector` (upper bound ≤ 2 points).
+suite's tests, the detectable difference (80% power, 5% two-sided), and non-inferiority of the
+hallucination rates against `bare_vector` (upper bound ≤ 2 points). `full` (decay neutral) is
+only the ablations' reference.
 
 **Paper 1's measures kept** (§4): update accuracy, context precision (from SPF), TUR (inside
 M3), and the fidelity audit — per component: did it run, is its output faithful, does it reach
@@ -36,7 +39,10 @@ import statistics
 POLICY = "ice-scoring-1"
 BINS = ((0, 32_000, "<32K"), (32_000, 128_000, "32K-128K"), (128_000, 512_000, "128K-512K"),
         (512_000, None, ">512K"))
-LONG_CONTEXT_WINDOW = 37_500            # read_passes.LONG_CONTEXT_PROMPT_TOKENS (FINAL, Z3 D4)
+LONG_CONTEXT_WINDOW = 256_000           # read_passes.LONG_CONTEXT_PROMPT_TOKENS (FINAL, 2026-10-28)
+ICE = "full_default"                    # the frozen system as it runs — the headline (2026-10-28)
+ABLATION_REFERENCE = "full"             # neutral decay: what leave-one-out conditions switch off from
+MIN_OUT_OF_WINDOW = 100                 # P1 is tested only with at least this many paired questions
 RESAMPLES, SEED = 10_000, 0
 NONINFERIORITY_MARGIN = 0.02
 ALPHA, POWER = 0.05, 0.80
@@ -221,7 +227,7 @@ def summary(rows, tokens=None):
 
 
 def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts=None, audit=None,
-          replay_walls=None, primary="full", bases=("long_context", "bare_vector"), targets=None):
+          replay_walls=None, primary=ICE, bases=("long_context", "bare_vector"), targets=None):
     """Every §2–§4 number for one history.
 
     graded: grade.py's {"cond|ask": verdict}; units: report.unit_index rows (checkpoint, type,
@@ -308,15 +314,7 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
                  for c, v in precision.items()}
 
     # primary tests (§3)
-    tests = {}
-    for base in [b for b in bases if b in conditions and primary in conditions]:
-        out_asks = [a for a in asks if facts[a]["window"] == "out"]
-        tests[f"P1 M2 out-of-window: {primary} vs {base}"] = compare(paired(outcomes, primary, base, "m2", out_asks))
-        tests[f"P2 M1 all: {primary} vs {base}"] = compare(paired(outcomes, primary, base, "m1", asks))
-    adjusted = holm({k: t["p"] for k, t in tests.items() if t.get("pairs")})
-    for k, t in tests.items():
-        if t.get("pairs"):
-            t.update(p_holm=adjusted[k], verdict=verdict(t, adjusted[k]))
+    tests = primary_tests(outcomes, asks, [a for a in asks if facts[a]["window"] == "out"], conditions, primary, bases)
 
     noninferior = {}
     if "bare_vector" in conditions and primary in conditions:
@@ -345,11 +343,31 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
                 by_condition=by_condition, by_type=by_type, by_distance=by_distance, by_window=by_window,
                 update_accuracy=update, evidence_recall=recall, context_precision=precision,
                 primary_tests=tests, hallucination_noninferiority=noninferior,
-                fidelity=fidelity(outcomes, asks, conditions, units, prompts, audit, primary, targets),
+                fidelity=fidelity(outcomes, asks, conditions, units, prompts, audit, ABLATION_REFERENCE, targets),
                 write_cost=write_cost)
 
 
-def pool(parts, primary="full", bases=("long_context", "bare_vector")):
+def primary_tests(outcomes, asks, out_asks, conditions, primary=ICE, bases=("long_context", "bare_vector")):
+    """Pre-registration r2 §3 (revised 2026-10-28): against each base, M1 and M2 on all questions,
+    and M2 on the questions whose evidence lies beyond the long-context window — that one only
+    with MIN_OUT_OF_WINDOW paired questions or more, else reported as too few. Holm across the
+    tests run."""
+    tests = {}
+    for base in [b for b in bases if b in conditions and primary in conditions]:
+        tests[f"M1 all: {primary} vs {base}"] = compare(paired(outcomes, primary, base, "m1", asks))
+        tests[f"M2 all: {primary} vs {base}"] = compare(paired(outcomes, primary, base, "m2", asks))
+        out = compare(paired(outcomes, primary, base, "m2", out_asks))
+        if out.get("pairs", 0) < MIN_OUT_OF_WINDOW:
+            out = dict(pairs=out.get("pairs", 0), verdict=f"not tested: fewer than {MIN_OUT_OF_WINDOW} out-of-window pairs")
+        tests[f"P1 M2 out-of-window: {primary} vs {base}"] = out
+    adjusted = holm({k: t["p"] for k, t in tests.items() if t.get("p") is not None})
+    for k, t in tests.items():
+        if t.get("p") is not None:
+            t.update(p_holm=adjusted[k], verdict=verdict(t, adjusted[k]))
+    return tests
+
+
+def pool(parts, primary=ICE, bases=("long_context", "bare_vector")):
     """One suite's headline from several histories (pre-registration r2 §3, revised 2026-10-28):
     *parts* maps history -> its score()'s output. Questions keep their history (ids and families
     are prefixed with it, so the interval still resamples whole families); M1, M2, the window
@@ -369,15 +387,8 @@ def pool(parts, primary="full", bases=("long_context", "bare_vector")):
         chosen = [a for a in asks if keep(a) and (cond, a) in outcomes]
         return [outcomes[(cond, a)] for a in chosen], [outcomes[(cond, a)].get("prompt_tokens") for a in chosen]
 
-    tests = {}
     out_asks = [a for a in asks if facts[a]["window"] == "out"]
-    for base in [b for b in bases if b in conditions and primary in conditions]:
-        tests[f"P1 M2 out-of-window: {primary} vs {base}"] = compare(paired(outcomes, primary, base, "m2", out_asks))
-        tests[f"P2 M1 all: {primary} vs {base}"] = compare(paired(outcomes, primary, base, "m1", asks))
-    adjusted = holm({k: t["p"] for k, t in tests.items() if t.get("pairs")})
-    for k, t in tests.items():
-        if t.get("pairs"):
-            t.update(p_holm=adjusted[k], verdict=verdict(t, adjusted[k]))
+    tests = primary_tests(outcomes, asks, out_asks, conditions, primary, bases)
     noninferior = {}
     if "bare_vector" in conditions and primary in conditions:
         for measure in HALLUCINATION:

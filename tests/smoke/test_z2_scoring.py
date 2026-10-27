@@ -48,25 +48,29 @@ def _history(n_fam=30, full_m2=True, base_m2=False):
         ask = f"B:f{i}@50#0"
         occ[ask] = dict(checkpoint_turn=50, type="fact_recall", expected_abstention=False,
                         reference=dict(citations=[dict(turn=2)], required=["x"]))
-        graded[f"full|{ask}"] = verdict("correct" if full_m2 else "incorrect")
+        graded[f"full_default|{ask}"] = verdict("correct" if full_m2 else "incorrect")       # ICE as it runs
+        graded[f"full|{ask}"] = verdict("correct" if full_m2 else "incorrect")               # the ablation reference
         graded[f"bare_vector|{ask}"] = verdict("correct" if base_m2 or i % 5 == 0 else "incorrect")
         graded[f"loo_codex|{ask}"] = verdict("incorrect")
-        for c in ("full", "bare_vector", "loo_codex"):
-            units[f"{c}|{ask}"] = dict(prompt_tokens=1000, source_turns=[2] if c == "full" else [], recent_tokens=0,
-                                       legs=["facts"] if c == "full" else [])
+        for c in ("full_default", "full", "bare_vector", "loo_codex"):
+            ice = c in ("full_default", "full")
+            units[f"{c}|{ask}"] = dict(prompt_tokens=1000, source_turns=[2] if ice else [], recent_tokens=0,
+                                       legs=["facts"] if ice else [])
     return graded, units, occ
 
 
 def test_primary_tests_window_split_and_fidelity():
     graded, units, occ = _history()
-    prefix = S.turn_prefix([None] * 60, count=lambda t: 2000)       # turn 2 → question: 94K tokens away
+    prefix = S.turn_prefix([None] * 60, count=lambda t: 6000)       # turn 2 → question: 288K, beyond 256K
     prompts = {k: k for k in units}                                  # switching codex off changes every prompt
     out = S.score("B", graded, units, occ, prefix, prompts=prompts,
                   audit=dict(kinds=dict(codex_fact=dict(items=10, criteria=dict(faithful=dict(yes_rate=0.99))))))
     assert out["out_of_window"] == 30 and out["window_rule"].startswith("distance")
-    p1 = out["primary_tests"]["P1 M2 out-of-window: full vs bare_vector"]
-    assert p1["better"] == 24 and p1["worse"] == 0 and p1["verdict"] == "win"
-    assert out["by_condition"]["full"]["m1"] == 1.0 and out["by_condition"]["full"]["tur"] == 1.0
+    m2 = out["primary_tests"]["M2 all: full_default vs bare_vector"]
+    assert m2["better"] == 24 and m2["worse"] == 0 and m2["verdict"] == "win"
+    p1 = out["primary_tests"]["P1 M2 out-of-window: full_default vs bare_vector"]
+    assert p1["pairs"] == 30 and p1["verdict"].startswith("not tested") and "p_holm" not in p1   # < 100 pairs
+    assert out["by_condition"]["full_default"]["m1"] == 1.0 and out["by_condition"]["full_default"]["tur"] == 1.0
     assert out["evidence_recall"]["full"]["all_cited_turns_reached"] == 1.0
     assert out["evidence_recall"]["bare_vector"]["all_cited_turns_reached"] == 0.0
     codex = out["fidelity"]["codex"]
@@ -122,6 +126,6 @@ def test_pool_keeps_histories_apart_and_tests_the_pooled_questions():
     b = S.score("B", graded, units, occ, prefix)
     pooled = S.pool({"A": a, "B": b})
     assert pooled["questions"] == 40 and pooled["histories"] == ["A", "B"]          # same ask ids, two histories
-    p2 = pooled["primary_tests"]["P2 M1 all: full vs bare_vector"]
+    p2 = pooled["primary_tests"]["M1 all: full_default vs bare_vector"]
     assert p2["pairs"] == 40 and p2["families"] == 40 and p2["verdict"] == "win"
-    assert pooled["by_condition"]["full"]["m1"] == 1.0 and pooled["by_condition"]["full"]["prompt_tokens"] == 1000
+    assert pooled["by_condition"]["full_default"]["m1"] == 1.0 and pooled["by_condition"]["full_default"]["prompt_tokens"] == 1000

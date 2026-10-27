@@ -1,6 +1,6 @@
 """FINAL's full-history upper bound: long_context's construction with every older turn, one
-cache session per conversation, ICE's own `full` contexts copied for the same answerer, and a
-prompt over the window recorded, never truncated."""
+cache session per conversation, nothing else re-answered (every condition shares the answerer),
+and a prompt over the window recorded, never truncated."""
 
 import json
 
@@ -36,7 +36,7 @@ def test_whole_history_in_long_contexts_envelope(tmp_path, monkeypatch):
     assert evidence.index("turn 1]") < evidence.index("turn 5]")                              # oldest first
     assert unit["stage"]["cache_session"] == "ice-final-upper-BEAM-100K-x"
     assert unit["stage"]["prompt_messages"][-1]["content"] == "what did I say first?"
-    assert R.unit_path(out, "full", "q2").exists()
+    assert not (out / "units" / "full").exists()                         # ICE's answers come from the main run
 
 
 def test_over_the_window_is_recorded_not_truncated(tmp_path, monkeypatch):

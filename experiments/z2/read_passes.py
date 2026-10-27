@@ -58,8 +58,8 @@ CONDITIONS = {
     "warm_vector": dict(overlay="neutral", arm="vector_only"),
     "recent_only": dict(overlay="neutral", arm="recent_only"),
     "bare_vector": dict(overlay="none", bare=True),
-    # FINAL (Z3 D4): no memory system — the newest original messages packed into the
-    # same prompt ceiling ICE's budget has (LONG_CONTEXT_PROMPT_TOKENS), newest first.
+    # FINAL (Z3 D4): no memory system — the newest original messages packed into a
+    # LONG_CONTEXT_PROMPT_TOKENS prompt, newest first.
     "long_context": dict(overlay="none", bare=True, long=True),
     **{f"full_b{b}": dict(overlay="default", arm="full", budget=b, subset="questions") for b in BUDGETS},
     **{f"warm_b{b}": dict(overlay="neutral", arm="vector_only", budget=b, subset="questions") for b in BUDGETS},
@@ -180,12 +180,14 @@ def build_final_asks(split_dir, occurrences_path):
 
 # FINAL condition sets (FINAL_experiments.md §2.1; Z3 D4, D5, D10). "z2" = everything Z2 read.
 PRESETS = {
-    "final_main": ["full_default", "full", "warm_vector", "recent_only", "bare_vector", "long_context"],
+    # the main experiment: ICE frozen, as it runs, against the baselines (maintainer, 2026-10-28) —
+    # `full` (decay neutral) belongs to the ablations only
+    "final_main": ["full_default", "warm_vector", "recent_only", "bare_vector", "long_context"],
     "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER],
     "final_buildup": ["full", "recent_only"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))],
     # LoCoMo (an extra table, prereg r2 §4): every history fits the long-context window; recent_only
     # is the envelope the memory systems' prompts reuse
-    "final_locomo": ["full", "recent_only", "bare_vector", "long_context"],
+    "final_locomo": ["full_default", "recent_only", "bare_vector", "long_context"],
 }
 
 
@@ -223,7 +225,9 @@ def checkpoint_times(events_path):
     return out
 
 
-LONG_CONTEXT_PROMPT_TOKENS = 37_500       # the largest prompt ICE's budget produced in Z2 (37,539)
+# 256K (maintainer, 2026-10-28): a window many providers offer (a quarter of the answerer's 1M);
+# was 37,500 — the largest prompt ICE's budget produced in Z2 — while the answerer was local.
+LONG_CONTEXT_PROMPT_TOKENS = 256_000
 
 
 def long_context_chunks(chunks, budget, count):

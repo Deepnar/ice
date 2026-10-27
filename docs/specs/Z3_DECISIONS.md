@@ -304,7 +304,8 @@ the time, recorded before use — never silently):
 | | cross-family judge, ~450 answers | a fresh non-Meta model picked at the time — local or cheap cloud — qualified on the planted controls, the last pass (revised 2026-10-27; not GLM by default) |
 | | background-content audit second opinion | DeepSeek V4.1 Flash, 20% sample |
 | Comparisons (cloud) | cloud-answerer subset (~200) | a non-Meta family, picked at the time |
-| | BEAM 128K full-history upper bound | a ≥ 256K-window model, picked after the cost check |
+| | full history on BEAM's 500K tier (5) | Muse Spark 1.2 itself, in its 1M window (2026-10-28) |
+| | long context (every dataset) | the newest 256K tokens, answered by Muse 1.2 (2026-10-28) |
 | People | blind check, ~100 answers | the maintainer |
 
 Already done, not re-run: synthetic plans and questions (Claude Haiku 5.5 agents).
@@ -344,4 +345,10 @@ upper-bound model is the one choice left open (pre-registration §6).
 private development, B's sealed questions + D; synthetic, S8 once), public benchmarks each in its
 own scoring, then every conversation as a deep dive under its built-for aspect; no per-conversation
 verdicts. BEAM trimmed to the 128K tier (20) + 5 of the 500K tier; the 1M tier dropped.
+**Revised 2026-10-28 (maintainer), main experiment:** ICE frozen as it runs (`full_default`) against
+bare vector, warm vector, recent only and long context — now the newest 256K tokens; decay-off
+(`full`) and every switched-off variant only in the ablations (S9, B). Tests: M1 and M2 on all
+questions, P1 out-of-window where a suite has ≥ 100 pairs. The synthetic suite carries the claims
+(releasable); private is the real-world check (not releasable). Full history on BEAM's 500K tier, in
+Muse 1.2's own window, compared with ICE and long context on the same questions.
 

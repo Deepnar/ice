@@ -44,15 +44,14 @@ SUBSET_ANSWERER = "cloud:longcat"           # a non-Meta family; picked at the t
 # controls first, and run last. Until it is set here, its stages wait.
 CROSS_JUDGE = None
 MEMORY_SYSTEMS = ("graphiti", "mem0", "amem")
-# Pre-registration §6 (maintainer, 2026-10-28): the answerer itself, Muse 1.2 (a 1,048,576-token
-# window), so one model answers every condition — at a working ceiling of 600K tokens, well below
-# its window: a conversation above it is recorded as too long for the upper bound, not forced
-# through. Set to None to make the stages wait.
-UPPER_BOUND = dict(answerer="muse12", window=600_000)
-# BEAM after the 2026-10-28 trim (experiments/beam/select.py): 128K tier (20) and 500K tier (5); both
-# fit a 1M-token window, so the upper bound covers both.
+# Pre-registration §6 (maintainer, 2026-10-28): the answerer itself, Muse 1.2, within its own
+# 1,048,576-token window — one model answers every condition. Set to None to make the stages wait.
+UPPER_BOUND = dict(answerer="muse12", window=1_048_576)
+# BEAM after the 2026-10-28 trim (experiments/beam/select.py): 128K tier (20) and 500K tier (5). Full
+# history only on the 500K tier: the 128K conversations (≤ 225K tokens) already fit long context's
+# 256K window whole, so there long context IS full history.
 BEAM_TIERS = tuple(t for t in ("100K", "500K", "1M") if any(k.startswith(f"BEAM-{t}-") for k in BEAM))
-UPPER_TIERS = ("100K", "500K")
+UPPER_TIERS = ("500K",)
 PRESET = {"B": "final_main+final_ablation",                                       # D5
           "S9": "final_main+final_ablation+final_buildup"}                         # D5 + D10 (yes, 2026-10-26)
 PRESET.update({k: "final_locomo" for k in LOCOMO})                               # prereg r2 §4

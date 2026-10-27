@@ -210,10 +210,13 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     public benchmarks in their own scoring — BEAM keeps nuggets only (decision 2 dissolved); BEAM
     trimmed to 128K (20) + 500K (5), 1M dropped (`select.py --trim`); upper bound on both kept tiers.
   - ✅ 2026-10-28: B pooled into LSREP private with its role stated (Z2 testing, sealed questions);
-    upper bound = Muse 1.2 at a 600K ceiling (`UPPER_BOUND`).
+    upper bound = Muse 1.2 (`UPPER_BOUND`) — revised the same day: full window, BEAM 500K tier only.
   - ✅ 2026-10-28: D dropped from FINAL (the v3 hyper-parameter tuning history) — runner, registry,
     extractor, docs. Private FINAL = B (disclosed), A, SW, LAP.
-  - ⚑ Open: the long-context window at freeze.
+  - ✅ 2026-10-28: main experiment = ICE as it runs (`full_default`) vs bare / warm vector, recent only,
+    long context at 256K (`full` only in ablations); tests M1 + M2 on all questions, P1 out-of-window where
+    ≥ 100 pairs; synthetic suite carries the claims, private is the real-world check; full history on BEAM
+    500K in Muse's 1M window, compared with ICE and long context from the main grades.
   - ✅ A-Mem (paper memory layer, pinned), LoCoMo (pinned, exported), BEAM 128K full-history runner —
     `585e3d3`, `bfcb962`, `c6002ac`, `6d0a950` (§2.1 items 15–17). ⚑ Open: the upper-bound model
     (≥ 256K window) — set `UPPER_BOUND` in run_final.py after the cost check.

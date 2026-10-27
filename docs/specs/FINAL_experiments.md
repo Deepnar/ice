@@ -400,7 +400,8 @@ result is seen. Exact conversations and file hashes: `experiments/beam/MANIFEST.
 (1 Coding + 1 Math + 3 general, drawn from the 10 with seed 20261028 — `select.py --trim`), so
 BEAM is 25 conversations (≈ 1 + 1 replay days). FINAL already runs many evaluations, and B and other
 histories reach ~1M tokens. BEAM is scored its own way (nuggets) and carries the full-history upper
-bound on both kept tiers (Muse 1.2 at a 600K-token ceiling, pre-registration §6).
+bound on the 500K tier (Muse 1.2 in its own 1M window; on the 128K tier long context's 256K window
+already holds whole conversations — pre-registration §4, §6).
 
 **⚑ BEAM conversations chosen** (seed 20261026, revision `3205395e`; ids and hashes in
 `experiments/beam/MANIFEST.json`; regenerate or verify with `experiments/beam/select.py`):
@@ -507,7 +508,9 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
    Kendall tau-b for event ordering.
 9. LongMemEval-S: `oracle.py` generalised to haystack instances (per-instance store,
    question-time maintenance, `all_evidence` control).
-10. Long-context baseline condition (newest history packed into the 49,152-token window).
+10. Long-context baseline condition (newest history packed into a 256K-token window — maintainer,
+    2026-10-28; was 37.5K while the answerer was local). Main experiment = ICE as it runs
+    (`full_default`), bare / warm vector, recent only, long context; `full` only in the ablations.
 11. ~~Second judge (Claude Haiku 5.5)~~ → cross-family judge on ~450 answers (a fresh non-Meta model picked at the time — local or a cheap cloud model — run as the last pass;
     `CROSS_JUDGE` in run_final.py, Z3 D13): D6a qualification with planted controls; agreement report.
 12. Cloud-answerer subset (~200 answers) for answerer sensitivity.

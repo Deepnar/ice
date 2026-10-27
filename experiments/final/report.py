@@ -86,9 +86,13 @@ def beam(run):
 # no hyper-parameter sweep ran on it — and its FINAL questions are sealed. D, the v3
 # hyper-parameter tuning history, was dropped from FINAL (2026-10-28).
 # S8 is S1's style twin (same questions) — counted once, through S1.
+# The synthetic suite carries the claims — anyone can inspect it (plans, questions, answer keys and
+# conversations are released); the private suite checks them on real chats and is not releasable
+# (maintainer, 2026-10-28).
 SUITES = {
-    "LSREP private (A, SW, LAP held out; B tested in Z2, its questions sealed)": ("A", "SW", "LAP", "B"),
-    "LSREP synthetic": ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S9"),
+    "LSREP synthetic — carries the claims (releasable)": ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S9"),
+    "LSREP private — real-world check, not releasable (A, SW, LAP held out; B tested in Z2, its questions sealed)":
+        ("A", "SW", "LAP", "B"),
 }
 
 HEADLINE = ("graded", "m1", "m2", "outdated", "invented", "confident_never_said", "attribution_wrong",
@@ -175,25 +179,33 @@ def locomo(run, exports=ROOT / "logs/final-locomo"):
 
 
 def upper_bound(run):
-    """Full history vs ICE's own `full` contexts, answered by the same model, BEAM's 128K tier:
-    nugget means, and the paired difference (ICE minus full history) per question with a 95%
-    interval over questions."""
+    """BEAM's 500K tier: ICE as it runs, long context (256K) and the full history, all answered by
+    Muse 1.2 on the same questions — nugget means, and paired differences per question with a 95%
+    interval over questions (ICE − full history, long context − full history, ICE − long context)."""
     from experiments.z2.scoring import family_interval
-    by_cond, paired = {}, {}
-    for store in sorted(Path(run).glob("upper-grade-*/beam-grades.jsonl")):
-        for line in store.read_text().splitlines():
-            row = json.loads(line) if line.strip() else None
-            if not row or row["status"] != "graded":
+    per_ask = {}
+    stores = sorted(Path(run).glob("upper-grade-*/beam-grades.jsonl"))
+    for store in stores:
+        key = store.parent.name.removeprefix("upper-grade-")
+        for main in (store, Path(run) / f"grade-{key}" / "beam-grades.jsonl"):
+            if not main.exists():
                 continue
-            cond, ask = row["key"].split("|", 1)
-            by_cond.setdefault(cond, []).append(row["nugget_mean"])
-            paired.setdefault(ask, {})[cond] = row["nugget_mean"]
-    if not by_cond:
+            for line in main.read_text().splitlines():
+                row = json.loads(line) if line.strip() else None
+                if row and row["status"] == "graded":
+                    cond, ask = row["key"].split("|", 1)
+                    per_ask.setdefault(ask, {})[cond] = row["nugget_mean"]
+    if not stores:
         return None
-    diffs = {a: v["full"] - v["full_history"] for a, v in paired.items() if "full" in v and "full_history" in v}
-    return dict(mean_nugget={c: round(statistics.fmean(v), 4) for c, v in by_cond.items()},
-                questions=len(diffs), ice_minus_full_history=round(statistics.fmean(diffs.values()), 4) if diffs else None,
-                ci95=family_interval(diffs) if len(diffs) > 1 else None)
+    conds = ("full_default", "long_context", "full_history")
+    means = {c: round(statistics.fmean(v[c] for v in per_ask.values() if c in v), 4)
+             for c in conds if any(c in v for v in per_ask.values())}
+    out = dict(mean_nugget=means)
+    for a, b in (("full_default", "full_history"), ("long_context", "full_history"), ("full_default", "long_context")):
+        diffs = {q: v[a] - v[b] for q, v in per_ask.items() if a in v and b in v}
+        out[f"{a} minus {b}"] = dict(questions=len(diffs), diff=round(statistics.fmean(diffs.values()), 4) if diffs else None,
+                                     ci95=family_interval(diffs) if len(diffs) > 1 else None)
+    return out
 
 
 def build(run):
@@ -252,7 +264,9 @@ def markdown(report):
     def test_lines(tests, noninferior):
         out = []
         for name, test in (tests or {}).items():
-            if test.get("pairs"):
+            if test.get("pairs") and test.get("p_holm") is None:
+                out.append(f"- **{name}**: {test['verdict']} ({test['pairs']} pairs)")
+            elif test.get("pairs"):
                 out.append(f"- **{name}**: {test['verdict']} — difference {_pct(test['diff'])} points, 95% CI "
                            f"{[_pct(x) for x in test['ci95'] or []]}, Holm p {test['p_holm']:.4g}, {test['pairs']} pairs "
                            f"(detectable ≈ {_pct(test['detectable'])})")
@@ -281,7 +295,9 @@ def markdown(report):
                          f"{(t['descriptive_1_5'].get(c) or {}).get('mean_score')} |")
         lines.append("")
         for name, test in (t["primary_tests"] or {}).items():
-            if test.get("pairs"):
+            if test.get("pairs") and test.get("p_holm") is None:
+                lines.append(f"- **{name}**: {test['verdict']} ({test['pairs']} pairs)")
+            elif test.get("pairs"):
                 lines.append(f"- **{name}**: {test['verdict']} — difference {_pct(test['diff'])} points, 95% CI "
                              f"{[_pct(x) for x in test['ci95'] or []]}, Holm p {test['p_holm']:.4g}, {test['pairs']} pairs "
                              f"(detectable ≈ {_pct(test['detectable'])})")
@@ -303,7 +319,7 @@ def markdown(report):
         lines += ["## Cloud-answerer subset (non-Meta answerer)", ""]
         for h, sub in report["cloud_answerer_subset"].items():
             for name, test in sub["primary_tests"].items():
-                if test.get("pairs"):
+                if test.get("pairs") and test.get("p_holm") is not None:
                     lines.append(f"- {h} {name}: {test['verdict']} ({_pct(test['diff'])} points, {test['pairs']} pairs)")
         lines.append("")
     if report.get("locomo"):
@@ -315,9 +331,10 @@ def markdown(report):
         lines.append("")
     if report.get("full_history_upper_bound"):
         u = report["full_history_upper_bound"]
-        lines += ["## Full-history upper bound (BEAM 128K tier, same model for both)", "",
-                  f"- mean nugget: " + ", ".join(f"{c} {v}" for c, v in u["mean_nugget"].items()),
-                  f"- ICE minus full history: {u['ice_minus_full_history']} over {u['questions']} questions, 95% CI {u['ci95']}", ""]
+        lines += ["## Full history vs long context vs ICE (BEAM 500K tier, all answered by Muse 1.2)", "",
+                  "- mean nugget: " + ", ".join(f"{c} {v}" for c, v in u["mean_nugget"].items())]
+        lines += [f"- {k}: {v['diff']} over {v['questions']} questions, 95% CI {v['ci95']}"
+                  for k, v in u.items() if k != "mean_nugget"] + [""]
     if report["cross_family_judge"]:
         j = report["cross_family_judge"]
         lines += ["## Cross-family judge (does Muse 1.3 favour Muse 1.2's answers?)", "",
