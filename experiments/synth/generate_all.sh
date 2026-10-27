@@ -15,6 +15,8 @@
 # logs/final-synth/<id>/repair-<turn>.json by hand (see stopped.json for the failed attempt).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+# Ctrl-C stops everything this started: background jobs of a script ignore it on their own
+trap 'trap - INT TERM; kill 0' INT TERM
 UV=$(command -v uv)
 mkdir -p logs/final-synth
 

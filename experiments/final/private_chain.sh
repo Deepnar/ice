@@ -15,6 +15,8 @@
 # writes logs/final-questions/<h>/asks.json, which FINAL's runner waits for.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+# Ctrl-C stops everything this started: background jobs of a script ignore it on their own
+trap 'trap - INT TERM; kill 0' INT TERM
 export Z2_EMBED_DEVICE=cpu TIE_BREAKER=none VERIFIER=mimo
 UV=$(command -v uv)
 mkdir -p logs/final-ledger logs/final-questions

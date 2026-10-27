@@ -10,6 +10,8 @@
 # conversations: experiments/synth/generate_all.sh status.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
+# Ctrl-C stops everything this started: background jobs of a script ignore it on their own
+trap 'trap - INT TERM; kill 0' INT TERM
 experiments/synth/generate_all.sh > logs/cloud-prep-synth.log 2>&1 &
 echo "synthetic conversations running — log: logs/cloud-prep-synth.log"
 experiments/final/private_chain.sh > logs/cloud-prep-private.log 2>&1 &

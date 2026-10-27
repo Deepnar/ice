@@ -656,10 +656,23 @@ def cloud_caller(role, *, session="", usage_log=None):
     gen = generator(role)
 
     def call(system, prompt):
+        from experiments.lme.cloud_provider import ProviderAccessError
         turns = prompt if isinstance(prompt, list) else [dict(role="user", content=prompt)]
-        started = time.time()
-        result = gen.generate([dict(role="system", content=system)] + turns,
-                              temperature=0.8, max_output_tokens=8_000, session_id=f"ice-final-synth-{session}{role}")  # 8K: long technical replies were cut at 4K
+        while True:
+            started = time.time()
+            try:
+                result = gen.generate([dict(role="system", content=system)] + turns, temperature=0.8,
+                                      max_output_tokens=8_000,            # 8K: long technical replies were cut at 4K
+                                      session_id=f"ice-final-synth-{session}{role}")
+                break
+            except ProviderAccessError as exc:
+                # a 5-hour, weekly or monthly limit, or a rejected key: wait and try again, as the
+                # answers runner does — never a crash that would count as a stopped conversation
+                wait = 300 if exc.kind == "authentication" else 600
+                print(f"WARNING {role}: provider {exc.kind} ({exc.status_code}); waiting {wait} s", file=sys.stderr, flush=True)
+                time.sleep(wait)
+                from experiments.lme.cloud_provider import load_selected_env
+                load_selected_env()
         if usage_log:
             with Path(usage_log).open("a") as handle:
                 handle.write(json.dumps(dict(role=role, seconds=round(time.time() - started, 2),
