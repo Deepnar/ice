@@ -229,8 +229,11 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ✅ 2026-10-28: named LSREP measures (prereg §2 table); public benchmarks scored by field norms only —
     LoCoMo by Mem0's protocol (`experiments/locomo/grade.py`; category 5 excluded, 1,540 questions),
     LongMemEval-S by its own judge (`--upstream-only`), BEAM by nuggets.
-  - ☐ live trials when the GPU is free must include: a LoCoMo replay slice (124 turns have an empty
-    user side, 144 an empty assistant side — never exercised), and one LongMemEval-S full-context read.
+  - ✅ 2026-10-28: LoCoMo's session-opening second-speaker lines (124) ride the user side with the
+    first speaker's reply — ICE embeds the user half only, so an empty user side was unfindable by
+    vector (156 of 1,540 questions cite one). LoCoMo has no same-speaker repeats.
+  - ☐ live trials when the GPU is free must include: a LoCoMo replay slice (144 turns end a session
+    with an empty assistant side — never exercised), and one LongMemEval-S full-context read.
   - **Next, in order (2026-10-26):** (1) Z2 local stages finish (~Nov 3–4); (2) GPU free: ~20 generated
     S1 turns for the maintainer to read, fix-pass GPU tests, short BEAM/LME-S/baseline trials; (3) plan
     renews (~Nov 8): Z2 grading, the 20-call cost check, private question chain + review; (4) Z2

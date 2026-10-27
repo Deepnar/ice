@@ -164,7 +164,9 @@ headline (kept as a descriptive column).
   shown beside its score** — a short conversation can be "remembered" by reading most of it —
   and ICE also answers at a 2K-token memory budget, the size the memory systems hand the model.
   LoCoMo's first speaker is always ICE's user side and the second its assistant side (124 of its
-  272 sessions open with the second speaker; pairing by position would swap them). It is the
+  272 sessions open with the second speaker; pairing by position would swap them). Such an
+  opening line rides the user side with the first speaker's reply, names kept: ICE embeds a turn's
+  user half, and an empty one could not be found (156 questions cite such a line). It is the
   common ground of most memory papers.
 - **Evidence recall (turn-cited):** is every current cited turn a prompt fragment's source or
   inside the recent window? Separates "memory did not find it" from "the model misread it".
