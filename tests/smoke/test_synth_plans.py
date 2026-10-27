@@ -412,3 +412,13 @@ def test_a_one_word_later_value_is_early_only_beside_its_topic():
     budget = dict(facts=[dict(id="F18", about="furniture budget", values=[dict(turn=195, value="£1,500"), dict(turn=229, value="£900")])])
     assert G.invented_values(budget, 97, "rent there is about £900 a month", []) == []
     assert G.invented_values(budget, 200, "furniture can be £900 tops now", [])[0].startswith("user said F18's later value early")
+
+
+
+def test_untold_events_are_unsettled_topics_and_generic_words_are_not_a_topic():
+    from experiments.synth import generate as G
+    plan = dict(facts=[], events=[dict(id="E13", what="paid the Oaxaca flight deposit, 380 usd, on the travel card",
+                                       told_turn=112, relative_phrase="tomorrow", date="2025-03-21")])
+    assert G.upcoming(plan, 107) == ["paid the Oaxaca flight deposit, on the travel card"] and G.upcoming(plan, 113) == []
+    budget = dict(facts=[dict(id="F18", about="furniture budget", values=[dict(turn=195, value="£1,500"), dict(turn=229, value="£900")])])
+    assert G.invented_values(budget, 97, "the budget gives roughly £900 more headroom", []) == []

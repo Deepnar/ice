@@ -237,12 +237,18 @@ def numbers(text):
     return {n.replace(",", "") for n in NUMBER.findall(text or "")}
 
 
+GENERIC = set("""budget cost costs price amount total date time plan number value figure money spend
+limit target count rate week weeks month months year years day days""".split())
+
+
 def on_topic(text, fact, value):
     """A one-word value ("£900") counts as said only beside its fact's topic (a content word of what
     it is about): S8 stopped on "£900" said of something other than the furniture budget."""
     if len(value.split()) >= 2:
         return True
-    topic = [w for w in re.findall(r"[a-z]{4,}", fact.get("about", "").lower()) if w not in COMMON]
+    words = [w for w in re.findall(r"[a-z]{4,}", fact.get("about", "").lower()) if w not in COMMON]
+    # the distinctive words: "budget" alone said nothing (S8: "£900 more headroom" in a budget talk)
+    topic = [w for w in words if w not in GENERIC] or words
     return not topic or any(re.search(rf"(?<!\w){w}", norm(text)) for w in topic)
 
 
@@ -450,9 +456,14 @@ empty list when there are none; if, on reflection, something is fine, leave it o
 
 
 def upcoming(plan, turn):
-    """The topics the plan settles later — what they are about, never their values."""
-    return [re.sub(re.escape(f["values"][0]["value"]), "", f["about"], flags=re.I).strip(" ,'\"") or f["about"]
-            for f in plan["facts"] if f["values"][0]["turn"] > turn and f["speaker"] != "assistant"]
+    """The topics the plan settles later — what they are about, never their values. Events not yet
+    told are among them, their numbers taken out (S5: the user invented a "$580 each" flight
+    deposit at turn 107; the plan's event at 112 is "paid the Oaxaca flight deposit, 380 usd")."""
+    facts = [re.sub(re.escape(f["values"][0]["value"]), "", f["about"], flags=re.I).strip(" ,'\"") or f["about"]
+             for f in plan["facts"] if f["values"][0]["turn"] > turn and f["speaker"] != "assistant"]
+    events = [re.sub(r"\s*,?\s*[$£€]?\d[\d,.:]*\s*(usd|eur|gbp|km|kg|k)?\b", "", e["what"], flags=re.I).strip(" ,")
+              for e in plan.get("events") or [] if e["told_turn"] > turn]
+    return facts + [e for e in events if e]
 
 
 def established(plan, turn, persona, suggestions=False):
