@@ -178,22 +178,16 @@ def test_drift_checks_catch_outdated_values_and_reappearing_retention_facts():
     assert len(msgs) == 17 and msgs[0]["content"] == "u4" and msgs[-1]["content"] == "now?"
 
 
-def test_the_user_side_never_says_what_the_plan_has_not_given_it():
-    """2026-10-28 trial: both cloud writers put an offer salary in the user's mouth turns before
-    the plan's own value — a fact the answer key never knew. A planned value before its turn, or a
-    number outside pasted material that nothing given contains, regenerates the turn."""
+def test_the_user_side_never_says_a_later_value_early_and_never_leaks_or_repeats():
+    """A first value said early is how people talk; a changing fact's later value said before its
+    turn would undo a planned change. Invented details are the checker's to judge."""
     from experiments.synth import generate as G
-    plan = dict(facts=[dict(id="F5", values=[dict(turn=5, value="£58,000 a year")]),
-                       dict(id="F2", values=[dict(turn=2, value="£44,800 a year")])])
+    plan = dict(facts=[dict(id="F5", values=[dict(turn=5, value="£58,000 a year")])])
     history = [dict(user="my salary is £44,800 a year", assistant="noted, 2 options")]
-    given = "persona: Ana, 31"
-    assert G.invented_values(plan, 3, "offer is £58,000 a year!", history, given) == []        # a first value early: fine
+    assert G.invented_values(plan, 3, "offer is £58,000 a year!", history) == []        # a first value early: fine
     later = dict(facts=[dict(id="F7", values=[dict(turn=1, value="£40,000 a year"), dict(turn=8, value="£52,000 a year")])])
-    assert G.invented_values(later, 3, "now its £52,000 a year", history, given)[0].startswith("user said F7's later value early")
-    assert G.invented_values(plan, 3, "they offered 47,500 plus 5%", history, given) == [
-        "user stated values the plan never gave: 47500, 5"]
-    assert G.invented_values(plan, 3, "still on 44,800, im 31, weighing the 2 options", history, given) == []
-    assert G.invented_values(plan, 3, "config:\n```\nbatch_size: 5000\n```\nwhy?", history, given) == []
+    assert G.invented_values(later, 3, "now its £52,000 a year", history)[0].startswith("user said F7's later value early")
+    assert G.invented_values(plan, 3, "rent here is like 950 a month", history) == []    # a realistic detail
 
 
 def test_future_values_are_hidden_from_the_beats():
@@ -210,7 +204,7 @@ def test_the_persona_is_hidden_too_and_an_echoed_prompt_is_rejected():
     plan = dict(facts=[dict(id="F1", about="race day", values=[dict(turn=3, value="22 June 2025")])])
     persona = dict(name="Imogen", situation="training for a half on 22 June 2025", age=38)
     assert G.hide_future(plan, 1, persona) == dict(name="Imogen", situation="training for a half on …", age=38)
-    assert G.invented_values(plan, 1, '{"PERSONA": {"name": "Imogen"}}', [], "") == ["user side echoed its instructions"]
+    assert G.invented_values(plan, 1, '{"PERSONA": {"name": "Imogen"}}', []) == ["user side echoed its instructions"]
 
 
 def test_a_long_value_may_be_said_in_other_words_if_its_key_parts_are_there():
@@ -229,7 +223,7 @@ def test_a_long_value_may_be_said_in_other_words_if_its_key_parts_are_there():
 def test_a_repeated_user_message_is_regenerated():
     from experiments.synth import generate as G
     history = [dict(user="hey so i got a verbal offer, can u help me plan", assistant="sure")]
-    assert G.invented_values(dict(facts=[]), 2, "hey so i got a verbal offer, can u help me plan", history, "") == [
+    assert G.invented_values(dict(facts=[]), 2, "hey so i got a verbal offer, can u help me plan", history) == [
         "user side repeated an earlier message"]
 
 
@@ -238,16 +232,19 @@ def test_json_replies_and_named_instructions_are_never_messages():
     from experiments.synth import generate as G
     for leaked in ('{"messages": [{"content": "ok so", "role": "user"}]}', '{"content": "ok"}',
                    "MUST_SAY is empty, could you paste the last reply", "WHO YOU ARE: Ana"):
-        assert G.invented_values(dict(facts=[]), 2, leaked, [], "") == ["user side echoed its instructions"], leaked
-    assert G.invented_values(dict(facts=[]), 2, "here's the log:\n```\n{\"a\": 1}\n```", [], "1") == []
+        assert G.invented_values(dict(facts=[]), 2, leaked, []) == ["user side echoed its instructions"], leaked
+    assert G.invented_values(dict(facts=[]), 2, "here's the log:\n```\n{\"a\": 1}\n```", []) == []
 
 
 def test_the_checker_reports_problems_and_never_passes_an_unreadable_verdict(monkeypatch):
     from experiments.synth import generate as G
-    replies = iter(['{"problems": [{"kind": "invented", "detail": "the title Tideways"}]}', '{"problems": []}', "not json"])
+    replies = iter(['{"problems": [{"kind": "invented", "quote": "Tideways", "detail": "a title for the game\'s name"}]}',
+                    '{"problems": [{"kind": "not_a_message", "quote": "reversed? no", "detail": "unsure"}]}',
+                    '{"problems": []}', "not json"])
     monkeypatch.setattr(G, "cloud_caller", lambda role, **_: lambda system, prompt: next(replies))
     check = G.checker_caller("deepseek")
-    assert check("name: Ana", [], [], "my game Tideways") == ["checker invented: the title Tideways"]
+    assert check("name: Ana", [], [], "my game Tideways") == ['checker invented: "Tideways" a title for the game\'s name']
+    assert check("name: Ana", [], [], "can u remind me friday") == []        # its quote is not in the message
     assert check("name: Ana", [], [], "ok") == []
     assert check("name: Ana", [], [], "ok") == ["checker reply unreadable: JSONDecodeError"]
 
@@ -297,7 +294,7 @@ def test_an_item_said_in_other_words_goes_to_the_checker_and_replies_are_checked
     from experiments.synth import generate as G
     seen = []
 
-    def checker(known, recent, must_say, message, unconfirmed=(), reply=None):
+    def checker(known, recent, must_say, message, unconfirmed=(), reply=None, upcoming=()):
         seen.append("reply" if reply is not None else [i["value"] for i in unconfirmed])
         return []
     items = dict(user=[dict(id="F4", about="passport appointment", value="thursday 10 april 2025 at 9:10am", change="introduce",
@@ -307,3 +304,20 @@ def test_an_item_said_in_other_words_goes_to_the_checker_and_replies_are_checked
     row = G.generate_turn(plan, 1, session, [], items, user_llm=lambda s, p: "passport is 10 April 2025, 9:10",
                           assistant_llm=lambda s, m: "got it", sessions={1: 1, 2: 1, 3: 1}, checker=checker)
     assert row["verified"] and seen == [["thursday 10 april 2025 at 9:10am"], "reply"]
+
+
+
+def test_a_planned_suggestion_has_the_user_ask_about_its_topic_never_its_value():
+    from experiments.synth import generate as G
+    seen = {}
+
+    def user_llm(system, prompt):
+        seen["prompt"] = prompt
+        return "any ideas for a company name?"
+    items = dict(user=[], assistant=[dict(id="F5", about="company name Tidewater Tabletop", value="Tidewater Tabletop",
+                                          change="introduce", status="rejected", paste=False)], quiet=False)
+    plan = dict(id="T", facts=[], persona=dict(name="Ruth"), sessions=[dict(index=1, pairs=3, style="casual", beats=["a"], topics=["t"])])
+    G.generate_turn(plan, 1, plan["sessions"][0], [], items, user_llm=user_llm,
+                    assistant_llm=lambda s, m: "how about Tidewater Tabletop?", sessions={1: 1, 2: 1, 3: 1})
+    assert "ALSO ASK THE ASSISTANT FOR ITS IDEAS ON: company name" in seen["prompt"]
+    assert "Tidewater" not in seen["prompt"]
