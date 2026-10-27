@@ -196,8 +196,10 @@ def assistant_messages(history, notes, user):
 
 
 def drift_problems(plan, turn, user, reply):
-    """A briefed fact restated with an outdated value by the assistant, or a never-again fact
-    reappearing on either side after it was said."""
+    """A never-again fact reappearing on either side after it was said. (An outdated value in a
+    reply is the reply check's call — it may be named as the past: "£1,500 was quoted against the
+    Bishopston flat" stopped S1 here, full run 2026-10-28; presented as current, it is a
+    contradiction the checker flags.)"""
     out = []
     for f in plan["facts"]:
         said = [v for v in f["values"] if v["turn"] < turn]
@@ -206,12 +208,6 @@ def drift_problems(plan, turn, user, reply):
         if never_again(f) and len(norm(f["values"][0]["value"])) >= 4:
             if contains(user, f["values"][0]["value"]) or contains(reply, f["values"][0]["value"]):
                 out.append(f"never-again fact {f['id']} reappeared")
-            continue
-        current = norm(said[-1]["value"])
-        for old in said[:-1]:
-            o = norm(old["value"])
-            if len(o) >= 4 and o not in current and contains(reply, old["value"]):
-                out.append(f"assistant used outdated value of {f['id']}: {old['value']}")
     return out
 
 
@@ -241,6 +237,15 @@ def numbers(text):
     return {n.replace(",", "") for n in NUMBER.findall(text or "")}
 
 
+def on_topic(text, fact, value):
+    """A one-word value ("£900") counts as said only beside its fact's topic (a content word of what
+    it is about): S8 stopped on "£900" said of something other than the furniture budget."""
+    if len(value.split()) >= 2:
+        return True
+    topic = [w for w in re.findall(r"[a-z]{4,}", fact.get("about", "").lower()) if w not in COMMON]
+    return not topic or any(re.search(rf"(?<!\w){w}", norm(text)) for w in topic)
+
+
 def invented_values(plan, turn, user, history):
     """The mechanical checks on a user message: a changing fact's later value before its turn
     (it would undo a planned change); a reply in JSON or naming its instructions; a repeat.
@@ -256,7 +261,7 @@ def invented_values(plan, turn, user, history):
         due_now = {norm(v["value"]) for v in f["values"] if v["turn"] <= turn}
         for v in f["values"][1:]:
             if v["turn"] > turn and norm(v["value"]) not in due_now and (any(c.isdigit() for c in v["value"]) or len(v["value"].split()) >= 2) \
-                    and said(user, v["value"]) and not said(earlier, v["value"]):
+                    and said(user, v["value"]) and not said(earlier, v["value"]) and on_topic(user, f, v["value"]):
                 out.append(f"user said {f['id']}'s later value early: {v['value']}")
     if LEAK.search(user):
         return ["user side echoed its instructions"]

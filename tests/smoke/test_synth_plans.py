@@ -171,7 +171,7 @@ def test_drift_checks_catch_outdated_values_and_reappearing_retention_facts():
     p = plan()
     p["facts"].append(dict(id="F3", about="childhood town", speaker="user", status="decided",
                            values=[dict(turn=4, value="Ostmere", change="introduce")]))
-    assert any("outdated" in x for x in G.drift_problems(p, 35, "ok", "your budget is 2,000 euros"))
+    assert G.drift_problems(p, 35, "ok", "your budget was 2,000 euros before") == []    # the reply check's call now
     assert any("never-again" in x for x in G.drift_problems(p, 40, "back in Ostmere we", "nice"))
     assert G.drift_problems(p, 35, "ok", "your budget is 2,500 euros") == []
     msgs = G.assistant_messages([dict(user=f"u{i}", assistant=f"a{i}") for i in range(12)], "NOTES", "now?")
@@ -403,3 +403,12 @@ def test_future_beats_stay_hidden_and_an_invite_never_names_the_suggestion():
                     dict(user=[], assistant=[], quiet=False), user_llm=user_llm, assistant_llm=lambda s, m: "ok",
                     sessions={t: 1 for t in range(1, 11)})
     assert "drops the cap" not in seen["p"] and "sets the long-run cap at 19 km peak" in seen["p"]
+
+
+
+def test_a_one_word_later_value_is_early_only_beside_its_topic():
+    """S8: "£900" said of something else stopped the conversation; the furniture budget's later £900."""
+    from experiments.synth import generate as G
+    budget = dict(facts=[dict(id="F18", about="furniture budget", values=[dict(turn=195, value="£1,500"), dict(turn=229, value="£900")])])
+    assert G.invented_values(budget, 97, "rent there is about £900 a month", []) == []
+    assert G.invented_values(budget, 200, "furniture can be £900 tops now", [])[0].startswith("user said F18's later value early")
