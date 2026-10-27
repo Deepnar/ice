@@ -31,7 +31,9 @@ import json
 import random
 import re
 import sys
+import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -39,9 +41,13 @@ sys.path.insert(0, str(ROOT))
 
 POLICY = "ice-z2-grade-1"
 JUDGE = "muse"
-OUTPUT_TOKENS = 8_000
+OUTPUT_TOKENS = 16_000        # was 8,000: one answer's claims checked together cut it (2026-10-28)
 MAX_ERRORS = 3
 SEARCH_K = 8
+CLAIM_WORKERS = 4                  # claim checks side by side, like the answers (were one at a time)
+# per call (one answer's claims, B: median 7, at most 23): each claim's best entries and passages
+# taken in turn up to these, so every claim keeps its strongest evidence and no call balloons
+CLAIM_ENTRIES, CLAIM_PASSAGES = 32, 24
 
 GRADE_SYSTEM = """You grade an AI assistant's ANSWER to a user's QUESTION about their own long
 conversation with the assistant. REQUIRED lists what a correct answer must contain (meaning, not
@@ -60,13 +66,13 @@ Return only JSON:
                          not support, copied briefly"],
  "reason": "one sentence"}"""
 
-CLAIM_LEDGER_SYSTEM = """CLAIM is a statement an AI assistant made about a conversation. ENTRIES are
-facts recorded from that conversation. Which entries state CLAIM's content (meaning, not wording)?
-Return only JSON: {"stated_by": ["id", ...]}"""
-
-CLAIM_SOURCE_SYSTEM = """CLAIM is a statement an AI assistant made about a conversation with a user.
-PASSAGES are original messages from that conversation. Does any passage state or directly support
-CLAIM? Return only JSON: {"found": true|false, "passage": <index or null>, "reason": "..."}"""
+# One call per answer, all its claims together (maintainer, 2026-10-28: one or two calls per claim
+# made B's 19,063 claims 19,000-38,000 calls); per claim, the same two questions as before.
+CLAIMS_SYSTEM = """CLAIMS are statements an AI assistant made about a conversation with a user. ENTRIES are
+facts recorded from that conversation; PASSAGES are original messages from it. For EACH claim:
+which entries state its content (meaning, not wording), and does any passage state or directly
+support it? Return only JSON: {"claims": [{"id": "C1", "stated_by": ["E3", ...], "found": true|false,
+"passage": <index or null>}, ...]} — one item for every claim."""
 
 RANK_SYSTEM = """Several ANSWERS respond to the same QUESTION about a user's long conversation with an
 AI assistant. REQUIRED lists what a correct answer must contain; SOURCES are the passages it comes
@@ -177,7 +183,8 @@ def grade_answers(contexts, out, ask, *, say=print):
 
 
 def check_claims(results, contexts, ledger, originals, index, ask, out):
-    """Each unsupported claim: ledger (any status) → originals → verdict, per the maintainer's rules."""
+    """Each unsupported claim: ledger (any status) → originals → verdict, per the maintainer's rules —
+    one judge call per answer (its claims at its checkpoint), answers side by side."""
     import numpy as np
     from experiments.z2.questions import embed
     errors = Errors(out / "claims-errors.json")
@@ -185,47 +192,95 @@ def check_claims(results, contexts, ledger, originals, index, ask, out):
     rows, vectors = index
     vectors = np.asarray(vectors)
     vectors = vectors / (np.linalg.norm(vectors, axis=1, keepdims=True) + 1e-12)
-    verdicts, pending = {}, 0
-    claims = sorted({(c, checkpoint[k]) for k, r in results.items() if r.get("status") == "graded"
-                     for c in r["unsupported_claims"]})
-    claim_vecs = embed([c for c, _ in claims]) if claims else []
-    for (claim, cp), qv in zip(claims, claim_vecs):
-        key = _sha(claim, cp)
-        if key in verdicts or errors.given_up(key):
-            continue
+    # an answer's claims at its checkpoint; identical answers (one prompt in several conditions)
+    # are one group
+    groups = sorted({(checkpoint[k], tuple(sorted(set(r["unsupported_claims"]))))
+                     for k, r in results.items() if r.get("status") == "graded" and r["unsupported_claims"]})
+    write_meter(out, claims=len(groups), claims_estimated=False)
+    texts = sorted({c for _, claims in groups for c in claims})
+    vec = dict(zip(texts, claim_vectors(out, texts, embed))) if texts else {}
+    lock = threading.Lock()
+
+    def passages_for(claim, cp):
+        q = np.asarray(vec[claim]) / (np.linalg.norm(vec[claim]) + 1e-12)
+        within = [i for i, (turn, _, _) in enumerate(rows) if turn <= cp]
+        by_vec = sorted(within, key=lambda i: -float(vectors[i] @ q))[:SEARCH_K]
+        words = [w for w in re.findall(r"[A-Za-z0-9][\w'-]{3,}", claim)][:6]
+        by_word = [i for i in within if words and sum(w.lower() in rows[i][2].lower() for w in words) >= min(3, len(words))][:SEARCH_K]
+        return by_vec + by_word
+
+    def one(group):
+        """{claim key: verdict} for one answer, or "pending" after a failed or incomplete call."""
+        cp, claims = group
+        key = _sha(cp, *claims)
+        if errors.given_up(key):
+            return {}
         try:
             entries = [e for e in ledger if e["valid_from_turn"] <= cp]
-            near = sorted(entries, key=lambda e: -_overlap(claim, e["value"]))[:SEARCH_K]
-            alias = {f"E{i}": e for i, e in enumerate(near, 1)}
-            stated = (ask(CLAIM_LEDGER_SYSTEM, json.dumps(dict(CLAIM=claim, ENTRIES=[dict(id=a, text=e["value"])
-                                                                              for a, e in alias.items()]),
-                                                     ensure_ascii=False)) or {}).get("stated_by") or []
-            hits = [alias[a] for a in stated if a in alias]
-            if any(e.get("usable_for_questions") for e in hits):
-                verdicts[key] = "in_ledger"
-                continue
-            if hits:
-                verdicts[key] = "unconfirmed_source"
-                continue
-            q = np.asarray(qv) / (np.linalg.norm(qv) + 1e-12)
-            within = [i for i, (turn, _, _) in enumerate(rows) if turn <= cp]
-            by_vec = sorted(within, key=lambda i: -float(vectors[i] @ q))[:SEARCH_K]
-            words = [w for w in re.findall(r"[A-Za-z0-9][\w'-]{3,}", claim)][:6]
-            by_word = [i for i in within if words and sum(w.lower() in rows[i][2].lower() for w in words) >= min(3, len(words))][:SEARCH_K]
-            shown = list(dict.fromkeys(by_vec + by_word))
-            passages = [dict(index=n, turn=rows[i][0], role=rows[i][1], text=rows[i][2][:3000])
-                        for n, i in enumerate(shown)]
-            found = (ask(CLAIM_SOURCE_SYSTEM, json.dumps(dict(CLAIM=claim, PASSAGES=passages), ensure_ascii=False))
-                     or {}).get("found") is True
-            verdicts[key] = "ledger_miss" if found else "confirmed_invented"
+            near = in_turn([sorted(range(len(entries)), key=lambda i: -_overlap(c, entries[i]["value"]))[:SEARCH_K]
+                            for c in claims], CLAIM_ENTRIES)
+            alias = {f"E{n}": entries[i] for n, i in enumerate(near, 1)}
+            shown = in_turn([passages_for(c, cp) for c in claims], CLAIM_PASSAGES)
+            ids = {f"C{n}": c for n, c in enumerate(claims, 1)}
+            reply = ask(CLAIMS_SYSTEM, json.dumps(dict(
+                CLAIMS=[dict(id=i, text=c) for i, c in ids.items()],
+                ENTRIES=[dict(id=a, text=e["value"]) for a, e in alias.items()],
+                PASSAGES=[dict(index=n, turn=rows[i][0], role=rows[i][1], text=rows[i][2][:3000]) for n, i in enumerate(shown)]),
+                ensure_ascii=False)) or {}
+            items = {str(item.get("id")): item for item in reply.get("claims") or [] if isinstance(item, dict)}
+            if set(items) < set(ids):                 # every claim must be answered; else retried
+                raise ValueError(f"verdicts for {len(set(items) & set(ids))} of {len(ids)} claims")
+            decided = {}
+            for cid, claim in ids.items():
+                hits = [alias[a] for a in items[cid].get("stated_by") or [] if a in alias]
+                decided[_sha(claim, cp)] = ("in_ledger" if any(e.get("usable_for_questions") for e in hits)
+                                        else "unconfirmed_source" if hits
+                                        else "ledger_miss" if items[cid].get("found") is True else "confirmed_invented")
+            return decided
         except Exception as exc:
-            errors.failed(key, exc)
-            pending += 1
+            with lock:
+                errors.failed(key, exc)
+            return "pending"
+
+    verdicts, pending = {}, 0
+    # answers side by side; every call is durable, so a restart keeps what was checked
+    with ThreadPoolExecutor(max_workers=CLAIM_WORKERS) as pool:
+        for result in pool.map(one, groups):
+            if result == "pending":
+                pending += 1
+            else:
+                verdicts.update(result)
     for k, r in results.items():
         if r.get("status") == "graded":
             r["claims"] = {c: verdicts.get(_sha(c, checkpoint[k]), "pending") for c in r["unsupported_claims"]}
             r["invented"] = sum(v == "confirmed_invented" for v in r["claims"].values())
     return verdicts, pending
+
+
+def in_turn(lists, cap):
+    """Each list's first item, then each one's second, ... — distinct, at most *cap*."""
+    picked = []
+    for rank in range(max((len(x) for x in lists), default=0)):
+        for x in lists:
+            if rank < len(x) and x[rank] not in picked:
+                picked.append(x[rank])
+                if len(picked) == cap:
+                    return picked
+    return picked
+
+
+def claim_vectors(out, texts, embed):
+    """The claims' embeddings, kept in <out>/claim-vectors.npz for a restart (B's 19,063 claims
+    took ~40 CPU minutes to embed)."""
+    import numpy as np
+    path, digest = out / "claim-vectors.npz", hashlib.sha256("\n".join(texts).encode()).hexdigest()
+    if path.exists():
+        saved = np.load(path)
+        if str(saved["digest"]) == digest:
+            return saved["vectors"]
+    vectors = embed(texts)
+    np.savez(path, digest=digest, vectors=vectors)
+    return vectors
 
 
 def _overlap(a, b):
@@ -239,23 +294,24 @@ RANKED = ("full_default", "full", "warm_vector", "bare_vector", "recent_only")
 
 
 def rank(contexts, ask, out, seed_key="rank", ranked=RANKED):
-    """Blind ranking of the distinct answers per question occurrence, in two orders."""
-    errors = Errors(out / "rank-errors.json")
+    """Blind ranking of the distinct answers per question occurrence, in two orders; occurrences
+    side by side (one at a time, B's 348 ranking calls were over an hour)."""
+    errors, lock = Errors(out / "rank-errors.json"), threading.Lock()
     by_ask = {}
     for unit, answer, occ in contexts:
         if (unit["ask"]["kind"] == "question" and occ is not None and answer["finish"] == "complete"
                 and unit["condition"] in ranked):
             by_ask.setdefault(unit["ask"]["id"], (unit, occ, {}))[2][unit["condition"]] = answer["text"]
-    ranks, pending = {}, 0
-    for ask_id, (unit, occ, texts) in sorted(by_ask.items()):
+
+    def one(item):
+        """(ask id, its ranks, pending calls)."""
+        ask_id, (unit, occ, texts) = item
         distinct = sorted(set(texts.values()))
         if len(distinct) < 2:
-            ranks[ask_id] = dict(status="single_answer", conditions=texts and {c: 1 for c in texts})
-            continue
+            return ask_id, dict(status="single_answer", conditions=texts and {c: 1 for c in texts}), 0
         order = sorted(distinct, key=lambda t: _sha(seed_key, ask_id, t))
-        orders = [order, list(reversed(order))]
         got = []
-        for o in orders:
+        for o in (order, list(reversed(order))):
             labels = {chr(65 + i): t for i, t in enumerate(o)}
             body = dict(QUESTION=unit["ask"]["question"], REQUIRED=occ["reference"].get("required", []),
                         SOURCES=sources(occ["reference"]), ANSWERS=[dict(label=l, text=t) for l, t in labels.items()])
@@ -265,53 +321,68 @@ def rank(contexts, ask, out, seed_key="rank", ranked=RANKED):
             try:
                 value = ask(RANK_SYSTEM, json.dumps(body, ensure_ascii=False)) or {}
             except Exception as exc:
-                errors.failed(key, exc)
-                pending += 1
-                break
+                with lock:
+                    errors.failed(key, exc)
+                return ask_id, dict(status="unranked"), 1
             r = value.get("ranks") or {}
             if set(r) != set(labels):
                 break
             got.append({labels[l]: r[l] for l in labels})
         if len(got) != 2:
-            ranks[ask_id] = dict(status="unranked")
-            continue
+            return ask_id, dict(status="unranked"), 0
         mean = {t: (got[0][t] + got[1][t]) / 2 for t in distinct}
-        ranks[ask_id] = dict(status="ranked", order_agreement=got[0] == got[1],
-                             conditions={c: mean[t] for c, t in texts.items()})
+        return ask_id, dict(status="ranked", order_agreement=got[0] == got[1],
+                            conditions={c: mean[t] for c, t in texts.items()}), 0
+
+    ranks, pending = {}, 0
+    with ThreadPoolExecutor(max_workers=CLAIM_WORKERS) as pool:
+        for ask_id, value, failed in pool.map(one, sorted(by_ask.items())):
+            ranks[ask_id] = value
+            pending += failed
     return ranks, pending
 
 
 def controls(contexts, ask, out, baseline="recent_only"):
-    """Each condition's control reply vs recent-only's, blind, both orders."""
-    errors = Errors(out / "control-errors.json")
+    """Each condition's control reply vs recent-only's, blind, both orders; side by side (one at a
+    time, B's 1,630 control calls were over six hours)."""
+    errors, lock = Errors(out / "control-errors.json"), threading.Lock()
     by_ask = {}
     for unit, answer, _ in contexts:
         if unit["ask"]["kind"] == "control" and answer["finish"] == "complete":
             by_ask.setdefault(unit["ask"]["id"], (unit, {}))[1][unit["condition"]] = answer["text"]
-    out_rows, pending = {}, 0
+    jobs = []
     for ask_id, (unit, texts) in sorted(by_ask.items()):
         base = texts.get(baseline)
         for cond, text in texts.items():
-            if cond == baseline or base is None:
-                continue
-            if text == base:
-                out_rows[f"{cond}|{ask_id}"] = "same_reply"
-                continue
-            votes = []
-            for a, b, flip in ((text, base, False), (base, text, True)):
-                body = dict(MESSAGE=unit["ask"]["question"], A=a, B=b)
-                key = _sha(body)
-                if errors.given_up(key):
-                    break
-                try:
-                    v = (ask(CONTROL_SYSTEM, json.dumps(body, ensure_ascii=False)) or {}).get("better")
-                except Exception as exc:
+            if cond != baseline and base is not None:
+                jobs.append((ask_id, unit, cond, text, base))
+
+    def one(job):
+        """(row key, verdict, pending calls)."""
+        ask_id, unit, cond, text, base = job
+        if text == base:
+            return f"{cond}|{ask_id}", "same_reply", 0
+        votes = []
+        for a, b, flip in ((text, base, False), (base, text, True)):
+            body = dict(MESSAGE=unit["ask"]["question"], A=a, B=b)
+            key = _sha(body)
+            if errors.given_up(key):
+                break
+            try:
+                v = (ask(CONTROL_SYSTEM, json.dumps(body, ensure_ascii=False)) or {}).get("better")
+            except Exception as exc:
+                with lock:
                     errors.failed(key, exc)
-                    pending += 1
-                    break
-                votes.append({"A": "B", "B": "A"}.get(v, v) if flip else v)
-            out_rows[f"{cond}|{ask_id}"] = (votes[0] if len(votes) == 2 and votes[0] == votes[1]
-                                            else "tie_or_split" if len(votes) == 2 else "pending")
+                return f"{cond}|{ask_id}", "pending", 1
+            votes.append({"A": "B", "B": "A"}.get(v, v) if flip else v)
+        return f"{cond}|{ask_id}", (votes[0] if len(votes) == 2 and votes[0] == votes[1]
+                                    else "tie_or_split" if len(votes) == 2 else "pending"), 0
+
+    out_rows, pending = {}, 0
+    with ThreadPoolExecutor(max_workers=CLAIM_WORKERS) as pool:
+        for key, verdict, failed in pool.map(one, jobs):
+            out_rows[key] = verdict
+            pending += failed
     return out_rows, pending
 
 
@@ -363,6 +434,44 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
     return result, pending
 
 
+CLAIM_SHARE = 0.73          # B, 2026-10-28: 3,120 of 4,300 graded answers had unsupported claims
+
+
+def planned_calls(contexts, ranked=RANKED, semantic=SEMANTIC_CONDITIONS, baseline="recent_only"):
+    """How many judge calls each phase makes, from the contexts alone (the runner's meter guessed
+    contexts x 1.4 and B needed far more): grading one per distinct (answer, reference); claims
+    estimated until grading is done (then check_claims writes the real count); ranking two orders
+    per question with two or more distinct answers; controls two per condition that differs from
+    the baseline; context precision one per unit with a fragment citing a gold turn."""
+    graded, by_rank, by_control, precision = set(), {}, {}, 0
+    for unit, answer, occ in contexts:
+        kind, done = unit["ask"]["kind"], answer["finish"] == "complete"
+        if kind == "question" and occ is not None and done:
+            ref = occ["reference"]
+            graded.add(_sha(dict(QUESTION=unit["ask"]["question"], REQUIRED=ref.get("required", []), SOURCES=sources(ref),
+                                 SUPERSEDED=ref.get("superseded", []), EXPECT_ABSTENTION=bool(occ.get("expected_abstention")),
+                                 ANSWER=answer["text"])))
+            if unit["condition"] in ranked:
+                by_rank.setdefault(unit["ask"]["id"], set()).add(answer["text"])
+        if kind == "control" and done:
+            by_control.setdefault(unit["ask"]["id"], {})[unit["condition"]] = answer["text"]
+        if kind == "question" and occ is not None and unit["condition"] in semantic:
+            gold = {c.get("turn") for c in occ["reference"].get("citations", [])}
+            precision += any(gold & set(f.get("source_turns") or []) for f in unit["stage"].get("selected") or [])
+    controls_n = sum(2 for texts in by_control.values() for c, t in texts.items()
+                     if c != baseline and texts.get(baseline) is not None and t != texts[baseline])
+    return dict(grade=len(graded), claims=round(len(graded) * CLAIM_SHARE), claims_estimated=True,
+                rank=sum(2 for answers in by_rank.values() if len(answers) >= 2), controls=controls_n, semantic=precision)
+
+
+def write_meter(out, **update):
+    """<out>/meter.json: each phase's judge calls, for run_z2's meter."""
+    path = out / "meter.json"
+    meter = json.loads(path.read_text()) if path.exists() else {}
+    meter.update(update)
+    path.write_text(json.dumps(meter, indent=1) + "\n")
+
+
 def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None, occurrences=None, audit=None,
         replay=None, ranking=True, verdicts_only=False):
     """Grade one history's answers. FINAL passes ranking=False (pre-registration r2 §4 drops the
@@ -373,6 +482,12 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     from experiments.z2.questions import originals_index
     out.mkdir(parents=True, exist_ok=True)
     contexts = load(units, answers, questions, history, occurrences)
+    plan = planned_calls(contexts)
+    if verdicts_only:                              # the cross-family judge: its verdicts only
+        plan.update(claims=0, rank=0, controls=0, semantic=0, claims_estimated=False)
+    elif not ranking:                              # FINAL: no multi-answer ranking (r2 §4)
+        plan.update(rank=0)
+    write_meter(out, **plan)
     graded, p1 = grade_answers(contexts, out, ask)
     if verdicts_only:
         (out / "grades.json").write_text(json.dumps(dict(policy=POLICY, history=history, graded=graded,

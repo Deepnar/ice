@@ -43,33 +43,62 @@ def test_identical_answers_are_graded_once_and_incomplete_is_ungraded(tmp_path):
     assert results["recent_only|f@50#0"]["status"] == "ungraded"
 
 
-def test_claim_chain_separates_ledger_unconfirmed_miss_and_invented(tmp_path):
-    ledger = [dict(id="v", value="the cat sleeps on the sofa", valid_from_turn=3, usable_for_questions=True),
-              dict(id="u", value="the cat is afraid of the vacuum", valid_from_turn=4, usable_for_questions=False)]
-    claims = {"the cat sleeps on the sofa": "ledger", "the cat is afraid of the vacuum": "unconfirmed",
-              "the cat was adopted in spring": "miss", "the cat speaks french": "invented"}
-    results = {f"full|q{i}": dict(status="graded", unsupported_claims=[c]) for i, c in enumerate(claims)}
-    contexts = [(dict(condition="full", checkpoint=50, ask=dict(id=f"q{i}")), None, None) for i in range(4)]
-    rows = [(t, "user", f"message {t}") for t in range(1, 6)]
-    index = (rows, np.eye(5))
+LEDGER = [dict(id="v", value="the cat sleeps on the sofa", valid_from_turn=3, usable_for_questions=True),
+          dict(id="u", value="the cat is afraid of the vacuum", valid_from_turn=4, usable_for_questions=False)]
+CLAIMS = {"the cat sleeps on the sofa": "ledger", "the cat is afraid of the vacuum": "unconfirmed",
+          "the cat was adopted in spring": "miss", "the cat speaks french": "invented"}
 
-    def route(system, body):
-        if system is G.CLAIM_LEDGER_SYSTEM:
-            want = claims[body["CLAIM"]]
-            hit = {"ledger": "the cat sleeps on the sofa", "unconfirmed": "the cat is afraid of the vacuum"}.get(want)
-            return dict(stated_by=[e["id"] for e in body["ENTRIES"] if e["text"] == hit])
-        return dict(found=claims[body["CLAIM"]] == "miss")
 
+def batched(system, body):
+    """A judge for CLAIMS_SYSTEM: per claim, the entries stating it and whether a passage does."""
+    assert system is G.CLAIMS_SYSTEM
+    hit = {"ledger": "the cat sleeps on the sofa", "unconfirmed": "the cat is afraid of the vacuum"}
+    out = []
+    for c in body["CLAIMS"]:
+        want = CLAIMS[c["text"]]
+        out.append(dict(id=c["id"], stated_by=[e["id"] for e in body["ENTRIES"] if e["text"] == hit.get(want)],
+                        found=want == "miss"))
+    return dict(claims=out)
+
+
+def check(results, contexts, judge, tmp_path):
     import experiments.z2.questions as Q
     original = Q.embed
     Q.embed = lambda texts, device="cpu": np.ones((len(texts), 5))
     try:
-        G.check_claims(results, contexts, ledger, None, index, Judge(route), tmp_path)
+        return G.check_claims(results, contexts, LEDGER, None, ([(t, "user", f"message {t}") for t in range(1, 6)], np.eye(5)),
+                              judge, tmp_path)
     finally:
         Q.embed = original
+
+
+def test_claim_chain_separates_ledger_unconfirmed_miss_and_invented(tmp_path):
+    results = {f"full|q{i}": dict(status="graded", unsupported_claims=[c]) for i, c in enumerate(CLAIMS)}
+    contexts = [(dict(condition="full", checkpoint=50, ask=dict(id=f"q{i}")), None, None) for i in range(4)]
+    check(results, contexts, Judge(batched), tmp_path)
     got = [list(results[f"full|q{i}"]["claims"].values())[0] for i in range(4)]
     assert got == ["in_ledger", "unconfirmed_source", "ledger_miss", "confirmed_invented"]
     assert [results[f"full|q{i}"]["invented"] for i in range(4)] == [0, 0, 0, 1]
+
+
+def test_one_call_per_answer_and_identical_answers_share_it(tmp_path):
+    """All of an answer's claims in one call (was one or two per claim: B's 19,063 claims); the
+    same answer in another condition at the same checkpoint costs nothing more."""
+    both = dict(status="graded", unsupported_claims=list(CLAIMS))
+    results = {"full|q0": dict(both), "warm_vector|q0": dict(both, unsupported_claims=list(reversed(CLAIMS)))}
+    contexts = [(dict(condition=c, checkpoint=50, ask=dict(id="q0")), None, None) for c in ("full", "warm_vector")]
+    judge = Judge(batched)
+    check(results, contexts, judge, tmp_path)
+    assert len(judge.calls) == 1 and len(judge.calls[0][1]["CLAIMS"]) == 4
+    assert results["full|q0"]["invented"] == results["warm_vector|q0"]["invented"] == 1
+
+
+def test_a_reply_missing_a_claim_is_retried_never_filled_in(tmp_path):
+    results = {"full|q0": dict(status="graded", unsupported_claims=list(CLAIMS))}
+    contexts = [(dict(condition="full", checkpoint=50, ask=dict(id="q0")), None, None)]
+    short = lambda system, body: dict(claims=batched(system, body)["claims"][:2])
+    verdicts, pending = check(results, contexts, Judge(short), tmp_path)
+    assert pending == 1 and not verdicts and set(results["full|q0"]["claims"].values()) == {"pending"}
 
 
 def test_ranking_runs_both_orders_and_maps_back_to_conditions(tmp_path):
@@ -129,3 +158,34 @@ def test_semantic_credit_judges_only_fragments_citing_gold_turns(tmp_path):
     assert result["full|f@50#0"] == dict(gold_fragments=1, items=1, items_carried=1,
                                          carried_by_kind={"0": ["facts"]}, wrong=0,
                                          fragments_total=2, fragments_carrying=1)
+
+
+def test_claim_vectors_are_kept_for_a_restart(tmp_path):
+    """B's 19,063 claims took ~40 CPU minutes to embed: a restart reuses them; other claims re-embed."""
+    import numpy as np
+    from experiments.z2 import grade as G
+    calls = []
+    embed = lambda texts: calls.append(len(texts)) or np.ones((len(texts), 3), dtype="float32")
+    first = G.claim_vectors(tmp_path, ["a", "b"], embed)
+    again = G.claim_vectors(tmp_path, ["a", "b"], embed)
+    other = G.claim_vectors(tmp_path, ["a", "c", "d"], embed)
+    assert calls == [2, 3] and first.shape == again.shape == (2, 3) and other.shape == (3, 3)
+
+
+
+def test_evidence_is_taken_in_turn_and_capped():
+    assert G.in_turn([[1, 2, 3], [4, 5], [1, 6]], 4) == [1, 4, 2, 5]
+    assert G.in_turn([[1], [1]], 5) == [1]
+
+
+def test_planned_calls_count_each_phase_and_claims_replace_the_estimate(tmp_path):
+    contexts = [ctx("full", "f@50#0", "Tofu."), ctx("warm_vector", "f@50#0", "Tofu."),
+                ctx("bare_vector", "f@50#0", "Miso."), ctx("recent_only", "f@50#0", "", finish="incomplete")]
+    for unit, _, _ in contexts:
+        unit["stage"] = dict(selected=[])
+    plan = G.planned_calls(contexts)
+    assert plan["grade"] == 2 and plan["rank"] == 2 and plan["claims_estimated"]      # Tofu./Miso.: two to grade, rank twice
+    G.write_meter(tmp_path, **plan)
+    G.write_meter(tmp_path, claims=7, claims_estimated=False)
+    meter = json.loads((tmp_path / "meter.json").read_text())
+    assert meter["claims"] == 7 and meter["grade"] == 2 and not meter["claims_estimated"]
