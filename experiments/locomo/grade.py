@@ -23,6 +23,7 @@ Durable: one row per context in <out>/locomo-grades.jsonl and one cached judge c
 import argparse
 import collections
 import contextlib
+import hashlib
 import json
 import statistics
 import sys
@@ -162,14 +163,16 @@ def main() -> int:
     load_selected_env()
     generate, meta = generator(args.judge).generate, metadata(args.judge)
     calls = M.Calls(args.out / "locomo-raw.jsonl")
+    # one provider session per conversation, as the other judges keep one per history: the prompt's
+    # fixed preamble can then be served from the provider's cache (the prompt itself is unchanged)
+    session = f"ice-final-locomo-{hashlib.sha256(str(args.out.resolve()).encode()).hexdigest()[:16]}"
 
     def judge(prompt):
-        import hashlib
         identity = hashlib.sha256(json.dumps(dict(policy=POLICY, meta=meta, prompt=prompt), sort_keys=True).encode()).hexdigest()
 
         def call():
             result = generate([{"role": "user", "content": prompt}], temperature=0, max_output_tokens=2000,
-                              session_id=f"ice-final-locomo-{identity[:16]}")
+                              session_id=session)
             return result.text, result.usage
         return calls.get(identity, call)["text"]
 
