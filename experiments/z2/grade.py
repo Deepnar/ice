@@ -31,7 +31,9 @@ import json
 import random
 import re
 import sys
+import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -42,6 +44,7 @@ JUDGE = "muse"
 OUTPUT_TOKENS = 8_000
 MAX_ERRORS = 3
 SEARCH_K = 8
+CLAIM_WORKERS = 4                  # claim checks side by side, like the answers (were one at a time)
 
 GRADE_SYSTEM = """You grade an AI assistant's ANSWER to a user's QUESTION about their own long
 conversation with the assistant. REQUIRED lists what a correct answer must contain (meaning, not
@@ -187,11 +190,15 @@ def check_claims(results, contexts, ledger, originals, index, ask, out):
     verdicts, pending = {}, 0
     claims = sorted({(c, checkpoint[k]) for k, r in results.items() if r.get("status") == "graded"
                      for c in r["unsupported_claims"]})
-    claim_vecs = embed([c for c, _ in claims]) if claims else []
-    for (claim, cp), qv in zip(claims, claim_vecs):
+    claim_vecs = claim_vectors(out, [c for c, _ in claims], embed) if claims else []
+    lock = threading.Lock()
+
+    def one(item):
+        """(key, verdict), or "pending" after a failed call (retried on the next run)."""
+        (claim, cp), qv = item
         key = _sha(claim, cp)
-        if key in verdicts or errors.given_up(key):
-            continue
+        if errors.given_up(key):
+            return None
         try:
             entries = [e for e in ledger if e["valid_from_turn"] <= cp]
             near = sorted(entries, key=lambda e: -_overlap(claim, e["value"]))[:SEARCH_K]
@@ -201,11 +208,9 @@ def check_claims(results, contexts, ledger, originals, index, ask, out):
                                                      ensure_ascii=False)) or {}).get("stated_by") or []
             hits = [alias[a] for a in stated if a in alias]
             if any(e.get("usable_for_questions") for e in hits):
-                verdicts[key] = "in_ledger"
-                continue
+                return key, "in_ledger"
             if hits:
-                verdicts[key] = "unconfirmed_source"
-                continue
+                return key, "unconfirmed_source"
             q = np.asarray(qv) / (np.linalg.norm(qv) + 1e-12)
             within = [i for i, (turn, _, _) in enumerate(rows) if turn <= cp]
             by_vec = sorted(within, key=lambda i: -float(vectors[i] @ q))[:SEARCH_K]
@@ -216,15 +221,39 @@ def check_claims(results, contexts, ledger, originals, index, ask, out):
                         for n, i in enumerate(shown)]
             found = (ask(CLAIM_SOURCE_SYSTEM, json.dumps(dict(CLAIM=claim, PASSAGES=passages), ensure_ascii=False))
                      or {}).get("found") is True
-            verdicts[key] = "ledger_miss" if found else "confirmed_invented"
+            return key, ("ledger_miss" if found else "confirmed_invented")
         except Exception as exc:
-            errors.failed(key, exc)
-            pending += 1
+            with lock:
+                errors.failed(key, exc)
+            return "pending"
+
+    # side by side (maintainer, 2026-10-28: B's 19,063 claims, one at a time at ~14 s a call, were
+    # days of work); every call is durable, so a restart keeps what was checked
+    with ThreadPoolExecutor(max_workers=CLAIM_WORKERS) as pool:
+        for result in pool.map(one, zip(claims, claim_vecs)):
+            if result == "pending":
+                pending += 1
+            elif result:
+                verdicts[result[0]] = result[1]
     for k, r in results.items():
         if r.get("status") == "graded":
             r["claims"] = {c: verdicts.get(_sha(c, checkpoint[k]), "pending") for c in r["unsupported_claims"]}
             r["invented"] = sum(v == "confirmed_invented" for v in r["claims"].values())
     return verdicts, pending
+
+
+def claim_vectors(out, texts, embed):
+    """The claims' embeddings, kept in <out>/claim-vectors.npz for a restart (B's 19,063 claims
+    took ~40 CPU minutes to embed)."""
+    import numpy as np
+    path, digest = out / "claim-vectors.npz", hashlib.sha256("\n".join(texts).encode()).hexdigest()
+    if path.exists():
+        saved = np.load(path)
+        if str(saved["digest"]) == digest:
+            return saved["vectors"]
+    vectors = embed(texts)
+    np.savez(path, digest=digest, vectors=vectors)
+    return vectors
 
 
 def _overlap(a, b):

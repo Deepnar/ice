@@ -129,3 +129,15 @@ def test_semantic_credit_judges_only_fragments_citing_gold_turns(tmp_path):
     assert result["full|f@50#0"] == dict(gold_fragments=1, items=1, items_carried=1,
                                          carried_by_kind={"0": ["facts"]}, wrong=0,
                                          fragments_total=2, fragments_carrying=1)
+
+
+def test_claim_vectors_are_kept_for_a_restart(tmp_path):
+    """B's 19,063 claims took ~40 CPU minutes to embed: a restart reuses them; other claims re-embed."""
+    import numpy as np
+    from experiments.z2 import grade as G
+    calls = []
+    embed = lambda texts: calls.append(len(texts)) or np.ones((len(texts), 3), dtype="float32")
+    first = G.claim_vectors(tmp_path, ["a", "b"], embed)
+    again = G.claim_vectors(tmp_path, ["a", "b"], embed)
+    other = G.claim_vectors(tmp_path, ["a", "c", "d"], embed)
+    assert calls == [2, 3] and first.shape == again.shape == (2, 3) and other.shape == (3, 3)
