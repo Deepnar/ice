@@ -794,6 +794,13 @@ def meter(ctx, note=None):
     return "\n".join(lines)
 
 
+# Experiment runs keep their local models loaded for the whole run (maintainer, 2026-10-28: the
+# models fit the 24 GB card together; no unloading and reloading between turns). ICE's own default
+# — unload the background model once its queue drains — stays for real use; every stage this
+# runner starts inherits the switch.
+os.environ.setdefault("BG_RELEASE_AFTER_DRAIN", "false")
+
+
 def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs="logs/z2-run-<name>") -> int:
     """The runner CLI. FINAL reuses it with its own stage list, run folder and help text
     (experiments/final/run_final.py)."""
