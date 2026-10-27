@@ -110,3 +110,20 @@ def test_final_presets_and_sealed_asks(tmp_path):
     final = {a["id"].split("@")[0] for a in R.build_final_asks(tmp_path, tmp_path / "occ.json")}
     z2 = {a["id"].split("@")[0] for a in R.build_asks(tmp_path, tmp_path / "occ.json")}
     assert final and z2 and not final & z2 and len(final | z2) == 40
+
+
+def test_long_context_in_time_order_with_one_shared_start_per_checkpoint():
+    """Older history before the recent turns, every question at a checkpoint starting at the
+    same chunk (the latest of their own fills), each still within its own room."""
+    recent = dict(prompt_messages=[dict(role="system", content="S"), dict(role="user", content="r"),
+                                   dict(role="assistant", content="ok"), dict(role="user", content="Q?")])
+    chosen = [(Chunk(1, "user", 0, 5, "hello"), None)]
+    messages = R.time_order_messages(recent, chosen, "Q?")
+    assert [m["content"] for m in messages] == ["S", f"{R.CONTEXT_HEADER}\n[User, turn 1] hello", R.CONTEXT_ACK,
+                                                "r", "ok", "Q?"]
+    chunks = [Chunk(t, role, 0, 10, f"m{t}{role[0]}") for t in range(1, 7) for role in ("user", "assistant")]
+    ordered = sorted(chunks, key=lambda c: (c.turn, c.role != "user"))
+    plans = {"a": (ordered[:10], 6), "b": (ordered[:8], 7)}        # a: turns 1-5, room 6; b: turns 1-4, room 7
+    shared = R.shared_long_context(plans, lambda text: 1)
+    assert shared["a"][0][0] is shared["b"][0][0] is ordered[4]    # a's own fill starts at chunk 4, b's at 1
+    assert len(shared["a"]) <= 6 and len(shared["b"]) <= 7

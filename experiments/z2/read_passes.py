@@ -255,6 +255,59 @@ def bare_messages(recent_stage, chosen, question):
     return messages[:-1] + evidence + messages[-1:]
 
 
+def time_order_messages(recent_stage, chosen, question):
+    """Long context and full history (maintainer, 2026-10-28): the conversation in time order —
+    recent_only's system message, the older history as one block, recent_only's recent turns,
+    the question. Every question at a checkpoint then shares the long start, which the provider
+    serves from its cache (bare vector keeps ICE's evidence position: bare_messages)."""
+    messages = copy.deepcopy(recent_stage["prompt_messages"])
+    assert messages[0]["role"] == "system" and messages[-1]["role"] == "user"
+    block = "\n\n".join(chunk.render() for chunk, _ in chosen)
+    evidence = [{"role": "user", "content": f"{CONTEXT_HEADER}\n{block}"},
+                {"role": "assistant", "content": CONTEXT_ACK}] if chosen else []
+    return messages[:1] + evidence + messages[1:]
+
+
+def shared_long_context(plans, count, shift=0):
+    """{ask id: chosen chunks} for one checkpoint's questions: each starts at the same chunk — the
+    latest of their own newest-first fills — so each still fits its budget and all share a start.
+    *plans* maps ask id -> (its older chunks oldest first, its room); older chunks of one history
+    are prefixes of each other, so a position names the same chunk in every list."""
+    starts = []
+    for chunks, room in plans.values():
+        fill, _ = long_context_chunks(chunks, max(0, room), count)
+        starts.append(len(chunks) - len(fill))
+    start = max(starts, default=0) + shift
+    return {ask: [(c, None) for c in chunks[start:]] for ask, (chunks, _) in plans.items()}
+
+
+def long_context_stages(history, checkpoint, recents, originals, count):
+    """{ask id: long_context stage} for one checkpoint's questions, from each one's recent_only
+    stage: time order, one shared start, one cache session per checkpoint."""
+    from experiments.v3_repair.bare_vector import chunk_turns
+    plans = {}
+    for ask_id, recent in recents.items():
+        recent_from = checkpoint - sum(1 for m in recent["prompt_messages"][:-1] if m["role"] == "assistant") + 1
+        chunks = sorted(chunk_turns([r for r in originals if r["turn_number"] < recent_from], None),
+                        key=lambda c: (c.turn, c.role != "user"))
+        plans[ask_id] = (chunks, LONG_CONTEXT_PROMPT_TOKENS - sum(count(m["content"]) for m in recent["prompt_messages"]))
+    # The chunks' own counts leave out the block's header, its reply and the joins (B, 2026-10-28:
+    # 256,274 tokens at most): the shared start moves on a chunk at a time until every prompt fits.
+    shift = 0
+    while True:
+        shared = shared_long_context(plans, count, shift)
+        stages = {ask_id: dict(prompt_messages=time_order_messages(recents[ask_id], chosen, None),
+                               long_context_budget=plans[ask_id][1],
+                               selected_tokens=sum(count(c.render()) for c, _ in chosen),
+                               cache_session=f"ice-final-long-{history}-{checkpoint}",
+                               selected=[dict(turn=c.turn, role=c.role) for c, _ in chosen])
+                  for ask_id, chosen in shared.items()}
+        if all(sum(count(m["content"]) for m in s["prompt_messages"]) <= LONG_CONTEXT_PROMPT_TOKENS
+               or not s["selected"] for s in stages.values()):
+            return stages
+        shift += 1
+
+
 class Reader:
     """Loads the models once; reads one ask under one ICE condition."""
 
@@ -515,6 +568,17 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
             for name, spec in conditions.items():
                 if not spec.get("bare"):
                     continue
+                if spec.get("long"):                    # every applicable question sets the shared start
+                    recents = {ask["id"]: json.loads(unit_path(out, "recent_only", ask["id"]).read_text())["stage"]
+                               for ask in group if applies(spec, ask, guard)}
+                    built = long_context_stages(history, cp, recents, originals, tokens.count)
+                    for ask in group:
+                        path = unit_path(out, name, ask["id"])
+                        if ask["id"] in built and not path.exists():
+                            write_unit(path, dict(policy=POLICY, history=history, condition=name, ask=ask,
+                                                  checkpoint=cp, question_time=now, decay_overlay="none",
+                                                  stage=built[ask["id"]]))
+                    continue
                 for ask in group:
                     path = unit_path(out, name, ask["id"])
                     if not applies(spec, ask, guard) or path.exists():
@@ -522,15 +586,6 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                     recent = json.loads(unit_path(out, "recent_only", ask["id"]).read_text())["stage"]
                     recent_from = cp - sum(1 for m in recent["prompt_messages"][:-1] if m["role"] == "assistant") + 1
                     chunks = chunk_turns([r for r in originals if r["turn_number"] < recent_from], None)
-                    if spec.get("long"):
-                        room = LONG_CONTEXT_PROMPT_TOKENS - sum(tokens.count(m["content"]) for m in recent["prompt_messages"])
-                        chosen, used = long_context_chunks(chunks, max(0, room), tokens.count)
-                        write_unit(path, dict(policy=POLICY, history=history, condition=name, ask=ask,
-                                              checkpoint=cp, question_time=now, decay_overlay="none",
-                                              stage=dict(prompt_messages=bare_messages(recent, chosen, ask["question"]),
-                                                         long_context_budget=room, selected_tokens=used,
-                                                         selected=[dict(turn=c.turn, role=c.role) for c, _ in chosen])))
-                        continue
                     budget = spec.get("budget") or full_budget.get(ask["id"])
                     if not budget:
                         raise ValueError(f"{ask['id']}: full ICE recorded no retrieval budget to match")

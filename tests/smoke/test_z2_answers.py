@@ -130,3 +130,25 @@ def test_allowance_projects_each_stage_from_measured_answers(tmp_path):
     out = []
     grand = W.report(tmp_path, totals={"s10-B": 100, "s10-C": 10, "s12-answers": 0}, say=out.append)
     assert abs(grand - 0.002 * 110) < 1e-9 and "s10-B" in out[0] and "from the other stages" in out[1]
+
+
+def test_prompts_sharing_a_cache_session_run_in_order_on_one_worker(tmp_path):
+    """FINAL long context: one session per checkpoint; the group's first call fills the cache,
+    the rest follow it on the same worker while other groups run beside it."""
+    import threading
+    for i in range(3):
+        for cp in (10, 20):
+            R.write_unit(R.unit_path(tmp_path / "s9", "long_context", f"q{i}@{cp}"),
+                         dict(condition="long_context", ask=dict(id=f"q{i}@{cp}"),
+                              stage=dict(prompt_messages=[dict(role="user", content=f"history {cp} / q{i}")],
+                                         cache_session=f"ice-final-long-H-{cp}")))
+    seen = []
+
+    def gen(messages, *, session_id, **_):
+        seen.append((session_id, threading.get_ident(), messages[0]["content"]))
+        return NS(text="ans", usage={})
+    status = A.run(tmp_path / "s9", tmp_path / "s10", generate=gen, meta={}, say=lambda *_: None, workers=2)
+    assert status["answered"] == 6
+    for cp in (10, 20):
+        group = [s for s in seen if s[0] == f"ice-final-long-H-{cp}"]
+        assert len(group) == 3 and len({thread for _, thread, _ in group}) == 1

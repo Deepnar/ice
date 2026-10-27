@@ -6,12 +6,13 @@ the answerer, Muse 1.2, answers every question from the ENTIRE conversation, wit
 model, so the comparison with ICE and long context on the same questions comes straight from
 BEAM's main grades — nothing is answered twice.
 
-Built exactly like the long_context condition (experiments/z2/read_passes.py): recent_only's
-envelope for the same question, the older history rendered as the same chunks in the evidence
-position — every chunk, where long_context keeps only the newest that fit its budget. All of a
-conversation's prompts share one cache session, so the provider can reuse the cached
-transcript across its questions. A prompt that would not fit WINDOW with the output cap is
-recorded in too-long.json, never truncated.
+Built exactly like the long_context condition (experiments/z2/read_passes.py): the conversation
+in time order — recent_only's system message, the older history as the same chunks, recent_only's
+recent turns, the question — with every older chunk from the first turn, where long_context keeps
+a shared newest window. Every question's prompt so starts with the same transcript, and all of a
+conversation's prompts share one cache session, so the provider serves that start from its cache
+after the first question. A prompt that would not fit WINDOW with the output cap is recorded in
+too-long.json, never truncated.
 
     uv run --no-sync python experiments/final/full_history.py --history BEAM-500K-<id> \
         --read logs/final-run-main/local-read-BEAM-500K-<id> --out logs/final-run-main/upper-read-BEAM-500K-<id> \
@@ -26,18 +27,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-POLICY = "ice-final-full-history-1"
+POLICY = "ice-final-full-history-2"            # 2: time order (2026-10-28)
 OUTPUT_RESERVE = 16_000            # answers.py's output cap for the cloud answerer
 
 
 def full_messages(recent_stage, originals, question, checkpoint):
-    """recent_only's envelope with every older turn as long_context's chunks, oldest first."""
+    """The whole conversation in time order: every older turn as long_context's chunks, oldest
+    first, before recent_only's recent turns."""
     from experiments.v3_repair.bare_vector import chunk_turns
-    from experiments.z2.read_passes import bare_messages
+    from experiments.z2.read_passes import time_order_messages
     recent_from = checkpoint - sum(1 for m in recent_stage["prompt_messages"][:-1] if m["role"] == "assistant") + 1
     chunks = chunk_turns([r for r in originals if r["turn_number"] < recent_from], None)
     chosen = [(c, None) for c in sorted(chunks, key=lambda c: (c.turn, c.role != "user"))]
-    return bare_messages(recent_stage, chosen, question), chosen
+    return time_order_messages(recent_stage, chosen, question), chosen
 
 
 def build(history, read_dir, out_dir, window, count=None):

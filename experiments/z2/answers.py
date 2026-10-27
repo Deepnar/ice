@@ -290,8 +290,14 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
         except Exception as exc:                  # this prompt only; retried next attempt
             store.failed(sha, exc)
 
+    # Prompts sharing a cache session (FINAL: long context per checkpoint, full history per
+    # conversation) run in order on one worker, groups side by side: every worker stays busy and
+    # each prompt after a group's first finds the shared start already in the provider's cache.
+    groups = {}
+    for sha in todo:
+        groups.setdefault(sessions.get(sha) or sha, []).append(sha)
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        list(pool.map(work, todo))
+        list(pool.map(lambda members: [work(sha) for sha in members], groups.values()))
     (out / "index.json").write_text(json.dumps(dict(policy=POLICY, index=index), indent=1))
     pending = [s for s in prompts if not store.settled(s)]
     status = dict(contexts=len(units), prompts=len(prompts), answered=sum(1 for s in prompts if s in store.rows),

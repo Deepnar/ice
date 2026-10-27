@@ -1,4 +1,4 @@
-"""FINAL's full-history upper bound: long_context's construction with every older turn, one
+"""FINAL's full-history upper bound: long_context's time-order construction with every older turn, one
 cache session per conversation, nothing else re-answered (every condition shares the answerer),
 and a prompt over the window recorded, never truncated."""
 
@@ -31,7 +31,8 @@ def test_whole_history_in_long_contexts_envelope(tmp_path, monkeypatch):
     unit = json.loads(R.unit_path(out, "full_history", "q1").read_text())
     msgs = unit["stage"]["prompt_messages"]
     evidence = next(m["content"] for m in msgs if m["content"].startswith(R.CONTEXT_HEADER))
-    assert [m["role"] for m in msgs][-3:] == ["user", "assistant", "user"]           # evidence, ack, question
+    assert msgs[1]["content"].startswith(R.CONTEXT_HEADER) and msgs[2]["content"] == R.CONTEXT_ACK  # time order:
+    assert [m["content"] for m in msgs[3:]] == ["user says 6", "assistant says 6", "what did I say first?"]  # then recent
     assert all(f"says {t}" in evidence for t in range(1, 6)) and "turn 6]" not in evidence   # 6 is in the recent window
     assert evidence.index("turn 1]") < evidence.index("turn 5]")                              # oldest first
     assert unit["stage"]["cache_session"] == "ice-final-upper-BEAM-100K-x"
