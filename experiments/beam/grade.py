@@ -58,6 +58,7 @@ def run(units_dir, answers_dir, asks_path, out, judge):
         return dict(key=key, condition=unit["condition"], type=ask["type"], status="graded",
                     **score(ask, answer["text"], judge))
 
+    (out / "meter.json").write_text(json.dumps(dict(answers=len([j for j in todo if j[3] is not None])), indent=1) + "\n")
     # answers side by side (one at a time, FINAL's ~1,600 BEAM answers were hours); one writer
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         for row in pool.map(one, [j for j in todo if j[0] not in done and j[3] is not None]):

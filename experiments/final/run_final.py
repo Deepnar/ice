@@ -367,11 +367,26 @@ class FinalGrade(Z.Stage):
     def out(self, ctx):
         return ctx.dir / self.key
 
+    # the grader's own count of its work (meter.json: grade.py's judge calls per phase, or the
+    # BEAM / LoCoMo graders' answers); done is what its durable results file holds
+    PHASES = ("grade", "claims", "rank", "controls", "semantic", "answers")
+    RESULTS = ("grade-raw.jsonl", "beam-grades.jsonl", "locomo-grades.jsonl")
+
     def total(self, ctx):
-        return 1
+        meter = self.out(ctx) / "meter.json"
+        if not meter.exists():
+            return 1
+        m = json.loads(meter.read_text())
+        return max(1, sum(m.get(k, 0) for k in self.PHASES))
 
     def done(self, ctx):
-        return int(self.complete(ctx))
+        if self.complete(ctx):
+            return self.total(ctx)
+        for name in self.RESULTS:
+            path = self.out(ctx) / name
+            if path.exists():
+                return min(sum(1 for line in path.open() if line.strip()), self.total(ctx))
+        return 0
 
     def complete(self, ctx):
         status = self.out(ctx) / "status.json"

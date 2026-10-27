@@ -125,6 +125,7 @@ def run(units_dir, answers_dir, occurrences_path, out, judge, *, say=print):
         return dict(key=key, condition=unit["condition"], category=o["type"], status="graded", j=j,
                     f1=round(f1(answer["text"], gold), 4), bleu1=round(bleu1(answer["text"], gold), 4))
 
+    (out / "meter.json").write_text(json.dumps(dict(answers=len([j for j in todo if j[3] is not None])), indent=1) + "\n")
     # answers side by side (one at a time, FINAL's ~10,800 LoCoMo answers were ~40 hours); one writer
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         for row in pool.map(one, [j for j in todo if j[0] not in done and j[3] is not None]):
