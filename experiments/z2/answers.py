@@ -301,13 +301,24 @@ _PROMPTS = {}
 
 
 def prompt_set(units_dir):
-    """Distinct prompt hashes of an S9 directory, re-read only when its unit files change
-    (the runner's meter asks every few seconds; S9 B alone is ~7 GB of unit JSON)."""
+    """Distinct prompt hashes of an S9 directory, re-read only when its unit files change (the
+    runner's meter asks every few seconds; S9 B alone is ~7 GB of unit JSON). Kept on disk too
+    (<units_dir>/prompt-set.json, keyed by the files' count and newest time): every fresh `status`
+    and every runner start re-read all ~7 GB of B to draw a finished stage's meter (2026-10-28:
+    a RAM spike that lagged the laptop)."""
     paths = sorted(Path(units_dir).glob("units/*/*.json")) if Path(units_dir).exists() else []
-    key = (len(paths), max((p.stat().st_mtime for p in paths), default=0))
+    key = [len(paths), max((p.stat().st_mtime for p in paths), default=0)]
     cached = _PROMPTS.get(str(units_dir))
     if cached is None or cached[0] != key:
-        cached = _PROMPTS[str(units_dir)] = (key, {prompt_sha(m) for _, _, m in load_units(units_dir)})
+        disk = Path(units_dir) / "prompt-set.json"
+        saved = json.loads(disk.read_text()) if disk.exists() else None
+        if saved and saved.get("key") == key:
+            cached = (key, set(saved["prompts"]))
+        else:
+            cached = (key, {prompt_sha(m) for _, _, m in load_units(units_dir)})
+            if paths:
+                disk.write_text(json.dumps(dict(key=key, prompts=sorted(cached[1]))) + "\n")
+        _PROMPTS[str(units_dir)] = cached
     return cached[1]
 
 

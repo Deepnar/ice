@@ -127,6 +127,10 @@ def load(units_dir, answers_dir, questions_dir, history):
         answer = rows.get(sha)
         if answer is None:
             continue
+        # grading reads only the selected fragments of a stage (context precision); the rest —
+        # candidates per leg, ranked and budgeted lists, the prompt, ~900 KB a unit — is the
+        # report's, which loads units on its own: kept, it took the grader to ~16 GB on B (2026-10-28)
+        unit["stage"] = {"selected": (unit.get("stage") or {}).get("selected") or []}
         out.append((unit, answer, occ.get(unit["ask"]["id"])))
     return out
 
