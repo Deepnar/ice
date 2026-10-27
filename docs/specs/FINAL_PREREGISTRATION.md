@@ -65,7 +65,23 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   after correction; a loss is reported as plainly.
 - **Detectable difference:** each dataset states, before running, the smallest difference its
   question count can detect (≈ 6–8 points at ~300 paired questions); smaller differences are
-  reported as "no detectable difference", never as a tie.
+  reported as "no detectable difference", never as a tie. Stated 2026-10-27 (McNemar, 80% power,
+  5% two-sided, 20% of pairs assumed to disagree; `scoring.detectable`), in points:
+
+  | dataset | questions | all (P2) | Holm-worst (4 tests) | out-of-window, if 60% (P1) |
+  |---|---|---|---|---|
+  | B (sealed: 64 families; seal not opened, ≈2.3 asks each) | ≈147 | 10.2 | 12.2 | 13.2 |
+  | A / D (planned) | ≈131 / ≈113 | 10.8 / 11.7 | 12.9 / 13.9 | 14.0 / 15.0 |
+  | SW / LAP (planned) | ≈58 / ≈45 | 16.1 / 18.2 | 19.1 / >20 | >20 / >20 |
+  | synthetic S1–S9 (S8 is S1's twin, not counted) | 1,044 | 3.9 | 4.6 | 5.0 |
+  | BEAM (128K 400 · 500K 200 · 1M 200) | 800 | 4.4 | 5.3 | 5.7 |
+  | LongMemEval-S | 100 | 12.4 | 14.7 | 15.9 |
+  | LoCoMo, categories 1–4 (no out-of-window questions) | 1,540 | 3.2 | 3.8 | — |
+
+  Recomputed from the real counts (and the real out-of-window share) before the first answer;
+  private counts follow their question chain. ⚑ **Proposed, awaiting the maintainer:** a dataset
+  whose detectable difference exceeds 15 points (SW, LAP; LongMemEval-S's out-of-window test)
+  reports its numbers without a win/loss verdict.
 - **Hallucination non-inferiority:** ICE's rates of (i) unsupported claims, (ii) confident answers
   to never-said questions, (iii) outdated values, (iv) attribution mix-ups are not worse than
   `bare_vector`'s by more than 2 points (upper interval bound).
