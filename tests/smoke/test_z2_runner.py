@@ -114,3 +114,14 @@ def test_embedding_device_can_be_pinned_to_cpu(monkeypatch):
     from experiments.z2 import questions
     monkeypatch.setenv("Z2_EMBED_DEVICE", "cpu")
     assert questions.default_device() == "cpu"
+
+
+def test_a_lane_reads_its_prerequisites_from_the_main_runner(tmp_path):
+    import json
+    (tmp_path / "state.json").write_text(json.dumps(dict(stages={"s9-B": dict(status="done")})))
+    lane = R.Context("t", directory=tmp_path, out=io.StringIO(), lane="cloud")
+    lane.owned = {"s10-B"}
+    assert lane.need_status("s9-B") == "done"                         # the main runner's
+    lane.stage_state("s10-B")["status"] = "done"
+    assert lane.need_status("s10-B") == "done"                        # its own
+    assert lane.need_status("s8-B") == "pending"

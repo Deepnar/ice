@@ -91,6 +91,15 @@ class Context:
     def stage_state(self, key):
         return self.state["stages"].setdefault(key, dict(status="pending", failures=[]))
 
+    def need_status(self, key):
+        """A prerequisite's status. A lane owns only the stages it was given (`owned`); every
+        other stage's status is the main runner's, re-read from its state.json each time."""
+        if self.lane and key not in getattr(self, "owned", ()):
+            main = self.dir / "state.json"
+            stages = json.loads(main.read_text())["stages"] if main.exists() else {}
+            return stages.get(key, {}).get("status", "pending")
+        return self.stage_state(key)["status"]
+
     def save(self):
         tmp = self.state_path.with_suffix(".tmp")
         tmp.write_text(json.dumps(self.state, indent=1, default=str))
@@ -649,7 +658,7 @@ def drive(ctx, selected):
         if st["status"] == "done" and stage.built and stage.complete(ctx):
             outcomes[stage.key] = "done"
             continue
-        blocked = [n for n in stage.needs if outcomes.get(n, ctx.stage_state(n)["status"]) != "done"]
+        blocked = [n for n in stage.needs if outcomes.get(n, ctx.need_status(n)) != "done"]
         if not stage.built:
             st["status"] = "not_built"
             outcomes[stage.key] = "not_built"
@@ -822,6 +831,7 @@ def main() -> int:
         return 1
     known = {s.key for s in ctx.stages}
     wanted = set(args.only.split(",")) if args.only else known
+    ctx.owned = wanted
     if wanted - known:
         print(f"unknown stage(s) {sorted(wanted - known)}; known: {sorted(known)}")
         return 2
