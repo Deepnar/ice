@@ -170,3 +170,36 @@ def test_drift_checks_catch_outdated_values_and_reappearing_retention_facts():
     assert G.drift_problems(p, 35, "ok", "your budget is 2,500 euros") == []
     msgs = G.recent_messages([dict(user=f"u{i}", assistant=f"a{i}") for i in range(12)], "now?")
     assert len(msgs) == 17 and msgs[0]["content"] == "u4" and msgs[-1]["content"] == "now?"
+
+
+def test_the_user_side_never_says_what_the_plan_has_not_given_it():
+    """2026-10-28 trial: both cloud writers put an offer salary in the user's mouth turns before
+    the plan's own value — a fact the answer key never knew. A planned value before its turn, or a
+    number outside pasted material that nothing given contains, regenerates the turn."""
+    from experiments.synth import generate as G
+    plan = dict(facts=[dict(id="F5", values=[dict(turn=5, value="£58,000 a year")]),
+                       dict(id="F2", values=[dict(turn=2, value="£44,800 a year")])])
+    history = [dict(user="my salary is £44,800 a year", assistant="noted, 2 options")]
+    given = "persona: Ana, 31"
+    assert G.invented_values(plan, 3, "offer is £58,000 a year!", history, given)[0].startswith("user said F5 early")
+    assert G.invented_values(plan, 3, "they offered 47,500 plus 5%", history, given) == [
+        "user stated values the plan never gave: 47500, 5"]
+    assert G.invented_values(plan, 3, "still on 44,800, im 31, weighing the 2 options", history, given) == []
+    assert G.invented_values(plan, 3, "config:\n```\nbatch_size: 5000\n```\nwhy?", history, given) == []
+
+
+def test_future_values_are_hidden_from_the_beats():
+    from experiments.synth import generate as G
+    plan = dict(facts=[dict(id="F1", about="the game's name", values=[dict(turn=4, value="Ferryman's Ledger")])])
+    beats = ["pitches the game, Ferryman's Ledger, to the shop"]
+    assert G.hide_future(plan, 2, beats) == ["pitches the game, [the game's name, not said yet], to the shop"]
+    assert G.hide_future(plan, 5, beats) == beats
+
+
+
+def test_the_persona_is_hidden_too_and_an_echoed_prompt_is_rejected():
+    from experiments.synth import generate as G
+    plan = dict(facts=[dict(id="F1", about="race day", values=[dict(turn=3, value="22 June 2025")])])
+    persona = dict(name="Imogen", situation="training for a half on 22 June 2025", age=38)
+    assert G.hide_future(plan, 1, persona) == dict(name="Imogen", situation="training for a half on [race day, not said yet]", age=38)
+    assert G.invented_values(plan, 1, '{"PERSONA": {"name": "Imogen"}}', [], "") == ["user side echoed its instructions"]

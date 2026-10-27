@@ -35,6 +35,17 @@ Z2_PROFILES = {
     "glm": _go("opencode-glm53-flash", "glm-5.3-flash"),
 }
 
+# FINAL's synthetic conversations on the cloud (maintainer, 2026-10-28): the two writer models
+# only, writing plain chat text — thinking off, no JSON mode (the writers' JSON mode would turn
+# a chat message into an object). The user side is whichever writes more like a person
+# (experiments/synth/speaker_trial.py); the assistant side is the other.
+SPEAKERS = {
+    "deepseek_chat": PROFILES["opencode-deepseek-v41-flash"],
+    "mimo_chat": _go("opencode-mimo26-flash", "mimo-v2.6-flash"),
+}
+Z2_PROFILES.update(SPEAKERS)
+SPEAKER_EXTRA_BODY = {"reasoning_effort": "none"}
+
 # D6: the two ledger/question writer families; each verifies the other. Muse 1.3
 # breaks ties (maintainer, 2026-10-18: on 34 reviewed dev disputes Muse matched the
 # maintainer's keep/drop 29/34 and erred strict; LongCat 28/34, erred lenient).
@@ -127,6 +138,8 @@ def generator(role):
     generator = TextGenerator(profile(role))
     if _thinking_off(role):
         generator.client = _Injecting(generator.client, WRITER_EXTRA_BODY)
+    elif role in SPEAKERS:
+        generator.client = _Injecting(generator.client, SPEAKER_EXTRA_BODY)
     generator.generate = retrying(generator.generate, role)
     return generator
 
@@ -136,4 +149,6 @@ def metadata(role):
     meta = dict(profile(role).metadata())
     if _thinking_off(role):
         meta["extra_body"] = WRITER_EXTRA_BODY
+    elif role in SPEAKERS:
+        meta["extra_body"] = SPEAKER_EXTRA_BODY
     return meta
