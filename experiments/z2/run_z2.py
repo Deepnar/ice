@@ -788,16 +788,16 @@ def meter(ctx, note=None):
     return "\n".join(lines)
 
 
-def main(stages_fn=None, run_dir=None, prog="run_z2.py") -> int:
-    """The runner CLI. FINAL reuses it with its own stage list and run folder
+def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs="logs/z2-run-<name>") -> int:
+    """The runner CLI. FINAL reuses it with its own stage list, run folder and help text
     (experiments/final/run_final.py)."""
     stages_fn = stages_fn or stages
-    parser = argparse.ArgumentParser(prog=prog, description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(prog=prog, description=description or __doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="run (or resume) the stages in order")
     status = sub.add_parser("status", help="show the meter of a run")
     for p in (run, status):
-        p.add_argument("--name", default="main", help="run name (logs/z2-run-<name>)")
+        p.add_argument("--name", default="main", help=f"run name ({runs})")
         p.add_argument("--lane", help="a second runner on the same run: cloud stages only, its own lock and state")
     run.add_argument("--only", help="comma-separated stage keys, e.g. s7-B,s7-C")
     run.add_argument("--limit", type=int, help="replay only the first N turns per history (a slice check)")

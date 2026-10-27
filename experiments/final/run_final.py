@@ -10,13 +10,16 @@ ALL LOCAL FIRST, THEN ALL CLOUD (Z3 D13) — each stage key starts with its phas
             LongMemEval-S slice; the memory systems' ingestion
   cloud-*   answers (Muse 1.2) for every read context
   audit-*   the background-content audit of B and S9 (Muse 1.3 + DeepSeek second opinion)
-  grade-*   Muse 1.3 grading + the scoring report (pre-registration r2)
+  grade-*   Muse 1.3 grading: our histories by the LSREP measures (pre-registration r2 §2), each
+            public benchmark by its own norm — BEAM nuggets, LoCoMo Mem0's protocol (J, F1,
+            BLEU-1), LongMemEval-S its own judge
   subset-*  the cloud-answerer subset (a non-Meta answerer), graded by Muse 1.3
-  crossjudge-*  the cross-family judge (GLM-5.3-Flash): verdicts on the subset contexts'
-            Muse 1.2 answers and non-Meta answers — measures the judge's family leniency
-  upper-*   the full-history upper bound on BEAM's 128K tier: prompts built for the chosen
-            ≥ 256K-window model, answered by it — whole conversations and ICE's own contexts
-LoCoMo (an extra table) and the three memory systems (Graphiti, Mem0, A-Mem) run through the
+  crossjudge-*  the cross-family judge (CROSS_JUDGE, picked at the time; waits until set):
+            verdicts on the subset contexts' Muse 1.2 answers and non-Meta answers — measures
+            the judge's family leniency
+  upper-*   the full-history upper bound on BEAM's 500K tier: whole conversations, answered by
+            Muse 1.2 within its own 1,048,576-token window
+LoCoMo and the three memory systems (Graphiti, Mem0, A-Mem; on LoCoMo only) run through the
 same phases.
 
     uv run --no-sync python experiments/final/run_final.py run                    # everything, in order
@@ -671,4 +674,5 @@ def final_stages(limit=None):
 
 
 if __name__ == "__main__":
-    raise SystemExit(Z.main(final_stages, run_dir=lambda name: ROOT / "logs" / f"final-run-{name}", prog="run_final.py"))
+    raise SystemExit(Z.main(final_stages, run_dir=lambda name: ROOT / "logs" / f"final-run-{name}", prog="run_final.py",
+                            description=__doc__.split("\n\n")[0], runs="logs/final-run-<name>"))
