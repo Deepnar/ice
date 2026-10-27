@@ -302,8 +302,9 @@ def long_context_stages(history, checkpoint, recents, originals, count):
                                cache_session=f"ice-final-long-{history}-{checkpoint}",
                                selected=[dict(turn=c.turn, role=c.role) for c, _ in chosen])
                   for ask_id, chosen in shared.items()}
-        if all(sum(count(m["content"]) for m in s["prompt_messages"]) <= LONG_CONTEXT_PROMPT_TOKENS
-               or not s["selected"] for s in stages.values()):
+        for s in stages.values():                       # counted once here, so the report need not
+            s["prompt_tokens"] = sum(count(m["content"]) for m in s["prompt_messages"])   # re-tokenize ~256K a unit
+        if all(s["prompt_tokens"] <= LONG_CONTEXT_PROMPT_TOKENS or not s["selected"] for s in stages.values()):
             return stages
         shift += 1
 
