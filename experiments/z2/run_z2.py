@@ -500,9 +500,15 @@ class Grading(Stage):
         return ctx.dir / self.key
 
     def total(self, ctx):
+        # the grader's own count of its judge calls, phase by phase (grade.py meter.json; the
+        # claims are estimated until grading is done) — contexts x 1.4 undercounted B by thousands
+        meter = self.out(ctx) / "meter.json"
+        if meter.exists():
+            m = json.loads(meter.read_text())
+            return sum(m.get(k, 0) for k in ("grade", "claims", "rank", "controls", "semantic"))
         answers = ctx.dir / f"s10-{self.history}" / "status.json"
         n = json.loads(answers.read_text()).get("contexts") if answers.exists() else {"B": 345, "C": 133}[self.history] * 6
-        return int(n * 1.4)                       # grades + ranking (2 orders) + claim checks, roughly
+        return int(n * 1.4)                       # until the grader has counted its work
 
     def done(self, ctx):
         path = self.out(ctx) / "grade-raw.jsonl"

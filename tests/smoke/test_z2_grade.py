@@ -176,3 +176,16 @@ def test_claim_vectors_are_kept_for_a_restart(tmp_path):
 def test_evidence_is_taken_in_turn_and_capped():
     assert G.in_turn([[1, 2, 3], [4, 5], [1, 6]], 4) == [1, 4, 2, 5]
     assert G.in_turn([[1], [1]], 5) == [1]
+
+
+def test_planned_calls_count_each_phase_and_claims_replace_the_estimate(tmp_path):
+    contexts = [ctx("full", "f@50#0", "Tofu."), ctx("warm_vector", "f@50#0", "Tofu."),
+                ctx("bare_vector", "f@50#0", "Miso."), ctx("recent_only", "f@50#0", "", finish="incomplete")]
+    for unit, _, _ in contexts:
+        unit["stage"] = dict(selected=[])
+    plan = G.planned_calls(contexts)
+    assert plan["grade"] == 2 and plan["rank"] == 2 and plan["claims_estimated"]      # Tofu./Miso.: two to grade, rank twice
+    G.write_meter(tmp_path, **plan)
+    G.write_meter(tmp_path, claims=7, claims_estimated=False)
+    meter = json.loads((tmp_path / "meter.json").read_text())
+    assert meter["claims"] == 7 and meter["grade"] == 2 and not meter["claims_estimated"]
