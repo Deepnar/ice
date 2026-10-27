@@ -47,6 +47,7 @@ LUNA_PER_5H = 4_000                      # under the plan's 4,230 per 5 hours
 WINDOW = 5 * 3600
 WORKERS = {"local": 1, "luna": 4, "muse12": 4}    # Ollama serves one request at a time
 MAX_ERRORS = 3
+REFUSED = "content_policy_violation"   # the provider's content filter: a final outcome, not an error
 AUTH_WAIT, QUOTA_WAIT = 300, 600
 
 LOCAL_MODEL = "qwen3.8:27b"
@@ -261,6 +262,14 @@ def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_e
                 sleep(QUOTA_WAIT)
                 if reload_env:
                     reload_env()
+        except Exception as exc:
+            # The provider's content filter refusing the prompt (Z2 C, 2026-10-28: one recent-only
+            # prompt holding a pasted, garbled model output) is final and its own outcome: counted,
+            # ungraded like an incomplete answer, never retried as an error. Anything else is raised.
+            if REFUSED not in str(exc):
+                raise
+            return dict(prompt_sha256=sha, finish="refused", text="", detail=str(exc)[:300],
+                        seconds=round(time.time() - started, 2), wall=round(time.time(), 3))
 
 
 def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1, pace=False,
@@ -303,6 +312,7 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
     status = dict(contexts=len(units), prompts=len(prompts), answered=sum(1 for s in prompts if s in store.rows),
                   incomplete=sum(1 for s in prompts if store.rows.get(s, {}).get("finish") == "incomplete"),
                   too_long=sum(1 for s in prompts if store.rows.get(s, {}).get("finish") == "too_long"),
+                  refused=sum(1 for s in prompts if store.rows.get(s, {}).get("finish") == "refused"),
                   errors_given_up=sum(1 for s in prompts if s not in store.rows and store.settled(s)),
                   pending=len(pending), finished=not pending)
     (out / "status.json").write_text(json.dumps(status, indent=1))

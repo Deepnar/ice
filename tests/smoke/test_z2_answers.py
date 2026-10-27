@@ -152,3 +152,19 @@ def test_prompts_sharing_a_cache_session_run_in_order_on_one_worker(tmp_path):
     for cp in (10, 20):
         group = [s for s in seen if s[0] == f"ice-final-long-H-{cp}"]
         assert len(group) == 3 and len({thread for _, thread, _ in group}) == 1
+
+
+def test_a_provider_refusal_is_its_own_final_outcome(tmp_path):
+    """The content filter's refusal is recorded once as `refused` (ungraded, counted), never
+    retried as an error; any other unexpected error still propagates to the error store."""
+    src = units(tmp_path / "s9", [("full", "a", [dict(role="user", content="q")]),
+                                  ("full", "b", [dict(role="user", content="other")])])
+
+    def gen(messages, **_):
+        if messages[0]["content"] == "q":
+            raise RuntimeError("Error code: 400 - {'error': {'code': 'content_policy_violation'}}")
+        raise ValueError("something else")
+    status = A.run(src, tmp_path / "s10", generate=gen, meta={}, say=lambda *_: None, workers=1)
+    assert status["refused"] == 1 and status["answered"] == 1 and status["pending"] == 1
+    rows = [json.loads(l) for l in (tmp_path / "s10" / "answers.jsonl").read_text().splitlines()]
+    assert [r["finish"] for r in rows] == ["refused"]
