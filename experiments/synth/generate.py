@@ -388,11 +388,12 @@ for help with anything) are fine. Problems:
 - "invented": the message gives a concrete value (a name, number, amount, date, time, place or
   title) for a topic NOT SETTLED YET, other than what it had to say; talking about a topic, asking
   about it or bringing it up without giving its value is fine;
-- "contradiction": the message states something that conflicts with what is established or said
-  earlier, other than a change it had to say;
+- "contradiction": the message silently states something different from what is established or
+  said earlier, as if it had always been so. An open change of mind ("actually I'll go with the
+  other one") is fine on anything except an ESTABLISHED fact, which changes only where the message
+  had to say the change;
 - "not_a_message": JSON, labels, talk about instructions or being simulated, or writing as the
   assistant rather than the person asking;
-- "repeat": it repeats an earlier user message in substance;
 - "forgets": it treats as unknown, or asks again about, something already established;
 - "contrived": only meta wording about its own message ("I'm introducing", "let me correct my
   earlier message", "for the record") or stalling instead of giving what the assistant asked for;
@@ -403,6 +404,8 @@ for help with anything) are fine. Problems:
   "mention" item only needs it referred to with its value.
 "contradiction" includes continuity: a decision, a split, what a label or number refers to, where
 the person lives or is moving, who has which file — anything that silently changes from earlier.
+People repeat themselves, circle back and change their minds: none of that is a problem in itself
+(maintainer's final gate, 2026-10-28: messy is real; guard only the facts and who said what).
 "not_a_message" includes role reversal: explaining like an assistant, or asking the assistant for
 something only the person has (their own code, logs, files). Asking the assistant for help,
 advice, a plan or a reminder is always fine.

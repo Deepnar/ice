@@ -7,6 +7,8 @@
 #   experiments/synth/generate_all.sh            # S1..S9
 #   experiments/synth/generate_all.sh S4 S9      # some
 #   experiments/synth/generate_all.sh status     # turns written, any conversation stopped for repair, cost
+#   LIMIT=200 experiments/synth/generate_all.sh  # a stage: stop each conversation after turn 200 (rerun
+#                                                # without LIMIT, or with a larger one, to continue)
 #
 # A turn that never verifies stops its conversation (generate.py exit 4); it is relaunched up to
 # 3 times (8 fresh tries each), then left for repair: rerun later, or write
@@ -41,7 +43,7 @@ fi
 one_conversation() {
   local sid=$1 tries=0
   until "$UV" run --no-sync python experiments/synth/generate.py --plan "$sid" --out "logs/final-synth/$sid" \
-      >> "logs/final-synth/$sid.log" 2>&1; do
+      ${LIMIT:+--limit "$LIMIT"} >> "logs/final-synth/$sid.log" 2>&1 && [ ! -f "logs/final-synth/$sid/stopped.json" ]; do
     tries=$((tries + 1))
     [ "$tries" -ge 3 ] && { echo "[$sid] stopped 3 times — left for repair (status shows the turn)"; return; }
     echo "[$sid] stopped at a turn — relaunching ($tries/3)"
