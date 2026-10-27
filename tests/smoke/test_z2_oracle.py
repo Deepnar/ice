@@ -83,3 +83,29 @@ def test_workers_split_the_questions_each_with_its_own_database():
     argv = ["experiments/z2/oracle.py", "run", "--database", "ice_z2_main_lme", "--out", "logs/x", "--workers", "2"]
     assert O.worker_argv(argv, 1, 2) == ["experiments/z2/oracle.py", "run", "--database", "ice_z2_main_lme_1",
                                          "--out", "logs/x", "--shard", "1/2"]
+
+
+def test_a_stop_reaches_every_worker(tmp_path):
+    """The runner stops the parent only; the workers ran on after it (2026-10-28)."""
+    import signal, subprocess, sys, time
+    script = tmp_path / "parent.py"
+    script.write_text(
+        "import signal, subprocess, sys\n"
+        "kids = [subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']) for _ in range(2)]\n"
+        "def stop(n, f):\n    [k.send_signal(n) for k in kids if k.poll() is None]\n"
+        "signal.signal(signal.SIGTERM, stop)\n"
+        "print(' '.join(str(k.pid) for k in kids), flush=True)\n"
+        "sys.exit(max(k.wait() for k in kids) and 0)\n")
+    parent = subprocess.Popen([sys.executable, str(script)], stdout=subprocess.PIPE, text=True)
+    pids = [int(x) for x in parent.stdout.readline().split()]
+    parent.send_signal(signal.SIGTERM)
+    parent.wait(timeout=10)
+    time.sleep(0.3)
+    import os
+    alive = []
+    for pid in pids:
+        try:
+            os.kill(pid, 0); alive.append(pid)
+        except ProcessLookupError:
+            pass
+    assert not alive
