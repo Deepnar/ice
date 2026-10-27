@@ -321,8 +321,8 @@ question points, so only reads need the questions.
 4. *People:* the blind human check.
 
 Planning rate for the local phase: ~10–12 GPU hours a day, up to ~15–16. At ~11 h a day the
-local phase (≈ 23–27 GPU days once answering is on the cloud) takes ≈ 7–9 weeks, ≈ 6 with the
-pre-registered drop-order cuts; the cloud block ≈ 1–2 plan periods of allowance, sized from
+local phase (≈ 18–22 GPU days after the 2026-10-28 BEAM trim; ≈ 23–27 before it) takes ≈ 5½–7
+weeks; the cloud block ≈ 1–2 plan periods of allowance, sized from
 real calls by `experiments/z2/allowance.py` (TRAPS 148).
 
 **Data use — accepted by the maintainer, 2026-10-27 (Z2 D6d):** Muse Contributor models may
@@ -339,4 +339,9 @@ cloud-answerer subset are runner stages (judge picked at the time, `CROSS_JUDGE`
 day: A-Mem (the memory layer its paper evaluated — the library skips note construction), the LoCoMo
 adapter, and the full-history upper-bound runner (FINAL_experiments.md §2.1 items 15–17). The
 upper-bound model is the one choice left open (pre-registration §6).
+
+**Revised 2026-10-28 (maintainer):** reporting — LSREP suites pooled first (private held out;
+private development, B's sealed questions + D; synthetic, S8 once), public benchmarks each in its
+own scoring, then every conversation as a deep dive under its built-for aspect; no per-conversation
+verdicts. BEAM trimmed to the 128K tier (20) + 5 of the 500K tier; the 1M tier dropped.
 

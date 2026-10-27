@@ -396,6 +396,11 @@ LSREP — there are no mid-conversation cutoffs; the synthetic set covers that. 
 **128K tier all 20, 500K tier 10 of 35, 1M tier 10 of 35, no 10M** (replay ≈ 1 + 2 + 4
 days at B's rate) — chosen by a fixed seed, balanced over BEAM's categories, before any
 result is seen. Exact conversations and file hashes: `experiments/beam/MANIFEST.json`.
+**Trimmed 2026-10-28 (maintainer):** the 1M tier is dropped and the 500K tier keeps 5 of its 10
+(1 Coding + 1 Math + 3 general, drawn from the 10 with seed 20261028 — `select.py --trim`), so
+BEAM is 25 conversations (≈ 1 + 1 replay days). FINAL already runs many evaluations, and B and other
+histories reach ~1M tokens. BEAM is scored its own way (nuggets) and carries the full-history upper
+bound on both kept tiers.
 
 **⚑ BEAM conversations chosen** (seed 20261026, revision `3205395e`; ids and hashes in
 `experiments/beam/MANIFEST.json`; regenerate or verify with `experiments/beam/select.py`):
@@ -488,7 +493,7 @@ per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3
    audit, **maintainer review** (USER-REQUIRED, a few hours). Cloud, ~3–5 days wall. B: none.
 2. Synthetic S1–S9 (~4,900 pairs): plans (fast model + validator), generation, verification,
    questions from the plan; maintainer spot review. Cloud, ~2–3 days wall once built.
-3. BEAM (40 conversations): convert to originals with session timestamps; probes and nuggets
+3. BEAM (25 conversations after the 2026-10-28 trim): convert to originals with session timestamps; probes and nuggets
    to asks. Local, hours.
 4. LongMemEval-S: the 100-instance slice, pinned by seed. Local, hours.
 
@@ -533,14 +538,15 @@ answers, graded.
     question from the whole conversation (one cached prefix per conversation, questions
     appended); the same model also answers ICE's `full` contexts for those conversations.
 
-*Run estimate (GPU, continuous):* replays — B 0.5 d, private 0.5 d, synthetic ~2 d, BEAM ~7.3 d,
-LME-S ~4 d (≈ 14 d); reads ~2 d (~16,000 contexts); answers on the cloud (Muse 1.2, Z3 D13 —
+*Run estimate (GPU, continuous):* replays — B 0.5 d, private 0.5 d, synthetic ~2 d, BEAM ~2 d
+(was ~7.3 d before the 2026-10-28 trim), LME-S ~4 d (≈ 9 d); reads ~2 d (~16,000 contexts); answers on the cloud (Muse 1.2, Z3 D13 —
 ~11,500 distinct prompts; were ~10 GPU days locally); S9 build-up ~0.3 d of reads (its ~2,300 answers on the cloud); memory-system baselines ~2–4 d; **r2 additions:** A-Mem ~2 d,
-LoCoMo (ICE + three systems) ~2–3 d; synthetic generation (local) ~1–1.5 d. **≈ 23–27 GPU days of
-local work (≈ 35–38 with local answers) — ≈ 7–9 weeks at ~11 GPU hours a day.** Cloud: the private
+LoCoMo (ICE + three systems) ~2–3 d; synthetic generation (local) ~1–1.5 d. **≈ 18–22 GPU days of
+local work after the BEAM trim (≈ 23–27 before it; ≈ 35–38 with local answers) — ≈ 5½–7 weeks at
+~11 GPU hours a day.** Cloud: the private
 ground truth inside Z2's cloud block; then one block — answers, the judge, the cross-family
 sample, the cloud-answerer subset, the full-history upper bound — sized from real calls by
-`experiments/z2/allowance.py` (TRAPS 148), ≈ 1–2 plan periods. Levers if it runs long: BEAM 1M tier 10 → 5 (−3 d), fewer main conditions on BEAM,
+`experiments/z2/allowance.py` (TRAPS 148), ≈ 1–2 plan periods. Levers if it runs long: fewer main conditions on BEAM,
 LME-S 100 → 50 (−2 d).
 
 **Current roster, maintainer 2026-10-15 (supersedes the table below, kept as the

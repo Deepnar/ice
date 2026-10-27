@@ -333,7 +333,13 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
     write_cost = dict(turns=len(walls), median_seconds_per_turn=round(statistics.median(gaps), 2) if gaps else None,
                       model_calls_per_turn="not in the replay trace")
 
-    return dict(policy=POLICY, history=history, primary=primary, bases=list(bases),
+    per_question = {a: dict(family=facts[a]["family"], window=facts[a]["window"], bin=facts[a]["bin"],
+                            type=facts[a]["type"], updated=facts[a]["updated"],
+                            never_said=bool(occurrences[a].get("expected_abstention")),
+                            outcomes={c: dict(outcomes[(c, a)], prompt_tokens=units.get(f"{c}|{a}", {}).get("prompt_tokens"))
+                                      for c in conditions if outcomes.get((c, a)) is not None})
+                    for a in asks}
+    return dict(policy=POLICY, history=history, primary=primary, bases=list(bases), per_question=per_question,
                 questions=len(asks), out_of_window=sum(f["window"] == "out" for f in facts.values()),
                 window_rule="long_context's packed turns" if lc_from else f"distance > {LONG_CONTEXT_WINDOW} tokens",
                 by_condition=by_condition, by_type=by_type, by_distance=by_distance, by_window=by_window,
@@ -341,6 +347,54 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
                 primary_tests=tests, hallucination_noninferiority=noninferior,
                 fidelity=fidelity(outcomes, asks, conditions, units, prompts, audit, primary, targets),
                 write_cost=write_cost)
+
+
+def pool(parts, primary="full", bases=("long_context", "bare_vector")):
+    """One suite's headline from several histories (pre-registration r2 §3, revised 2026-10-28):
+    *parts* maps history -> its score()'s output. Questions keep their history (ids and families
+    are prefixed with it, so the interval still resamples whole families); M1, M2, the window
+    split, distance bins, the primary tests (Holm across this suite's tests) and hallucination
+    non-inferiority are computed on the pooled questions."""
+    outcomes, facts = {}, {}
+    for history, sc in parts.items():
+        for ask, q in ((sc or {}).get("per_question") or {}).items():
+            key = f"{history}|{ask}"
+            facts[key] = q
+            for cond, o in q["outcomes"].items():
+                outcomes[(cond, key)] = o
+    asks = sorted(facts)
+    conditions = sorted({c for c, _ in outcomes})
+
+    def rows(cond, keep=lambda a: True):
+        chosen = [a for a in asks if keep(a) and (cond, a) in outcomes]
+        return [outcomes[(cond, a)] for a in chosen], [outcomes[(cond, a)].get("prompt_tokens") for a in chosen]
+
+    tests = {}
+    out_asks = [a for a in asks if facts[a]["window"] == "out"]
+    for base in [b for b in bases if b in conditions and primary in conditions]:
+        tests[f"P1 M2 out-of-window: {primary} vs {base}"] = compare(paired(outcomes, primary, base, "m2", out_asks))
+        tests[f"P2 M1 all: {primary} vs {base}"] = compare(paired(outcomes, primary, base, "m1", asks))
+    adjusted = holm({k: t["p"] for k, t in tests.items() if t.get("pairs")})
+    for k, t in tests.items():
+        if t.get("pairs"):
+            t.update(p_holm=adjusted[k], verdict=verdict(t, adjusted[k]))
+    noninferior = {}
+    if "bare_vector" in conditions and primary in conditions:
+        for measure in HALLUCINATION:
+            keep = {"confident_never_said": lambda a: facts[a]["never_said"],
+                    "attribution_wrong": lambda a: facts[a]["type"] == "attribution"}.get(measure, lambda a: True)
+            t = compare(paired(outcomes, primary, "bare_vector", measure, [a for a in asks if keep(a)]))
+            if t.get("pairs"):
+                t["non_inferior"] = bool(t["ci95"] and t["ci95"][1] <= NONINFERIORITY_MARGIN)
+            noninferior[measure] = t
+    return dict(policy=POLICY, histories=sorted(parts), questions=len(asks), out_of_window=len(out_asks),
+                by_condition={c: summary(*rows(c)) for c in conditions},
+                by_window={c: {side: summary(rows(c, lambda a, side=side: facts[a]["window"] == side)[0])
+                               for side in ("in", "out")} for c in conditions},
+                by_distance={c: {label: summary(rows(c, lambda a, label=label: facts[a]["bin"] == label)[0])
+                                 for label in [b[2] for b in BINS] + ["no cited turn"]} for c in conditions},
+                update_accuracy={c: summary(rows(c, lambda a: facts[a]["updated"])[0]) for c in conditions},
+                primary_tests=tests, hallucination_noninferiority=noninferior)
 
 
 def fidelity(outcomes, asks, conditions, units, prompts, audit, primary="full", targets=None):

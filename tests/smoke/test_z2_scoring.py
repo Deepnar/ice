@@ -113,3 +113,15 @@ def test_judge_family_check_finds_leniency_only_on_its_own_family():
     assert out["on_other_family_answers"]["agreement"] == 1.0 and out["on_other_family_answers"]["kappa"] == 1.0
     same = S.judge_family_check(muse_sub, other_sub, muse_sub, other_sub, resamples=2000)
     assert same["family_effect"] == 0 and same["reading"] == "no detectable family leniency"
+
+
+def test_pool_keeps_histories_apart_and_tests_the_pooled_questions():
+    graded, units, occ = _history(n_fam=20)
+    prefix = S.turn_prefix([None] * 60, count=lambda t: 2000)
+    a = S.score("A", graded, units, occ, prefix)
+    b = S.score("B", graded, units, occ, prefix)
+    pooled = S.pool({"A": a, "B": b})
+    assert pooled["questions"] == 40 and pooled["histories"] == ["A", "B"]          # same ask ids, two histories
+    p2 = pooled["primary_tests"]["P2 M1 all: full vs bare_vector"]
+    assert p2["pairs"] == 40 and p2["families"] == 40 and p2["verdict"] == "win"
+    assert pooled["by_condition"]["full"]["m1"] == 1.0 and pooled["by_condition"]["full"]["prompt_tokens"] == 1000

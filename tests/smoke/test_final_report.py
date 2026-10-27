@@ -38,7 +38,7 @@ def test_report_tables(tmp_path):
     descriptive = {"full": {"update": dict(graded=20, mean_score=4.2, superseded_rate=0.0, invented_rate=0.0)}}
     write(tmp_path / "grade-S1/report.json", dict(scoring=first, by_condition_and_type=descriptive))
     write(tmp_path / "grade-S1-repeat/report.json", dict(scoring=second, by_condition_and_type=descriptive))
-    write(tmp_path / "grade-BEAM-1M-12/beam-report.json", {"by_condition_and_type": {
+    write(tmp_path / "grade-BEAM-500K-12/beam-report.json", {"by_condition_and_type": {
         "full": {"knowledge_update": dict(graded=2, mean_nugget=0.5)}}})
     r = F.build(tmp_path)
     head = r["histories"]["S1"]["headline"]["full"]
@@ -47,9 +47,9 @@ def test_report_tables(tmp_path):
     assert r["histories"]["S1"]["primary_tests"]["P2 M1 all: full vs bare_vector"]["verdict"] == "win"
     assert r["histories"]["S1"]["descriptive_1_5"]["full"]["mean_score"] == 4.2
     assert r["run_to_run_variance_S1"]["full"]["m1"] == -0.1
-    assert r["beam"]["1M"]["full"]["mean_nugget"] == 0.5
+    assert r["beam"]["500K"]["full"]["mean_nugget"] == 0.5
     md = F.markdown(r)
-    assert "## S1" in md and "never pooled" in r["label"] and "| full | 20 | 80.0 | 80.0 | 80.0 |" in md
+    assert "## S1" in md and "suites pooled first" in r["label"] and "| full | 20 | 80.0 | 80.0 | 80.0 |" in md
 
 
 def test_cross_family_judge_section(tmp_path):
@@ -85,3 +85,17 @@ def test_locomo_and_upper_bound_sections(tmp_path):
     (tmp_path / "run/upper-grade-BEAM-100K-1/beam-grades.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
     up = F.upper_bound(tmp_path / "run")
     assert up["mean_nugget"] == {"full": 0.5, "full_history": 0.75} and up["ice_minus_full_history"] == -0.25 and up["questions"] == 4
+
+
+
+def test_suites_pool_their_histories_first(tmp_path):
+    _, a = history(full_correct=16)
+    _, s2 = history(full_correct=10)
+    write(tmp_path / "grade-S1/report.json", dict(scoring=a, by_condition_and_type={}))
+    write(tmp_path / "grade-S2/report.json", dict(scoring=s2, by_condition_and_type={}))
+    r = F.build(tmp_path)
+    syn = r["suites"]["LSREP synthetic"]
+    assert syn["histories"] == ["S1", "S2"] and syn["questions"] == 40 and "S9" in syn["missing"]
+    assert syn["headline"]["full"]["m1"] == round(26 / 40, 4)
+    md = F.markdown(r)
+    assert md.index("# 1. Suites") < md.index("## S1")

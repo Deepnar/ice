@@ -9,10 +9,11 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
 
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
-- Datasets, each reported **separately, never pooled**: private B (sealed families; labelled
-  development), A, D (labelled development), LAP, SW; synthetic S1–S9; BEAM 128K/500K/1M
-  (40 conversations, MANIFEST seed 20261026); LongMemEval-S (100 instances, final_slice.json);
-  LoCoMo (10 conversations, extra table).
+- Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP (held out)
+  and B (sealed families) + D, labelled development; LSREP synthetic S1–S9; public benchmarks, each
+  in its own scoring — BEAM 128K tier (20) + 500K tier (5 of the 10 drawn; the 1M tier dropped
+  2026-10-28; MANIFEST seed 20261026, trim seed 20261028), LongMemEval-S (100 instances,
+  final_slice.json), LoCoMo (10 conversations, extra table).
 - Answerer Muse Spark 1.2, judge Muse Spark 1.3 (Z2 D6d; Z3 D13) — or the closest available
   models at freeze if either is retired, recorded here before the first answer. The shared
   family is measured, not assumed away: a cross-family judge re-grades ~450 answers (§4) and the
@@ -34,8 +35,11 @@ used an outdated value, made an unsupported claim, or abstained.
 **M1 — Accuracy (comparable with the field).** An answer counts when the judge calls it
 *correct* (partial counts as wrong; the judge's *uncertain* is never credited and its rate is
 reported), as LongMemEval, LoCoMo-J, Zep and Mem0 report it; per dataset
-and question type. Benchmarks also keep their own native score beside it: BEAM's nugget mean
-(Kendall tau-b for ordering), LongMemEval's upstream yes/no, LoCoMo's token F1. *Misses:* whether a
+and question type. The **public benchmarks are headlined in their own scoring** — BEAM's nugget
+mean (Kendall tau-b for ordering), LongMemEval's upstream yes/no, LoCoMo's token F1 — because each
+was built to show its own point of view; M1/M2 appear there only where already graded (LoCoMo,
+LongMemEval-S), as a secondary column. ICE's own claim (M2 by distance, P1) is tested on LSREP's
+suites. *Misses:* whether a
 correct answer also carried an invented or outdated claim, and how hard the question was.
 
 **M2 — Supported current accuracy against distance (the paper's measure; LSREP- and
@@ -59,36 +63,44 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 - **P1 (the thesis):** on **out-of-window** questions, M2 of `full` vs `long_context`, and M2 of
   `full` vs `bare_vector` (budget-matched retrieval).
 - **P2:** M1 of `full` vs the same two, on all questions.
-- Per dataset, never pooled. Each question is a paired yes/no outcome across conditions:
-  McNemar's exact test and a bootstrap interval over question families (10,000 resamples, seed 0);
-  Holm–Bonferroni across a dataset's primary tests. A win = interval excludes 0 in ICE's favour
-  after correction; a loss is reported as plainly.
+- **Per suite, pooled (revised 2026-10-28):** the headline is each suite — LSREP private held out
+  (A, SW, LAP); LSREP private development (B's sealed questions, D); LSREP synthetic (S1–S9; S8,
+  S1's style twin, counted once through S1) — with its histories' questions pooled
+  (`scoring.pool`; families resampled within their history). Each question is a paired yes/no
+  outcome across conditions: McNemar's exact test and a bootstrap interval over question families
+  (10,000 resamples, seed 0); Holm–Bonferroni across a suite's primary tests. A win = interval
+  excludes 0 in ICE's favour after correction; a loss is reported as plainly. **No per-conversation
+  verdicts:** each conversation is then a deep dive under the aspect it was built to test (S4
+  retention by distance, S8 style invariance, S9 ablations, the laptop decision thread, …).
 - **Detectable difference:** each dataset states, before running, the smallest difference its
   question count can detect (≈ 6–8 points at ~300 paired questions); smaller differences are
   reported as "no detectable difference", never as a tie. Stated 2026-10-27 (McNemar, 80% power,
   5% two-sided, 20% of pairs assumed to disagree; `scoring.detectable`), in points:
 
-  | dataset | questions | all (P2) | Holm-worst (4 tests) | out-of-window, if 60% (P1) |
+  | suite (the verdicts) | questions | all (P2) | Holm-worst (4 tests) | out-of-window, if 60% (P1) |
   |---|---|---|---|---|
+  | **LSREP private, held out (A, SW, LAP)** | ≈234 | 8.2 | 9.7 | 10.5 |
+  | **LSREP private, development (B sealed, D)** | ≈260 | 7.7 | 9.2 | 10.0 |
+  | **LSREP synthetic (S1–S9, S8 once)** | 1,044 | 3.9 | 4.6 | 5.0 |
+  | *per conversation (deep dives; no verdict)* | | | | |
   | B (sealed: 64 families; seal not opened, ≈2.3 asks each) | ≈147 | 10.2 | 12.2 | 13.2 |
   | A / D (planned) | ≈131 / ≈113 | 10.8 / 11.7 | 12.9 / 13.9 | 14.0 / 15.0 |
   | SW / LAP (planned) | ≈58 / ≈45 | 16.1 / 18.2 | 19.1 / >20 | >20 / >20 |
   | synthetic S1–S9 (S8 is S1's twin, not counted) | 1,044 | 3.9 | 4.6 | 5.0 |
-  | BEAM (128K 400 · 500K 200 · 1M 200) | 800 | 4.4 | 5.3 | 5.7 |
+  | BEAM (128K 400 · 500K 100; own scoring) | 500 | 5.6 | 6.7 | 7.2 |
   | LongMemEval-S | 100 | 12.4 | 14.7 | 15.9 |
   | LoCoMo, categories 1–4 (no out-of-window questions) | 1,540 | 3.2 | 3.8 | — |
 
   Recomputed from the real counts (and the real out-of-window share) before the first answer;
-  private counts follow their question chain. ⚑ **Proposed, awaiting the maintainer:** a dataset
-  whose detectable difference exceeds 15 points (SW, LAP; LongMemEval-S's out-of-window test)
-  reports its numbers without a win/loss verdict.
+  private counts follow their question chain. (The 2026-10-27 proposal — no verdict above 15
+  points — is moot: verdicts are per suite, and every suite detects ≤ 10.5 points.)
 - **Hallucination non-inferiority:** ICE's rates of (i) unsupported claims, (ii) confident answers
   to never-said questions, (iii) outdated values, (iv) attribution mix-ups are not worse than
   `bare_vector`'s by more than 2 points (upper interval bound).
 
 ## 4. Comparisons and diagnostics (reported, no win/loss claim beyond §3)
-- **Upper bound — full history:** on BEAM's 128K tier (conversations ~100K–225K tokens) a cloud
-  model with a **≥ 256K window** answers from the **entire** conversation; ICE's own contexts are
+- **Upper bound — full history:** on BEAM's 128K tier (~100K–225K tokens) and 500K tier (5
+  conversations) a cloud model with a window that holds them answers from the **entire** conversation; ICE's own contexts are
   answered by the **same cloud model**, so ICE vs full history compares memory, not answerers.
 - **Other memory systems,** run by us in the same setup (same answerer, judge, data):
   Graphiti (Zep), Mem0, A-Mem — on the LongMemEval-S slice and on LoCoMo. Each ingests through
@@ -138,8 +150,7 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   condition, and a condition with >5% ungraded is flagged.
 - Questions a history's review dropped stay dropped. Controls (no-memory questions) are reported
   apart.
-- If time runs short, the drop order is fixed in advance: LoCoMo; A-Mem; BEAM 1M 10 → 5
-  conversations; LongMemEval-S 100 → 50; the S9 build-up; BEAM conditions 6 → 4. Never dropped: the
+- If time runs short, the drop order is fixed in advance: LoCoMo; A-Mem; LongMemEval-S 100 → 50; the S9 build-up; BEAM conditions 6 → 4. Never dropped: the
   primary tests, the hallucination measures, the full-history upper bound, the private and
   synthetic main runs.
 

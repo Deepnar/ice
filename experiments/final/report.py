@@ -67,7 +67,7 @@ def costs(read_dir, answers_dir):
 
 def beam(run):
     out = {}
-    for tier in ("100K", "500K", "1M"):
+    for tier in ("100K", "500K"):              # the 1M tier was dropped 2026-10-28
         cells = {}
         for path in sorted(Path(run).glob(f"grade-BEAM-{tier}-*/beam-report.json")):
             for cond, kinds in json.loads(path.read_text())["by_condition_and_type"].items():
@@ -79,6 +79,16 @@ def beam(run):
         out[tier] = {c: dict(graded=n, mean_nugget=round(s / n, 4) if n else None) for c, (s, n) in cells.items()}
     return out
 
+
+# Headline suites (pre-registration r2 §3, revised 2026-10-28): pooled first; each conversation is
+# a deep dive under the aspect it was built to test. B and D were development histories (D tuned
+# v3; Z2's evidence on B drives the fix pass), so they are pooled apart from the held-out chats.
+# S8 is S1's style twin (same questions) — counted once, through S1.
+SUITES = {
+    "LSREP private, held out": ("A", "SW", "LAP"),
+    "LSREP private, development (B's sealed questions, D)": ("B", "D"),
+    "LSREP synthetic": ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S9"),
+}
 
 HEADLINE = ("graded", "m1", "m2", "outdated", "invented", "confident_never_said", "attribution_wrong",
             "prompt_tokens", "tur", "tokens_per_correct")
@@ -195,12 +205,25 @@ def build(run):
         a, b = tables["S1"]["headline"], tables["S1-repeat"]["headline"]
         variance = {c: {m: round(b[c][m] - a[c][m], 4) for m in ("m1", "m2") if a[c][m] is not None and b[c][m] is not None}
                     for c in a if c in b}
+    from experiments.z2.scoring import pool
+    suites = {}
+    for name, members in SUITES.items():
+        parts = {h: (_load(run / f"grade-{h}" / "report.json") or {}).get("scoring") for h in members}
+        parts = {h: sc for h, sc in parts.items() if sc}
+        if parts:
+            pooled = pool(parts)
+            suites[name] = dict(histories=sorted(parts), missing=sorted(set(members) - set(parts)),
+                                questions=pooled["questions"], out_of_window=pooled["out_of_window"],
+                                headline=headline(dict(pooled, update_accuracy=pooled["update_accuracy"])),
+                                primary_tests=pooled["primary_tests"], noninferiority=pooled["hallucination_noninferiority"],
+                                by_distance=pooled["by_distance"])
     subset = {}
     for p in sorted(run.glob("subset-grade-*")):
         sc = (_load(p / "report.json") or {}).get("scoring")
         if sc:
             subset[p.name.removeprefix("subset-grade-")] = dict(headline=headline(sc), primary_tests=sc["primary_tests"])
-    return dict(label="FINAL — one table per dataset; never pooled", histories=tables, beam=beam(run),
+    return dict(label="FINAL — suites pooled first, public benchmarks in their own scoring, then each conversation",
+                suites=suites, histories=tables, beam=beam(run),
                 longmemeval_s=_load(run / "grade-lmes" / "oracle-report.json"),
                 run_to_run_variance_S1=variance, cloud_answerer_subset=subset or None,
                 cross_family_judge=cross_judge(run), locomo=locomo(run), full_history_upper_bound=upper_bound(run),
@@ -215,6 +238,36 @@ def markdown(report):
     lines = [f"# {report['label']}", "",
              "M1 = correct; M2 = correct, current, nothing invented (declines never-said questions); "
              "out-of-window M2 = evidence beyond the long-context window. Percentages.", ""]
+
+    def headline_table(head):
+        out = ["| condition | graded | M1 | M2 | M2 out-of-window | M2 on updates | outdated | invented | "
+               "confident never-said | prompt tokens | TUR |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+        for c, v in head.items():
+            out.append(f"| {c} | {v['graded']} | {_pct(v['m1'])} | {_pct(v['m2'])} | {_pct(v['m2_out_of_window'])} | "
+                       f"{_pct(v['update_m2'])} | {_pct(v['outdated'])} | {_pct(v['invented'])} | "
+                       f"{_pct(v['confident_never_said'])} | {v['prompt_tokens']} | {v['tur']} |")
+        return out
+
+    def test_lines(tests, noninferior):
+        out = []
+        for name, test in (tests or {}).items():
+            if test.get("pairs"):
+                out.append(f"- **{name}**: {test['verdict']} — difference {_pct(test['diff'])} points, 95% CI "
+                           f"{[_pct(x) for x in test['ci95'] or []]}, Holm p {test['p_holm']:.4g}, {test['pairs']} pairs "
+                           f"(detectable ≈ {_pct(test['detectable'])})")
+        for measure, test in (noninferior or {}).items():
+            if test.get("pairs"):
+                out.append(f"- non-inferiority, {measure}: {'shown' if test['non_inferior'] else 'NOT shown'} "
+                           f"(upper bound {_pct((test['ci95'] or [None, None])[1])} points)")
+        return out
+
+    if report.get("suites"):
+        lines += ["# 1. Suites (pooled)", ""]
+        for name, sv in report["suites"].items():
+            lines += [f"## {name}", "", f"{', '.join(sv['histories'])} — {sv['questions']} questions, "
+                      f"{sv['out_of_window']} out of window" + (f"; not yet graded: {', '.join(sv['missing'])}" if sv["missing"] else ""), ""]
+            lines += headline_table(sv["headline"]) + [""] + test_lines(sv["primary_tests"], sv["noninferiority"]) + [""]
+        lines += ["# 2. Public benchmarks (each in its own scoring) — below", "", "# 3. Each conversation (deep dives)", ""]
     for h, t in report["histories"].items():
         lines += [f"## {h}", "", f"{t['questions']} questions, {t['out_of_window']} out of window ({t['window_rule']}).", "",
                   "| condition | graded | M1 | M2 | M2 out-of-window | M2 on updates | outdated | invented | "

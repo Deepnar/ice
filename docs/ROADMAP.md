@@ -206,12 +206,12 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ✅ 2026-10-27: session summaries removed (`2e9f4ed`); cross-family judge picked at the time, local
     allowed (`1bf14c8`); detectable difference per dataset in the pre-registration (`a070936`);
     nomic-embed-text pulled.
-  - ⚑ Open decisions (2026-10-27): (1) no win/loss verdict where the detectable difference > 15 points
-    (SW, LAP; LongMemEval-S out-of-window); (2) BEAM has no M1/M2 verdicts — beam/grade.py scores nuggets
-    only, so P1/P2 cannot be computed on BEAM: add grade.py's verdict for BEAM (~4,800 extra judge calls
-    in FINAL's cloud block); LongMemEval-S's verdicts need wiring into scoring.py (and its claim check);
-    (3) upper bound = Muse 1.2 itself (1M window), tiers 128K (+500K?); (4) the long-context window at
-    freeze, now that the answerer holds 1M tokens.
+  - ✅ 2026-10-28 (maintainer): suites pooled first, no per-conversation verdicts (decision 1 moot);
+    public benchmarks in their own scoring — BEAM keeps nuggets only (decision 2 dissolved); BEAM
+    trimmed to 128K (20) + 500K (5), 1M dropped (`select.py --trim`); upper bound on both kept tiers.
+  - ⚑ Open: (a) is the private development line (B's sealed questions, D) pooled apart from the
+    held-out A/SW/LAP (as built) or together; (b) upper-bound model = Muse 1.2 (1M window)?;
+    (c) the long-context window at freeze.
   - ✅ A-Mem (paper memory layer, pinned), LoCoMo (pinned, exported), BEAM 128K full-history runner —
     `585e3d3`, `bfcb962`, `c6002ac`, `6d0a950` (§2.1 items 15–17). ⚑ Open: the upper-bound model
     (≥ 256K window) — set `UPPER_BOUND` in run_final.py after the cost check.
