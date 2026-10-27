@@ -336,12 +336,11 @@ def grade_oracle(units, answers, out, *, ask, ask_text, upstream_only=False):
         answer = rows.get(index.get(f"{unit['condition']}|{unit['ask']['id']}"))
         if answer:
             contexts.append((unit, answer))
-    results = {}
-    for unit, answer in contexts:
+    def one(item):
+        unit, answer = item
         key = f"{unit['condition']}|{unit['ask']['id']}"
         if answer["finish"] != "complete":
-            results[key] = dict(status="ungraded", reason=f"answer {answer['finish']}")
-            continue
+            return key, dict(status="ungraded", reason=f"answer {answer['finish']}")
         a, inst = unit["ask"], instances[unit["ask"]["id"]]
         upstream = ask_text(get_anscheck_prompt(a["type"], a["question"], a["answer"], answer["text"],
                                                 abstention=a["abstention"]))
@@ -350,8 +349,13 @@ def grade_oracle(units, answers, out, *, ask, ask_text, upstream_only=False):
         body = dict(QUESTION=a["question"], REQUIRED=[str(a["answer"])], SOURCES=marked, SUPERSEDED=[],
                     EXPECT_ABSTENTION=a["abstention"], ANSWER=answer["text"])
         rich = {} if upstream_only else ask(G.GRADE_SYSTEM, json.dumps(body, ensure_ascii=False)) or {}
-        results[key] = dict(status="graded", upstream=_yes(upstream), grade=rich.get("grade"), score=rich.get("score"),
-                            type=a["type"], abstention=a["abstention"], evidence_decay=unit.get("evidence_decay"))
+        return key, dict(status="graded", upstream=_yes(upstream), grade=rich.get("grade"), score=rich.get("score"),
+                         type=a["type"], abstention=a["abstention"], evidence_decay=unit.get("evidence_decay"))
+
+    # answers side by side (one at a time, S12's ~2,500 grades were ~10 hours); every call is durable
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=G.CLAIM_WORKERS) as pool:
+        results = dict(pool.map(one, contexts))
     Path(out).mkdir(parents=True, exist_ok=True)
     (Path(out) / "oracle-grades.json").write_text(json.dumps(results, indent=1) + "\n")
     (Path(out) / "oracle-report.json").write_text(json.dumps(report(results), indent=1) + "\n")
