@@ -242,8 +242,14 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     call per claim and one at a time, ranking/controls/LongMemEval/BEAM/LoCoMo graders one at a time — all fixed):
     the LOCAL runs (replay, read passes; Z2's S12 runs ~398 s a question; FINAL's local phase 14-17 GPU days) and
     whatever is left in the cloud (run_z2 `status` re-reads ~7 GB of read-pass units to draw its meter).
-  - ☐ FINAL grading cost: one call per answer for claims is in; decide whether claims are checked only on
-    otherwise-correct answers and whether the judge reasons shorter; recompute FINAL's cloud cost from real sizes.
+  - ✅ FINAL grading cost recomputed 2026-10-28 from measured calls (Z2 B: a grading call $0.00084, a batched
+    claim call $0.00135): answers ~$57 (long context cached) + grading ~$35 (our data ~$11, claims ~$12,
+    precision/controls ~$3, LoCoMo J ~$4, BEAM/LongMemEval/audits ~$5) ≈ $92 — about 1.5 months of the $60 plan.
+    The earlier ~$150 assumed one call per claim. Recommendation: no change to the measurement (claims on every
+    answer, the judge's own reasoning); only if real spend runs over: claims on otherwise-correct answers only.
+  - ✅ 2026-10-28 efficiency: FINAL's local phase in parallel lanes (experiments/final/local_lanes.py; 2 lanes ~180 h
+    each vs ~360 h one at a time; match OLLAMA_NUM_PARALLEL); graders 4 at a time; meters count real work;
+    long-context units carry their prompt size; experiment runs keep local models loaded.
   - ☐ live trials when the GPU is free must include: a LoCoMo replay slice (144 turns end a session
     with an empty assistant side — never exercised), and one LongMemEval-S full-context read.
   - **Next, in order (2026-10-26):** (1) Z2 local stages finish (~Nov 3–4); (2) GPU free: ~20 generated
