@@ -93,7 +93,7 @@ def test_generator_plants_verifies_retries_and_resumes(tmp_path, monkeypatch):
     def assistant_llm(system, messages):
         import re
         assert messages[-1]["role"] == "user"                          # the whole conversation, latest last
-        return "ok " + " ".join(re.findall(r"- [^:]+: (.+)", system))
+        return "ok " + " ".join(re.findall(r"- [^:]+: (.+)", messages[-2]["content"]))   # this turn's notes
     status = G.run(p, tmp_path, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
     assert status["turns"] == 50 and status["finished"]
     rows = j_rows = __import__("json").loads((tmp_path / "originals.json").read_text())
@@ -174,8 +174,8 @@ def test_drift_checks_catch_outdated_values_and_reappearing_retention_facts():
     assert any("outdated" in x for x in G.drift_problems(p, 35, "ok", "your budget is 2,000 euros"))
     assert any("never-again" in x for x in G.drift_problems(p, 40, "back in Ostmere we", "nice"))
     assert G.drift_problems(p, 35, "ok", "your budget is 2,500 euros") == []
-    msgs = G.recent_messages([dict(user=f"u{i}", assistant=f"a{i}") for i in range(12)], "now?")
-    assert len(msgs) == 17 and msgs[0]["content"] == "u4" and msgs[-1]["content"] == "now?"
+    msgs = G.assistant_messages([dict(user=f"u{i}", assistant=f"a{i}") for i in range(12)], "NOTES", "now?")
+    assert msgs[0]["content"] == "u0" and msgs[-2] == dict(role="system", content="NOTES") and msgs[-1]["content"] == "now?"
 
 
 def test_the_user_side_never_says_a_later_value_early_and_never_leaks_or_repeats():
@@ -238,14 +238,15 @@ def test_json_replies_and_named_instructions_are_never_messages():
 
 def test_the_checker_reports_problems_and_never_passes_an_unreadable_verdict(monkeypatch):
     from experiments.synth import generate as G
-    replies = iter(['{"problems": [{"kind": "invented", "quote": "Tideways", "detail": "a title for the game\'s name"}]}',
-                    '{"problems": [{"kind": "not_a_message", "quote": "reversed? no", "detail": "unsure"}]}',
-                    '{"problems": []}', "not json"])
+    replies = iter(['{"problems": [{"kind": "invented", "quote": "Tideways", "detail": "a title for the game\'s name", "is_problem": true}]}',
+                    '{"problems": [{"kind": "not_a_message", "quote": "reversed? no", "detail": "unsure", "is_problem": true}]}',
+                    '{"problems": [{"kind": "wrong", "quote": "ok", "detail": "is correct, no error", "is_problem": false}]}',
+                    "not json"])
     monkeypatch.setattr(G, "cloud_caller", lambda role, **_: lambda system, prompt: next(replies))
     check = G.checker_caller("deepseek")
     assert check("name: Ana", [], [], "my game Tideways") == ['checker invented: "Tideways" a title for the game\'s name']
     assert check("name: Ana", [], [], "can u remind me friday") == []        # its quote is not in the message
-    assert check("name: Ana", [], [], "ok") == []
+    assert check("name: Ana", [], [], "ok") == []                            # its own verdict: fine
     assert check("name: Ana", [], [], "ok") == ["checker reply unreadable: JSONDecodeError"]
 
 
@@ -275,7 +276,7 @@ def test_a_turn_that_never_verifies_stops_the_conversation_and_a_repair_is_used(
         vals = " ".join(line.split(": ", 1)[1].rsplit(" (", 1)[0] for line in must if line.startswith("- "))
         hello = "".join(chr(97 + int(d)) for d in str(calls["n"]))
         return "forgot it" if "2,000 euros" in vals else f"{hello} {vals}"    # turn 3 never verifies
-    assistant_llm = lambda system, messages: "ok " + " ".join(__import__("re").findall(r"- [^:]+: (.+)", system))
+    assistant_llm = lambda system, messages: "ok " + " ".join(__import__("re").findall(r"- [^:]+: (.+)", messages[-2]["content"]))
     out = tmp_path / "out"
     status = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
     assert status == dict(plan=p["id"], turns=50, stopped_at=3, problems=status["problems"], finished=False)
@@ -321,3 +322,47 @@ def test_a_planned_suggestion_has_the_user_ask_about_its_topic_never_its_value()
                     assistant_llm=lambda s, m: "how about Tidewater Tabletop?", sessions={1: 1, 2: 1, 3: 1})
     assert "ALSO ASK THE ASSISTANT FOR ITS IDEAS ON: company name" in seen["prompt"]
     assert "Tidewater" not in seen["prompt"]
+
+
+
+def test_the_history_window_moves_in_blocks_so_the_prompt_start_stays_cached(monkeypatch):
+    """Round 6: every model sees ~HISTORY_TOKENS of the conversation; its start moves a block at a
+    time, so between moves each prompt starts with the previous prompt's bytes."""
+    from experiments.synth import generate as G
+    monkeypatch.setattr(G, "HISTORY_TOKENS", 100)
+    monkeypatch.setattr(G, "HISTORY_BLOCK", 5)
+    pairs = [dict(user="x" * 20, assistant="y" * 20) for _ in range(40)]          # 10 tokens a pair
+    assert len(G.window(pairs[:8])) == 8                                       # all of it fits
+    starts = [len(pairs[:n]) - len(G.window(pairs[:n])) for n in range(8, 41)]
+    assert starts == sorted(starts) and set(starts) <= {0, 5, 10, 15, 20, 25, 30}  # forward, a block at a time
+    a, b = G.transcript(G.window(pairs[:21])), G.transcript(G.window(pairs[:22]))
+    assert b.startswith(a)                                                     # same start: the cache holds
+
+
+def test_a_suggestion_is_turned_down_only_once_the_user_has_and_placeholders_are_caught():
+    from experiments.synth import generate as G
+    f = dict(id="F5", status="rejected", values=[dict(turn=6, value="Tidewater Tabletop")], mentions=[7])
+    assert G.attribution(f, 7) == "you suggested" and G.attribution(f, 8) == "you suggested and the user turned down"
+    assert G.artifacts("that leaves [some weeks] before the move") == ["unfinished placeholder: [some weeks]"]
+    assert G.artifacts("see [the docs](https://x.y) and ```\n[section]\n```") == []
+
+
+def test_every_rejected_attempt_is_logged_with_its_reason(tmp_path, monkeypatch):
+    import json
+    from experiments.synth import generate as G
+    monkeypatch.setattr(G, "validate", lambda p: [])
+    p = plan()
+    plans = tmp_path / "plans"; plans.mkdir(); (plans / f"{p['id']}.asks.json").write_text("[]")
+    monkeypatch.setattr(G, "PLANS", plans)
+    calls = {"n": 0}
+
+    def user_llm(system, prompt):
+        calls["n"] += 1
+        must = prompt.split("THIS MESSAGE MUST SAY:\n")[1].split("\n\n")[0].splitlines()
+        vals = " ".join(line.split(": ", 1)[1].rsplit(" (", 1)[0] for line in must if line.startswith("- "))
+        hello = "".join(chr(97 + int(d)) for d in str(calls["n"]))
+        return f"{hello} {vals} [some weeks]" if calls["n"] == 2 else f"{hello} {vals}"
+    assistant_llm = lambda system, messages: "ok " + " ".join(__import__("re").findall(r"- [^:]+: (.+)", messages[-2]["content"]))
+    G.run(p, tmp_path / "out", user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None, limit=3)
+    log = [json.loads(l) for l in (tmp_path / "out" / "attempts.jsonl").read_text().splitlines()]
+    assert log[0]["stage"] == "user" and log[0]["problems"] == ["unfinished placeholder: [some weeks]"]

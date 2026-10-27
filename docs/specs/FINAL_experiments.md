@@ -485,6 +485,15 @@ last 10 exchanges; hidden values show as "…"; the user knows whether a message
 that never verifies STOPS its conversation (never kept; relaunched up to 3 times, then repaired by
 hand via repair-<turn>.json) — the dropped-questions rule of round 4 is withdrawn: every kept turn
 is verified, so FINAL reads the committed asks.
+**Round 6 (after the round-5 review, conditional approval):** every model sees ~30K tokens of the
+conversation (was 5-10 exchanges: the models invented memories), its start moving 20 turns at a time so
+each prompt starts like the last and the provider bills that start cached (measured ~1/30 the price);
+this turn's notes come after the history. A suggestion counts as turned down only once the user has;
+the reply check sees what is established and flags invented memories, forgetting, factual errors and
+self-contradiction; the user is told which topics are not settled yet; placeholders are rejected on
+both sides; every problem needs an explicit yes; every rejected try is logged (attempts.jsonl) and the
+review files show it (experiments/synth/review_sample.py). The full run goes in stages with a review
+between them, never all at once.
 
 About 3,900 pairs, ~2 days of replay. **Build:** (1) a structured plan per conversation —
 persona, timeline, every planted fact with its introduce / change / correct turns, speaker,

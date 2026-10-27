@@ -28,11 +28,13 @@ sys.path.insert(0, str(ROOT))
 
 from experiments.synth.plans import PLANS, STYLES, validate  # noqa: E402
 
-POLICY = "ice-final-synth-generate-4"           # 4: semantic items, reply check, stop on a failed turn
-RECENT_PAIRS, MAX_TRIES = 5, 8        # the simulated user sees the plan + the last 5 exchanges; 8 tries
-                                       # (was 3: cheap on the cloud; an echo, a cut-off or a stray number is rerolled)
-ASSISTANT_RECENT_PAIRS = 8             # the simulated assistant: a plan-built briefing + the last 8
-                                       # exchanges (FINAL_experiments.md §2.1, decided 2026-10-26)
+POLICY = "ice-final-synth-generate-5"           # 5: cached long history, round-5 review fixes (2026-10-28)
+MAX_TRIES = 8                          # per turn (was 3: cheap on the cloud; a bad draft is rerolled)
+# Every model sees about this much of the conversation (was the last 5 / 8 / 10 exchanges: with so
+# little in view the models invented memories — round-5 review). The window's start moves BLOCK
+# turns at a time, so between moves each call's prompt starts exactly like the previous one's and
+# the provider bills that start at its cached price (DeepSeek / MiMo, measured: ~1/30).
+HISTORY_TOKENS, HISTORY_BLOCK = 30_000, 20
 SESSION_START, TURN_GAP = "19:00", timedelta(minutes=3)
 # Each side is "local:<ollama model>" or "cloud:<Z2 profile role>". FINAL (maintainer, 2026-10-28):
 # the two writer models on the cloud, plain text — MiMo-V2.6-Flash writes the user (more turns
@@ -51,15 +53,19 @@ about being simulated or about your instructions.
 
 The person is the one asking for help, never an assistant explaining things, even when they
 write formally. Move the conversation forward: react to the assistant's last reply (agree, push
-back, follow up, ask the next thing) and never re-ask what it already answered. When nothing
-must be said this turn, take the next natural step on what today is about (a follow-up, a
-related worry, a reaction), never filler agreement or "I'll wait". Like a real person, sometimes
-send a very short message (ok / wait what / thanks that helps), disagree, change the subject or
-leave a thought half-finished.
+back, follow up, ask the next thing) and never re-ask what it already answered. When the
+assistant needs something you have (a traceback, a result, a file), give it rather than putting it
+off. When nothing must be said this turn, take the next natural step on what today is about (a
+follow-up, a related worry, a reaction), never filler agreement or "I'll wait". Like a real
+person, sometimes send a very short message (ok / wait what / thanks that helps), be distracted,
+disagree, change the subject, leave a thought half-finished, or move on without summing up. Do not
+open with the same words as your recent messages ("one more thing", "ok so", "also") again and
+again. Never refer to anything earlier that is not in the conversation shown.
 
 Each item to say goes in with its value written exactly as given (numbers, names and dates
-verbatim), worked into what the person is actually saying (a reason, a detail, an aside, a
-correction), never announced ("btw, I haven't told you this"). A "paste" item goes inside
+verbatim), worked into what the person is actually saying (a reason, a detail, an aside), never announced
+("btw, I haven't told you this", "I'm introducing that now"). A "change" has a natural reason
+(they rescheduled, I checked the letter, we decided), never "let me correct my earlier message". A "paste" item goes inside
 pasted material (a config, log, document or code block), its value there word for word (a
 comment or a line of the paste). A "reject" item means turning down that earlier suggestion.
 If a self-contained question topic is given, the message is that question instead. A "…" marks
@@ -87,16 +93,35 @@ outside this conversation, so never offer to. Do not just agree: say so when som
 add up, and do not restate what was already said."""
 
 
-def user_prompt(persona, style, beats, beat_now, recent, must_say, topic, last=False, invite=()):
-    """The simulated user's input as plain labelled text — given as JSON, MiMo sometimes answered
-    in JSON too (round-3 sample, 2026-10-28)."""
-    lines = ["WHO YOU ARE:"] + [f"{k}: {v}" for k, v in persona.items()]
+def window(history):
+    """The exchanges every model sees: the newest ~HISTORY_TOKENS, starting on a HISTORY_BLOCK
+    boundary — the start only moves forward, a block at a time, so the prompt start is stable."""
+    sizes = [(len(p["user"]) + len(p["assistant"])) // 4 for p in history]
+    start, total = 0, sum(sizes)
+    while start < len(history) and total > HISTORY_TOKENS:
+        total -= sum(sizes[start:start + HISTORY_BLOCK])
+        start += HISTORY_BLOCK
+    return history[start:]
+
+
+def transcript(pairs, me="User"):
+    """A window as text, the same bytes every time it is shown (the cached prompt start)."""
+    return "\n\n".join(f"{who}: {text}" for p in pairs for who, text in ((me, p["user"]), ("Assistant", p["assistant"])))
+
+
+def user_prompt(persona, style, beats, beat_now, recent, must_say, topic, last=False, invite=(), unsettled=()):
+    """The simulated user's input as plain labelled text (given as JSON, MiMo sometimes answered in
+    JSON too — round-3 sample): the conversation first, the same from turn to turn so the provider
+    caches it, then this turn's notes."""
+    lines = ["THE CONVERSATION SO FAR (latest last):", transcript(recent, me="You") or
+             "(nothing yet: this is the first message today)", "", "---", "WHO YOU ARE:"]
+    lines += [f"{k}: {v}" for k, v in persona.items()]
     lines += ["", f"HOW YOU WRITE: {style}", "", "WHAT TODAY'S CHAT IS ABOUT:"] + [f"- {b}" for b in beats]
     if beat_now:
         lines += ["", f"WHERE IT IS NOW: {beat_now}"]
-    lines += ["", "THE CONVERSATION SO FAR (latest last):"]
-    lines += [f"{who}: {text}" for pair in recent for who, text in (("You", pair["user"]), ("Assistant", pair["assistant"]))] \
-        or ["(nothing yet: this is the first message today)"]
+    if unsettled:                                   # round 6: MiMo kept filling these in with guesses
+        lines += ["", "NOT SETTLED YET (you do not know these yet, so give no value for them):"]
+        lines += [f"- {u}" for u in unsettled]
     lines += ["", "THIS MESSAGE MUST SAY:"]
     lines += [f"- {i['about']}: {i['value']} ({i['kind']})" for i in must_say] or ["(nothing specific this turn)"]
     if invite:
@@ -126,6 +151,19 @@ def never_again(fact):
     return len(fact["values"]) == 1 and not fact.get("mentions")
 
 
+def rejected_turn(fact):
+    """When the user turns a rejected suggestion down: its first mention, else the turn after (due())."""
+    return (fact.get("mentions") or [fact["values"][0]["turn"] + 1])[0]
+
+
+def attribution(fact, turn):
+    """Who said it, as of *turn*: a suggestion is "turned down" only once the user has turned it
+    down (round-5 review: the assistant called one rejected before the rejection)."""
+    if fact["status"] == "rejected" and rejected_turn(fact) >= turn:
+        return ATTRIBUTION["suggested"]
+    return ATTRIBUTION[fact["status"]]
+
+
 def briefing(plan, turn, sessions=None):
     """The LOCAL facts the assistant may know before *turn*, built from the plan only: already
     said, current value, attributed, active in this or the previous session or due again in this
@@ -141,18 +179,20 @@ def briefing(plan, turn, sessions=None):
         future = [t for t in touches if t >= turn]
         active = sessions[past[-1]] >= now - 1 or (future and sessions[future[0]] == now)
         if active:
-            lines.append(f"- {f['about']}: {value_before(f, turn)} ({ATTRIBUTION[f['status']]})")
+            lines.append(f"- {f['about']}: {value_before(f, turn)} ({attribution(f, turn)})")
     for e in plan.get("events") or []:
         if e["told_turn"] < turn and sessions[e["told_turn"]] >= now - 1:
             lines.append(f"- {e['what']} (on {e['date']})")
     return "\n".join(lines)
 
 
-def recent_messages(history, user, n=ASSISTANT_RECENT_PAIRS):
+def assistant_messages(history, notes, user):
+    """The assistant's conversation: the window as chat turns (the cached start), this turn's notes
+    as a system message after it, then the user's new message."""
     msgs = []
-    for pair in history[-n:]:
+    for pair in window(history):
         msgs += [dict(role="user", content=pair["user"]), dict(role="assistant", content=pair["assistant"])]
-    return msgs + [dict(role="user", content=user)]
+    return msgs + [dict(role="system", content=notes), dict(role="user", content=user)]
 
 
 def drift_problems(plan, turn, user, reply):
@@ -183,6 +223,15 @@ CUT_OFF = (CloudCompletionError, RuntimeError)
 NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
 # A reply in JSON, or one naming its instructions (round-3 sample: {"messages": [...]} replies and
 # "MUST_SAY is empty"), is never a chat message.
+# An unfinished placeholder left in a message ("[some weeks]" in a reply, round-5 review).
+ARTIFACT = re.compile(r"\[[a-z][a-z /'-]{1,40}\](?!\()|\{\{|<insert|\bTODO\b|\bTBD\b|\bPLACEHOLDER\b")
+
+
+def artifacts(text):
+    found = ARTIFACT.findall(FENCE.sub(" ", text or ""))
+    return [f"unfinished placeholder: {found[0]}"] if found else []
+
+
 LEAK = re.compile(r'^\s*(\{\s*"|\[\s*\{)|MUST_SAY|SESSION_BEATS|BEAT_NOW|NO_MEMORY_TOPIC|"PERSONA"|WHO YOU ARE:'
                   r"|HOW YOU WRITE:|WHERE IT IS NOW:|THIS MESSAGE MUST SAY|my instructions|as an AI\b")
 FENCE = re.compile(r"```.*?(?:```|$)", re.S)
@@ -208,6 +257,7 @@ def invented_values(plan, turn, user, history):
                 out.append(f"user said {f['id']}'s later value early: {v['value']}")
     if LEAK.search(user):
         return ["user side echoed its instructions"]
+    out += artifacts(user)
     if any(norm(user)[:120] == norm(p["user"])[:120] for p in history):
         return ["user side repeated an earlier message"]
     return out
@@ -339,6 +389,10 @@ for help with anything) are fine. Problems:
 - "not_a_message": JSON, labels, talk about instructions or being simulated, or writing as the
   assistant rather than the person asking;
 - "repeat": it repeats an earlier user message in substance;
+- "forgets": it treats as unknown, or asks again about, something already established;
+- "contrived": only meta wording about its own message ("I'm introducing", "let me correct my
+  earlier message", "for the record") or stalling instead of giving what the assistant asked for;
+  a plain statement of a fact, however casual ("ok so the start date's monday"), is fine;
 - "missing": an item listed under CHECK THESE ITEMS is not clearly conveyed. Same meaning counts:
   its names and numbers must be there but in any format ("10 April 2025, 9:10" for "thursday 10
   april 2025 at 9:10am"); a "reject" item only needs that suggestion clearly turned down; a
@@ -346,21 +400,29 @@ for help with anything) are fine. Problems:
 "contradiction" includes continuity: a decision, a split, what a label or number refers to, where
 the person lives or is moving, who has which file — anything that silently changes from earlier.
 "not_a_message" includes role reversal: explaining like an assistant, or asking the assistant for
-something only the person has (their own code, logs, files).
-Return JSON: {"problems": [{"kind": "...", "quote": "...", "detail": "..."}]} — an empty list when
-there are none."""
+something only the person has (their own code, logs, files). Asking the assistant for help,
+advice, a plan or a reminder is always fine.
+Return JSON: {"problems": [{"kind": "...", "quote": "...", "detail": "...", "is_problem": true}]} — an
+empty list when there are none; if, on reflection, something is fine, leave it out or set
+"is_problem": false."""
 
 REPLY_CHECK = """You check one ASSISTANT reply in a chat for a dataset. You get the CONVERSATION so far,
-the USER's latest message and the REPLY. Report a problem only when you are sure, and quote the
-exact words of the reply it is about. Problems:
+what is ESTABLISHED (the facts said so far and who said them), the USER's latest message and the
+REPLY. Report a problem only when you are sure, and quote the exact words of the reply it is about.
+Problems:
 - "off": the reply does not answer or follow the user's latest message;
 - "contradiction": it conflicts with what was said earlier, or claims the user said something
   they did not;
+- "invented_memory": it refers to an earlier exchange, suggestion or decision that is in neither
+  the conversation nor what is established;
+- "forgets": it treats as unknown something already established;
+- "wrong": a clear factual or technical error (a wrong encoding fact, wrong arithmetic);
+- "inconsistent": it contradicts the assistant's own earlier advice without saying it changed its mind;
 - "impossible": it offers to do anything outside the chat (reminders, scheduling, sending,
   browsing) or to look at something the user has not pasted.
-Return JSON: {"problems": [{"kind": "...", "quote": "...", "detail": "..."}]} — an empty list when
-there are none."""
-CHECK_RECENT = 10                       # exchanges the checkers see (continuity reaches further back)
+Return JSON: {"problems": [{"kind": "...", "quote": "...", "detail": "...", "is_problem": true}]} — an
+empty list when there are none; if, on reflection, something is fine, leave it out or set
+"is_problem": false."""
 
 
 def upcoming(plan, turn):
@@ -369,13 +431,14 @@ def upcoming(plan, turn):
             for f in plan["facts"] if f["values"][0]["turn"] > turn and f["speaker"] != "assistant"]
 
 
-def established(plan, turn, persona):
-    """What the person has said before *turn* (current values) and who they are, for the checker."""
+def established(plan, turn, persona, suggestions=False):
+    """What was said before *turn* (current values) and who the person is, for the checkers; with
+    *suggestions*, the assistant's planned suggestions too, attributed as of the turn."""
     lines = [f"{k}: {v}" for k, v in persona.items()]
     for f in plan["facts"]:
         said_before = [v for v in f["values"] if v["turn"] < turn]
-        if said_before and f["speaker"] != "assistant":
-            lines.append(f"- {f['about']}: {said_before[-1]['value']}")
+        if said_before and (f["speaker"] != "assistant" or suggestions):
+            lines.append(f"- {f['about']}: {said_before[-1]['value']} ({attribution(f, turn)})")
     for e in plan.get("events") or []:
         if e["told_turn"] < turn:
             lines.append(f"- {e['what']} ({e['relative_phrase']})")
@@ -388,11 +451,12 @@ def checker_caller(role, *, session="", usage_log=None):
     invented names, JSON replies and broken character, and failed items said in other words).
     With *reply*, it reads the assistant's reply instead. An unreadable verdict is a failed
     attempt, never a pass."""
-    ask = cloud_caller(role, session=session, usage_log=usage_log)
+    asks = {"user": cloud_caller(role, session=f"{session}user-", usage_log=usage_log),
+            "reply": cloud_caller(role, session=f"{session}reply-", usage_log=usage_log)}
 
-    def verdict(system, prompt, text, items=()):
+    def verdict(which, system, prompt, text, items=()):
         try:
-            found = json.loads(ask(system, prompt))["problems"]
+            found = json.loads(asks[which](system, prompt))["problems"]
         except (ValueError, KeyError, TypeError) as exc:
             return [f"checker reply unreadable: {type(exc).__name__}"]
         # a problem counts only with a quote that is really there — in the text, or, for "missing",
@@ -400,25 +464,29 @@ def checker_caller(role, *, session="", usage_log=None):
         real = lambda p: (p.get("kind") == "missing" and any(norm(str(p.get("quote")))[:30] in norm(f"{i['about']} {i['value']}")
                                                             for i in items)) \
             or (len(norm(str(p.get("quote") or ""))) >= 3 and norm(str(p.get("quote"))) in norm(text))
+        # and only with an explicit yes (round 6: two "wrong" flags whose own reasons said "no error")
         return [f"checker {p.get('kind')}: \"{str(p.get('quote'))[:80]}\" {str(p.get('detail'))[:120]}"
-                for p in found if isinstance(p, dict) and real(p)]
+                for p in found if isinstance(p, dict) and p.get("is_problem") is True and real(p)]
 
     def check(known, recent, must_say, message, unconfirmed=(), reply=None, upcoming=()):
-        convo = "\n".join(f"{who}: {text}" for p in recent for who, text in (("User", p["user"]), ("Assistant", p["assistant"])))
+        convo = f"CONVERSATION:\n{transcript(recent) or '(none yet)'}\n\n---\n"    # first: the cached start
         if reply is not None:
-            return verdict(REPLY_CHECK, f"CONVERSATION:\n{convo or '(none yet)'}\n\nUSER:\n{message}\n\nREPLY:\n{reply}", reply)
+            return verdict("reply", REPLY_CHECK, f"{convo}ESTABLISHED:\n{known or '(nothing yet)'}\n\nUSER:\n{message}"
+                                                 f"\n\nREPLY:\n{reply}", reply)
         items = "\n".join(f"- {i['about']}: {i['value']} ({i['kind']})" for i in must_say) or "(nothing specific)"
         doubt = "\n".join(f"- {i['about']}: {i['value']} ({i['kind']})" for i in unconfirmed) or "(none)"
         later = "\n".join(f"- {t}" for t in upcoming) or "(none)"
-        return verdict(CHECK_SYSTEM, f"ESTABLISHED:\n{known or '(nothing yet)'}\n\nCONVERSATION:\n{convo or '(none yet)'}"
-                                     f"\n\nNOT SETTLED YET:\n{later}\n\nTHIS MESSAGE HAD TO SAY:\n{items}\n\nCHECK THESE ITEMS:"
-                                     f"\n{doubt}\n\nMESSAGE:\n{message}", message, unconfirmed)
+        return verdict("user", CHECK_SYSTEM, f"{convo}ESTABLISHED:\n{known or '(nothing yet)'}"
+                                             f"\n\nNOT SETTLED YET:\n{later}\n\nTHIS MESSAGE HAD TO SAY:\n{items}\n\nCHECK THESE ITEMS:"
+                                             f"\n{doubt}\n\nMESSAGE:\n{message}", message, unconfirmed)
     return check
 
 
-def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_llm, sessions=None, checker=None):
-    """One verified pair, or the last attempt with its problems."""
-    recent = history[-RECENT_PAIRS:]
+def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_llm, sessions=None, checker=None,
+                  log=lambda record: None):
+    """One verified pair, or the last attempt with its problems; every rejected attempt goes to
+    *log* with its reasons (round-5 review: the checker's decisions must be visible)."""
+    recent = window(history)
     must_say = [dict(about=i["about"], value=i["value"], kind=("paste" if i["paste"] else i["change"]))
                 for i in items["user"]]
     problems, user, reply = [], "", ""
@@ -439,7 +507,8 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
     for attempt in range(1, MAX_TRIES + 1):
         try:
             user = user_llm(USER_SYSTEM, user_prompt(persona, STYLES[session["style"]], beats, beat_now, recent,
-                                                     must_say, topic, last, invite))
+                                                     must_say, topic, last, invite,
+                                                     [u for u in upcoming(plan, turn) if u not in {m["about"] for m in must_say}]))
             # the user message first: mechanical checks, then the checker's reading; a bad message
             # never costs an assistant reply. An item not found word for word goes to the checker,
             # which judges it by meaning (round-4 review: a date in another format, a rejection in
@@ -450,30 +519,34 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
                 problems += [f"user missing: {m['value']}" for m, i in zip(must_say, items["user"])
                              if m in unconfirmed and i["change"] != "event"]
             elif not problems:
-                problems = checker(established(plan, turn, persona), history[-CHECK_RECENT:], must_say, user, unconfirmed,
+                problems = checker(established(plan, turn, persona), recent, must_say, user, unconfirmed,
                                    upcoming=upcoming(plan, turn))
             if problems:
+                log(dict(turn=turn, attempt=attempt, stage="user", problems=problems, user=user))
                 continue
             known = briefing(plan, turn, sessions)
             # a planned suggestion leads and closes the system prompt: at the end alone, both
             # writer models answered the user's topic and left it out (2026-10-28 trial)
             # No beats for the assistant (maintainer's review, 2026-10-28): from them it brought up
             # what the user had not said yet; it knows the conversation and the briefing only.
-            system = (suggest_note(items["assistant"]).strip() + "\n\n" if items["assistant"] else "") + (
-                      ASSISTANT_SYSTEM + f"\n\nWHAT YOU KNOW:\n{known or '- nothing yet'}"
-                      + suggest_note(items["assistant"]))
-            reply = assistant_llm(system, recent_messages(history, user))
+            # the system prompt stays fixed (the cached start); this turn's notes follow the window
+            notes = ((suggest_note(items["assistant"]).strip() + "\n\n" if items["assistant"] else "")
+                     + f"WHAT YOU KNOW:\n{known or '- nothing yet'}" + suggest_note(items["assistant"]))
+            reply = assistant_llm(ASSISTANT_SYSTEM, assistant_messages(history, notes, user))
         except CUT_OFF as exc:                        # a reply cut at the output cap: try again
             problems = [f"reply cut off: {str(exc)[:120]}"]
+            log(dict(turn=turn, attempt=attempt, stage="call", problems=problems))
             continue
         problems = ([f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
                      if not contains(reply, i["value"])]
-                    + drift_problems(plan, turn, user, reply))
-        if not problems and checker:                  # does the reply follow, keep continuity, stay in the chat
+                    + drift_problems(plan, turn, user, reply) + artifacts(reply))
+        if not problems and checker:                  # follows, continuity, facts, stays in the chat
             try:
-                problems = checker("", history[-CHECK_RECENT:], [], user, reply=reply)
+                problems = checker(established(plan, turn, persona, suggestions=True), recent, [], user, reply=reply)
             except CUT_OFF as exc:
                 problems = [f"reply cut off: {str(exc)[:120]}"]
+        if problems:
+            log(dict(turn=turn, attempt=attempt, stage="reply", problems=problems, user=user, reply=reply))
         if not problems:
             return dict(turn=turn, user=user, assistant=reply, attempts=attempt, verified=True)
     return dict(turn=turn, user=user, assistant=reply, attempts=MAX_TRIES, verified=False, problems=problems)
@@ -497,6 +570,10 @@ def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None, checker=No
                 row = json.loads(line)
                 done[row["turn"]] = row
     schedule, when, sessions = due(plan), session_of(plan), session_index(plan)
+
+    def attempt_log(record):                          # every rejected attempt and why (attempts.jsonl)
+        with (out / "attempts.jsonl").open("a") as handle:
+            handle.write(json.dumps(dict(record, policy=POLICY), ensure_ascii=False) + "\n")
     history = [dict(user=done[t]["user"], assistant=done[t]["assistant"]) for t in sorted(done)]
     total = len(when)
     for turn in range(1, total + 1):
@@ -512,7 +589,7 @@ def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None, checker=No
             row = dict(turn=turn, user=fixed["user"], assistant=fixed["assistant"], attempts=0, verified=True, repaired=True)
         else:
             row = generate_turn(plan, turn, session, history, items, user_llm=user_llm, assistant_llm=assistant_llm,
-                                sessions=sessions, checker=checker)
+                                sessions=sessions, checker=checker, log=attempt_log)
         if not row["verified"]:
             (out / "stopped.json").write_text(json.dumps(dict(row, policy=POLICY), indent=1, ensure_ascii=False) + "\n")
             say(f"STOPPED {plan['id']} at turn {turn}: no attempt verified in {MAX_TRIES}: {row['problems']} — "
