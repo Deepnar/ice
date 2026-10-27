@@ -95,7 +95,14 @@ SUITES = {
         ("A", "SW", "LAP", "B"),
 }
 
-LABELS = {"full_default": "ICE", "full_b2000": "ICE at a 2K memory budget", "bare_vector": "plain vector search",
+# The named measures (pre-registration §2, 2026-10-28): ACC accuracy · SCA supported current
+# accuracy · SCA-BW SCA beyond the window · UA update accuracy · OVR outdated-value rate · ICR
+# invented-claim rate · NSR never-said answer rate · AER attribution-error rate · TUR token utility
+# ratio (correct answers per 1,000 prompt tokens) · SPF supporting-fragment precision · SFR
+# stale-fragment rate · ER evidence recall.
+LABELS = {"full": "ICE, decay neutral (the parts test's reference)", "full_context": "full context",
+          "all_evidence": "oracle setting (answer sessions only)",
+          "full_default": "ICE", "full_b2000": "ICE at a 2K memory budget", "bare_vector": "plain vector search",
           "long_context": "long context (256K)", "recent_only": "recent turns only", "graphiti": "Graphiti",
           "mem0": "Mem0", "amem": "A-Mem", "full_history": "full history"}
 
@@ -148,51 +155,56 @@ def cross_judge(run):
 
 
 def locomo(run, exports=ROOT / "logs/final-locomo"):
-    """LoCoMo (an extra table, prereg r2 §4): pooled over its 10 conversations, per ICE condition
-    and per memory system — M1/M2 on categories 1–4 (comparable with other papers), confident
-    answers to category 5 (never said), and LoCoMo's own token F1 on categories 1–4."""
-    from experiments.locomo.adapter import native
-    from experiments.z2 import scoring as S
+    """LoCoMo (an extra table, prereg r2 §4), pooled over its 10 conversations, per ICE condition and
+    per memory system, the way memory papers report it — Mem0's protocol (experiments/locomo/
+    grade.py): J, F1 and BLEU-1 on categories 1–4 — with each system's prompt size and its share of
+    the conversation beside them (a short conversation can be "remembered" by reading most of it)."""
     from experiments.z2.report import unit_index
     from src.memory.tokens import count
-    comparable = ("multi_hop", "temporal", "open_domain", "single_hop")
-    run, rows, f1, context, length = Path(run), {}, {}, {}, {}
-    for grades in sorted(run.glob("grade-*LOCOMO-*/grades.json")):
-        name = grades.parent.name                  # grade-LOCOMO-<id> | grade-baseline-<system>-LOCOMO-<id>
+    run, rows, context, length = Path(run), {}, {}, {}
+    for store in sorted(run.glob("grade-*LOCOMO-*/locomo-grades.jsonl")):
+        name = store.parent.name                  # grade-LOCOMO-<id> | grade-baseline-<system>-LOCOMO-<id>
         sid = name.split("LOCOMO-", 1)[1]
-        occ_path = Path(exports) / sid / "occurrences.json"
-        occ = {f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}": o for o in json.loads(occ_path.read_text())}
-        for key, g in json.loads(grades.read_text())["graded"].items():
-            cond, ask = key.split("|", 1)
-            if ask in occ:
-                rows.setdefault(cond, []).append((occ[ask], S.outcome(g, occ[ask]["type"])))
+        graded = set()
+        for line in store.read_text().splitlines():
+            r = json.loads(line) if line.strip() else None
+            if r and r["status"] == "graded":
+                rows.setdefault(r["condition"], []).append(r)
+                graded.add(r["key"])
         units = run / (f"local-read-LOCOMO-{sid}" if name.startswith("grade-LOCOMO") else name.replace("grade-", "local-", 1))
-        answers = run / name.replace("grade-", "cloud-answers-", 1)
         if units.exists():
             if sid not in length:
                 originals = json.loads((Path(exports) / sid / "originals.json").read_text())
                 length[sid] = sum(count(r["prompt"] + "\n" + r["response"]) for r in originals)
             for key, u in unit_index(units).items():
-                cond = key.split("|", 1)[0]
-                if u.get("prompt_tokens") and key in json.loads(grades.read_text())["graded"]:
-                    context.setdefault(cond, []).append((u["prompt_tokens"], u["prompt_tokens"] / length[sid]))
-        if (answers / "index.json").exists():
-            for cond, cells in native(units, answers, occ_path).items():
-                acc = f1.setdefault(cond, [0.0, 0])
-                for c in cells.values():
-                    acc[0] += c["token_f1"] * c["n"]
-                    acc[1] += c["n"]
+                if u.get("prompt_tokens") and key in graded:
+                    context.setdefault(key.split("|", 1)[0], []).append((u["prompt_tokens"], u["prompt_tokens"] / length[sid]))
     out = {}
-    for cond, pairs in rows.items():
-        main = S.summary([r for o, r in pairs if o["type"] in comparable])
-        never = S.summary([r for o, r in pairs if o["type"] == "adversarial"])
+    for cond, rs in rows.items():
         ctx = context.get(cond) or []
-        out[cond] = dict(graded=main["graded"], m1_categories_1_4=main["m1"], m2_categories_1_4=main["m2"],
-                         confident_on_never_said=never["confident_never_said"],
+        out[cond] = dict(graded=len(rs), j=round(statistics.fmean(r["j"] for r in rs), 4),
+                         f1=round(statistics.fmean(r["f1"] for r in rs), 4),
+                         bleu1=round(statistics.fmean(r["bleu1"] for r in rs), 4),
                          prompt_tokens=round(statistics.fmean(t for t, _ in ctx)) if ctx else None,
-                         share_of_conversation=round(statistics.fmean(sh for _, sh in ctx), 3) if ctx else None,
-                         token_f1_categories_1_4=round(f1[cond][0] / f1[cond][1], 4) if f1.get(cond, [0, 0])[1] else None)
+                         share_of_conversation=round(statistics.fmean(sh for _, sh in ctx), 3) if ctx else None)
     return out or None
+
+
+def longmemeval_s(run):
+    """LongMemEval-S as the field reports it: its own judge's accuracy per condition, overall and
+    by question type (oracle.py --upstream-only)."""
+    grades = _load(Path(run) / "grade-lmes" / "oracle-grades.json")
+    if not grades:
+        return None
+    cells = {}
+    for key, r in grades.items():
+        if r.get("status") != "graded" or r.get("upstream") is None:
+            continue
+        cond = key.split("|", 1)[0]
+        for bucket in ("all", "abstention" if r.get("abstention") else r.get("type")):
+            cells.setdefault(cond, {}).setdefault(bucket, []).append(bool(r["upstream"]))
+    return {c: {b: dict(n=len(v), accuracy=round(sum(v) / len(v), 4)) for b, v in sorted(bs.items())}
+            for c, bs in cells.items()}
 
 
 def upper_bound(run):
@@ -257,7 +269,7 @@ def build(run):
             subset[p.name.removeprefix("subset-grade-")] = dict(headline=headline(sc), primary_tests=sc["primary_tests"])
     return dict(label="FINAL — suites pooled first, public benchmarks in their own scoring, then each conversation",
                 suites=suites, histories=tables, beam=beam(run),
-                longmemeval_s=_load(run / "grade-lmes" / "oracle-report.json"),
+                longmemeval_s=longmemeval_s(run),
                 run_to_run_variance_S1=variance, cloud_answerer_subset=subset or None,
                 cross_family_judge=cross_judge(run), locomo=locomo(run), full_history_upper_bound=upper_bound(run),
                 judge_vs_human=_load(run / "human-sample" / "agreement.json"))
@@ -273,10 +285,10 @@ def markdown(report):
              "out-of-window M2 = evidence beyond the long-context window. Percentages.", ""]
 
     def headline_table(head):
-        out = ["| condition | graded | M1 | M2 | M2 out-of-window | M2 on updates | outdated | invented | "
-               "confident never-said | prompt tokens | TUR |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+        out = ["| condition | graded | ACC | SCA | SCA-BW | UA | OVR | ICR | NSR | prompt tokens | TUR |",
+               "|---|---|---|---|---|---|---|---|---|---|---|"]
         for c, v in head.items():
-            out.append(f"| {c} | {v['graded']} | {_pct(v['m1'])} | {_pct(v['m2'])} | {_pct(v['m2_out_of_window'])} | "
+            out.append(f"| {LABELS.get(c, c)} | {v['graded']} | {_pct(v['m1'])} | {_pct(v['m2'])} | {_pct(v['m2_out_of_window'])} | "
                        f"{_pct(v['update_m2'])} | {_pct(v['outdated'])} | {_pct(v['invented'])} | "
                        f"{_pct(v['confident_never_said'])} | {v['prompt_tokens']} | {v['tur']} |")
         return out
@@ -343,15 +355,19 @@ def markdown(report):
                     lines.append(f"- {h} {name}: {test['verdict']} ({_pct(test['diff'])} points, {test['pairs']} pairs)")
         lines.append("")
     if report.get("locomo"):
-        lines += ["## LoCoMo (extra table: each conversation fits one window; ~6% of its answer key is wrong and its "
-                  "common judge is lenient — ours is stricter)", "",
-                  "| system | graded (categories 1–4) | correct | correct and current | confident on never-said "
-                  "(category 5, apart) | word overlap (LoCoMo's own) | prompt tokens | share of the conversation |",
-                  "|---|---|---|---|---|---|---|---|"]
+        lines += ["## LoCoMo — Mem0's protocol, categories 1–4 (J by FINAL's judge, non-official; ~6% of LoCoMo's "
+                  "answer key is wrong and J is generous by design)", "",
+                  "| system | graded | J | F1 | BLEU-1 | prompt tokens | share of the conversation |",
+                  "|---|---|---|---|---|---|---|"]
         for c, v in report["locomo"].items():
-            lines.append(f"| {LABELS.get(c, c)} | {v['graded']} | {_pct(v['m1_categories_1_4'])} | {_pct(v['m2_categories_1_4'])} | "
-                         f"{_pct(v['confident_on_never_said'])} | {v['token_f1_categories_1_4']} | {v['prompt_tokens']} | "
-                         f"{_pct(v['share_of_conversation'])} |")
+            lines.append(f"| {LABELS.get(c, c)} | {v['graded']} | {_pct(v['j'])} | {_pct(v['f1'])} | {_pct(v['bleu1'])} | "
+                         f"{v['prompt_tokens']} | {_pct(v['share_of_conversation'])} |")
+        lines.append("")
+    if report.get("longmemeval_s"):
+        lines += ["## LongMemEval-S — its own judge (prompts verbatim; judged by FINAL's model, non-official)", "",
+                  "| condition | answered | accuracy |", "|---|---|---|"]
+        for c, bs in report["longmemeval_s"].items():
+            lines.append(f"| {'ICE' if c == 'full' else LABELS.get(c, c)} | {bs['all']['n']} | {_pct(bs['all']['accuracy'])} |")
         lines.append("")
     if report.get("full_history_upper_bound"):
         u = report["full_history_upper_bound"]

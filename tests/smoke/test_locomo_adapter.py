@@ -1,6 +1,6 @@
-"""FINAL's LoCoMo adapter: consecutive messages pair up with speaker names kept, photos become
-text, turns are timed from the session's own date, evidence ids map to turns, category 5 is a
-never-said question, token F1 is LoCoMo's, and only the pinned file is accepted."""
+"""FINAL's LoCoMo adapter: speakers on fixed sides with names kept, photos become text, turns are
+timed from the session's own date, evidence ids map to turns, category 5 is excluded (as memory
+papers do), and only the pinned file is accepted."""
 
 import json
 
@@ -44,18 +44,16 @@ def test_originals_pair_messages_and_keep_speakers_and_dates():
     assert dia == {"D1:1": 1, "D1:2": 1, "D1:3": 2, "D2:1": 3, "D2:2": 4}
 
 
-def test_questions_references_and_never_said():
+def test_questions_references_and_category_5_excluded():
     originals, dia = A.to_originals(SAMPLE)
     asks, occ, dropped = A.questions(SAMPLE, dia, 4)
+    assert len(asks) == len(occ) == 2 and all(o["type"] != "adversarial" for o in occ)
     assert dropped == 1                                                      # D9:9 names no message
     assert asks[0]["id"] == "LOCOMO-conv-x:Q000@4#0" and asks[0]["checkpoint_turn"] == 4
     assert occ[1]["reference"]["citations"] == [dict(turn=3), dict(turn=4)] and occ[1]["type"] == "temporal"
-    assert occ[2]["expected_abstention"] and occ[2]["reference"]["required"] == [] and occ[2]["type"] == "adversarial"
 
 
-def test_token_f1_and_pinned_data(tmp_path):
-    assert A.token_f1("The cat is Tofu", "Tofu") == pytest.approx(0.5)            # "cat is tofu": P 1/3, R 1
-    assert A.token_f1("nothing", "Tofu") == 0.0
+def test_only_the_pinned_file_is_accepted(tmp_path):
     bad = tmp_path / "locomo10.json"
     bad.write_text(json.dumps([SAMPLE]))
     with pytest.raises(ValueError):
@@ -65,6 +63,6 @@ def test_token_f1_and_pinned_data(tmp_path):
 def test_export_writes_everything_the_runner_reads(tmp_path):
     report = A.export(tmp_path, data=[SAMPLE])
     d = tmp_path / "conv-x"
-    assert report["conv-x"] == dict(turns=4, questions=3, evidence_ids_dropped=1)
+    assert report["conv-x"] == dict(turns=4, questions=2, evidence_ids_dropped=1)
     assert json.loads((d / "ledger.json").read_text()) == dict(entries=[])
     assert {p.name for p in d.iterdir()} == {"originals.json", "asks.json", "occurrences.json", "ledger.json"}

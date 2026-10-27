@@ -319,8 +319,10 @@ def progress(out, total=500):
 
 # ── grading ─────────────────────────────────────────────────────────────────
 
-def grade_oracle(units, answers, out, *, ask, ask_text):
-    """Upstream LongMemEval yes/no (its prompts, verbatim) and the qualified Muse grade."""
+def grade_oracle(units, answers, out, *, ask, ask_text, upstream_only=False):
+    """Upstream LongMemEval yes/no (its prompts, verbatim) and the qualified Muse grade.
+    *upstream_only* (FINAL's LongMemEval-S, 2026-10-28): LongMemEval's own judge only, as the
+    field reports it."""
     sys.path.insert(0, str(ROOT / "experiments/lme"))
     from experiments.lme.score import get_anscheck_prompt
     from experiments.z2 import grade as G
@@ -347,7 +349,7 @@ def grade_oracle(units, answers, out, *, ask, ask_text):
                   if t.get("has_answer")]
         body = dict(QUESTION=a["question"], REQUIRED=[str(a["answer"])], SOURCES=marked, SUPERSEDED=[],
                     EXPECT_ABSTENTION=a["abstention"], ANSWER=answer["text"])
-        rich = ask(G.GRADE_SYSTEM, json.dumps(body, ensure_ascii=False)) or {}
+        rich = {} if upstream_only else ask(G.GRADE_SYSTEM, json.dumps(body, ensure_ascii=False)) or {}
         results[key] = dict(status="graded", upstream=_yes(upstream), grade=rich.get("grade"), score=rich.get("score"),
                             type=a["type"], abstention=a["abstention"], evidence_decay=unit.get("evidence_decay"))
     Path(out).mkdir(parents=True, exist_ok=True)
@@ -415,6 +417,7 @@ def main() -> int:
     g.add_argument("--units", type=Path, required=True)
     g.add_argument("--answers", type=Path, required=True)
     g.add_argument("--out", type=Path, required=True)
+    g.add_argument("--upstream-only", action="store_true", help="LongMemEval's own judge only (FINAL)")
     args = parser.parse_args()
     select_dataset(args.dataset)
     if getattr(args, "slice", None):
@@ -432,7 +435,7 @@ def main() -> int:
         calls = M.Calls(out / "oracle-grade-raw.jsonl")
         ask = judge_caller(calls, generator(args.judge).generate, metadata(args.judge), "lme-oracle", role=args.judge)
         ask_text = text_caller(calls, generator(args.judge).generate, metadata(args.judge), "ice-z2-lme-oracle-upstream")
-        grade_oracle(args.units, args.answers, out, ask=ask, ask_text=ask_text)
+        grade_oracle(args.units, args.answers, out, ask=ask, ask_text=ask_text, upstream_only=args.upstream_only)
         return 0
     if os.environ.get("ICE_TEST_DATABASE") != args.database:
         from experiments.z2.profile_write_path import create_database

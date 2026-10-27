@@ -144,9 +144,6 @@ def references(history):
         plans = ROOT / "experiments/synth/plans"
         return dict(questions=["--occurrences", rel(plans / f"{history}.final-occurrences.json")],
                     ledger=["--ledger", rel(plans / f"{history}.ledger.json")])
-    if history in LOCOMO:
-        d = f"logs/final-locomo/{history.removeprefix('LOCOMO-')}"
-        return dict(questions=["--occurrences", f"{d}/occurrences.json"], ledger=["--ledger", f"{d}/ledger.json"])
     if history == "B":
         return dict(questions=["--questions", "logs/z2-questions-final"],
                     ledger=["--ledger", "logs/z2-ledger-detail-2026-10-18-r2/B/ledger.json",
@@ -413,6 +410,18 @@ def grade_stage(history, repeat="", judge="muse", *, units=None, answers_dir=Non
                       judge, waits)
 
 
+def locomo_grade(key, *, units=None, answers_dir=None, out_key=None, judge="muse"):
+    """LoCoMo graded the way memory papers grade it — Mem0's J, F1, BLEU-1 (experiments/locomo/grade.py)."""
+    rel = lambda path: str(Z._rel(path))
+    units, answers_dir = units or f"local-read-{key}", answers_dir or f"cloud-answers-{key}"
+    sid = key.removeprefix("LOCOMO-")
+    args = lambda ctx, out: ["experiments/locomo/grade.py", "--units", rel(ctx.dir / units),
+                             "--answers", rel(ctx.dir / answers_dir),
+                             "--occurrences", f"logs/final-locomo/{sid}/occurrences.json", "--out", rel(out)]
+    out_key = out_key or f"grade-{key}"
+    return FinalGrade(out_key, out_key.replace("-", " "), args, (), judge)
+
+
 def beam_grade(key, judge="muse", *, units=None, answers_dir=None, out_key=None):
     tier, cid = key.split("-")[1], key.split("-")[2]
     rel = lambda path: str(Z._rel(path))
@@ -624,12 +633,12 @@ def final_stages(limit=None):
         keys = [k for k in BEAM if k.startswith(f"BEAM-{tier}-")]
         cloud.append(Group(f"grade-BEAM{tier}", f"grade BEAM {tier}", [beam_grade(k) for k in keys], "conversations",
                            needs=(f"cloud-answers-BEAM{tier}",)))
-    cloud.append(Group("grade-LOCOMO", "grade LoCoMo", [grade_stage(k) for k in lk], "conversations",
+    cloud.append(Group("grade-LOCOMO", "grade LoCoMo (Mem0's protocol)", [locomo_grade(k) for k in lk], "conversations",
                        needs=("cloud-answers-LOCOMO",)))
     for system in MEMORY_SYSTEMS:
         cloud.append(Group(f"grade-baseline-{system}-LOCOMO", f"grade baseline {system} LoCoMo",
-                           [grade_stage(k, units=f"local-baseline-{system}-{k}", answers_dir=f"cloud-answers-baseline-{system}-{k}",
-                                        key=f"grade-baseline-{system}-{k}", replay=False, needs=())
+                           [locomo_grade(k, units=f"local-baseline-{system}-{k}", answers_dir=f"cloud-answers-baseline-{system}-{k}",
+                                         out_key=f"grade-baseline-{system}-{k}")
                             for k in lk], "conversations", needs=(f"cloud-answers-baseline-{system}-LOCOMO",)))
     upper = sorted(k for k in BEAM if k.split("-")[1] in UPPER_TIERS)
     cloud += [Group("upper-build-BEAM", "full-history prompts BEAM " + " + ".join(UPPER_TIERS),
@@ -645,7 +654,7 @@ def final_stages(limit=None):
                      for k in upper], "conversations", needs=("upper-answers-BEAM",))]
     lmes = lambda ctx, out: ["experiments/z2/oracle.py", "grade", "--dataset", "s",
                              "--units", str(Z._rel(ctx.dir / "local-lmes")), "--answers",
-                             str(Z._rel(ctx.dir / "cloud-answers-lmes")), "--out", str(Z._rel(out))]
+                             str(Z._rel(ctx.dir / "cloud-answers-lmes")), "--out", str(Z._rel(out)), "--upstream-only"]
     cloud.append(FinalGrade("grade-lmes", "grade LongMemEval-S", lmes, ("cloud-answers-lmes",)))
     subset = lambda ctx, out: ["experiments/final/cloud_subset.py", "--run", str(Z._rel(ctx.dir)),
                                "--answerer", SUBSET_ANSWERER]

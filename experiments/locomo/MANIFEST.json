@@ -9,43 +9,44 @@
  "conversations": {
   "conv-26": {
    "turns": 215,
-   "questions": 199
+   "questions": 152
   },
   "conv-30": {
    "turns": 192,
-   "questions": 105
+   "questions": 81
   },
   "conv-41": {
    "turns": 349,
-   "questions": 193
+   "questions": 152
   },
   "conv-42": {
    "turns": 328,
-   "questions": 260
+   "questions": 199
   },
   "conv-43": {
    "turns": 354,
-   "questions": 242
+   "questions": 178
   },
   "conv-44": {
    "turns": 355,
-   "questions": 158
+   "questions": 123
   },
   "conv-47": {
    "turns": 360,
-   "questions": 190
+   "questions": 150
   },
   "conv-48": {
    "turns": 353,
-   "questions": 239
+   "questions": 191
   },
   "conv-49": {
    "turns": 269,
-   "questions": 196
+   "questions": 156
   },
   "conv-50": {
    "turns": 300,
-   "questions": 204
+   "questions": 158
   }
- }
+ },
+ "questions_rule": "categories 1-4 only; category 5 (adversarial) excluded, as memory papers do (2026-10-28)"
 }

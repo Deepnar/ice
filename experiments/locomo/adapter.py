@@ -14,24 +14,19 @@ speaker's name; a shared photo becomes "[shares a photo: <caption>]". Turns are 
 session's own date, TURN_GAP apart, so the replay runs on LoCoMo's clock (provenance
 "locomo_session_date", a source clock — experiments/z2/clock.py).
 
-Questions: every QA item, asked once after the last turn (checkpoint = the last turn). The
-reference is its answer, its citations the turns of its evidence ids ("D<session>:<n>"; an id
-naming no message is counted and dropped). Category 5 (adversarial — the conversation never says
-it) is a never-said question: expected abstention, reported apart; categories 1–4 are the table
-comparable with other papers. Each question is its own family. The ledger is empty: an answer's
-unsupported claim is checked against the original messages only.
-
-Native score: token F1 against the answer (LoCoMo's own metric; its per-category variants are not
-reproduced), beside our judge's M1/M2.
+Questions: categories 1–4, asked once after the last turn (checkpoint = the last turn) —
+category 5 (adversarial) is excluded, as memory papers do (maintainer, 2026-10-28: public
+benchmarks follow their own norms). The reference is its answer, its citations the turns of its
+evidence ids ("D<session>:<n>"; an id naming no message is counted and dropped). Each question is
+its own family. Scored the way memory papers score LoCoMo — J, F1 and BLEU-1 by Mem0's protocol
+(experiments/locomo/grade.py).
 
     uv run --no-sync python experiments/locomo/adapter.py export [out-dir]        # logs/final-locomo
 """
 
-import collections
 import hashlib
 import json
 import re
-import string
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -107,7 +102,9 @@ def questions(sample, dia_to_turn, last_turn):
     for i, q in enumerate(sample["qa"]):
         family = f"{key(sample['sample_id'])}:Q{i:03d}"
         ask_id = f"{family}@{last_turn}#0"
-        never_said = q["category"] == 5
+        if q["category"] == 5:                    # adversarial: excluded, as memory papers do
+            continue
+        never_said = False
         evidence = [e.strip() for e in q.get("evidence") or [] for e in str(e).split(";")]
         turns = sorted({dia_to_turn[e] for e in evidence if e in dia_to_turn})
         dropped += sum(1 for e in evidence if e not in dia_to_turn)
@@ -134,48 +131,6 @@ def export(out_dir="logs/final-locomo", data=None):
         report[sample["sample_id"]] = dict(turns=len(originals), questions=len(asks), evidence_ids_dropped=dropped)
     (out_dir / "export.json").write_text(json.dumps(report, indent=1) + "\n")
     return report
-
-
-# ── LoCoMo's native score ────────────────────────────────────────────────────
-
-def normalize(text):
-    text = str(text).lower()
-    text = "".join(ch for ch in text if ch not in set(string.punctuation))
-    text = re.sub(r"\b(a|an|the|and)\b", " ", text)
-    return " ".join(text.split())
-
-
-def token_f1(prediction, truth):
-    p, t = normalize(prediction).split(), normalize(truth).split()
-    common = sum((collections.Counter(p) & collections.Counter(t)).values())
-    if not p or not t or not common:
-        return 0.0
-    precision, recall = common / len(p), common / len(t)
-    return 2 * precision * recall / (precision + recall)
-
-
-def native(units_dir, answers_dir, occurrences_path):
-    """Per condition and category: mean token F1 of the answers (categories 1–4; category 5 has
-    no answer to overlap with and is scored by the judge's abstention only)."""
-    occ = {f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}": o
-           for o in json.loads(Path(occurrences_path).read_text())}
-    index = json.loads((Path(answers_dir) / "index.json").read_text())["index"]
-    rows = {}
-    for line in (Path(answers_dir) / "answers.jsonl").read_text().splitlines():
-        if line.strip():
-            r = json.loads(line)
-            rows[r["prompt_sha256"]] = r
-    cells = collections.defaultdict(list)
-    for k, sha in index.items():
-        cond, ask = k.split("|", 1)
-        o, r = occ.get(ask), rows.get(sha)
-        if o is None or r is None or r.get("finish") != "complete" or o["expected_abstention"]:
-            continue
-        cells[(cond, o["type"])].append(token_f1(r["text"], o["reference"]["answer"]))
-    out = collections.defaultdict(dict)
-    for (cond, qtype), scores in sorted(cells.items()):
-        out[cond][qtype] = dict(n=len(scores), token_f1=round(sum(scores) / len(scores), 4))
-    return dict(out)
 
 
 if __name__ == "__main__":
