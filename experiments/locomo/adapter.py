@@ -8,9 +8,13 @@ To Z2-format originals: the conversation's first speaker (speaker_a) is always o
 side and the second (speaker_b) always on its assistant side — never swapped between sessions
 (124 of LoCoMo's 272 sessions open with speaker_b; pairing by position would hand that person
 the user side there, the role mix other LoCoMo setups were criticised for). A pair is a
-speaker_a message and the speaker_b reply after it; a session opened by speaker_b starts with an
-empty user side, one closed by speaker_a ends with an empty assistant side. Each text keeps its
-speaker's name; a shared photo becomes "[shares a photo: <caption>]". Turns are timed from the
+speaker_a message and the speaker_b reply after it. A session opened by speaker_b carries that
+opening line on the user side, before speaker_a's first message (maintainer, 2026-10-28): ICE
+embeds a turn's user half only (src/ingestion/importer.py _store_turn), so a line left alone on
+the assistant side under an empty user side could never be found by the vector leg — 156 of the
+1,540 questions cite such a line, 80 cite nothing else. A session closed by speaker_a ends with an
+empty assistant side. LoCoMo never has one speaker twice in a row. Each text keeps its speaker's
+name; a shared photo becomes "[shares a photo: <caption>]". Turns are timed from the
 session's own date, TURN_GAP apart, so the replay runs on LoCoMo's clock (provenance
 "locomo_session_date", a source clock — experiments/z2/clock.py).
 
@@ -66,13 +70,19 @@ def sessions(conv):
 
 
 def pairs(messages, user):
-    """(user-side message or None, assistant-side message or None) in order; *user* is speaker_a."""
-    out = []
+    """(user-side messages, assistant-side message or None) in order; *user* is speaker_a. Other-speaker
+    lines with no speaker_a message before them join the next user side."""
+    out, held = [], []
     for m in messages:
-        if m["speaker"] == user or not out or out[-1][1] is not None:
-            out.append([m, None] if m["speaker"] == user else [None, m])
-        else:
+        if m["speaker"] == user:
+            out.append([held + [m], None])
+            held = []
+        elif out and out[-1][1] is None:
             out[-1][1] = m
+        else:
+            held.append(m)
+    if held:
+        out.append([held, None])
     return out
 
 
@@ -83,11 +93,10 @@ def to_originals(sample):
     for _, start, messages in sessions(sample["conversation"]):
         for k, (first, second) in enumerate(pairs(messages, user)):
             turn += 1
-            for m in (first, second):
-                if m is not None:
-                    dia_to_turn[m["dia_id"]] = turn
+            for m in first + ([second] if second else []):
+                dia_to_turn[m["dia_id"]] = turn
             out.append(dict(turn_number=turn, timestamp=(start + k * TURN_GAP).isoformat() + "Z",
-                            timestamp_provenance=PROVENANCE, prompt=message_text(first) if first else "",
+                            timestamp_provenance=PROVENANCE, prompt="\n".join(map(message_text, first)),
                             response=message_text(second) if second else ""))
     return out, dia_to_turn
 

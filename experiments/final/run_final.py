@@ -434,7 +434,7 @@ def beam_grade(key, judge="muse", *, units=None, answers_dir=None, out_key=None)
 
 
 class UpperBuild(Z.Stage):
-    """Full-history prompts for one BEAM 128K-tier conversation (experiments/final/full_history.py),
+    """Full-history prompts for one BEAM 500K-tier conversation (experiments/final/full_history.py),
     built for the chosen model's window; waits until UPPER_BOUND names it."""
 
     def __init__(self, key):

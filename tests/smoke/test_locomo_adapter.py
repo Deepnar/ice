@@ -1,4 +1,5 @@
-"""FINAL's LoCoMo adapter: speakers on fixed sides with names kept, photos become text, turns are
+"""FINAL's LoCoMo adapter: speakers on fixed sides with names kept, a session-opening line of the
+second speaker rides the next user side (never an empty user side), photos become text, turns are
 timed from the session's own date, evidence ids map to turns, category 5 is excluded (as memory
 papers do), and only the pinned file is accepted."""
 
@@ -22,35 +23,34 @@ SAMPLE = dict(sample_id="conv-x", qa=[
                                  dict(speaker="Ann", dia_id="D2:2", text="Well done.")]))
 
 
-def test_speaker_a_is_always_the_user_side_even_when_speaker_b_opens():
-    sample = dict(SAMPLE, conversation=dict(SAMPLE["conversation"], session_2=[
-        dict(speaker="Bo", dia_id="D2:1", text="I ran 10k."), dict(speaker="Ann", dia_id="D2:2", text="Well done.")]))
-    originals, dia = A.to_originals(sample)
+def test_speaker_a_is_always_the_user_side_and_an_opening_second_speaker_rides_it():
+    originals, dia = A.to_originals(SAMPLE)
     opened_by_bo = originals[2]
-    assert opened_by_bo["prompt"] == "" and opened_by_bo["response"] == "Bo: I ran 10k."
-    assert originals[3]["prompt"] == "Ann: Well done." and originals[3]["response"] == ""
-    assert all(o["prompt"].startswith("Ann") or not o["prompt"] for o in originals)
+    assert opened_by_bo["prompt"] == "Bo: I ran 10k.\nAnn: Well done." and opened_by_bo["response"] == ""
+    assert all(o["prompt"] for o in originals)                           # no empty user side
+    assert all(o["prompt"].split("\n")[-1].startswith("Ann") for o in originals)
     assert all(o["response"].startswith("Bo") or not o["response"] for o in originals)
 
 
 def test_originals_pair_messages_and_keep_speakers_and_dates():
     originals, dia = A.to_originals(SAMPLE)
-    assert [o["turn_number"] for o in originals] == [1, 2, 3, 4]
+    assert [o["turn_number"] for o in originals] == [1, 2, 3]
     assert originals[0]["prompt"] == "Ann: My cat is Tofu." and originals[0]["response"] == "Bo: Nice! [shares a photo: a cat on a sofa]"
     assert originals[1]["prompt"] == "Ann: Bye." and originals[1]["response"] == ""          # unpaired last message
     assert originals[0]["timestamp"] == "2023-05-08T13:56:00Z" and originals[2]["timestamp"] == "2023-06-02T09:00:00Z"
-    assert originals[2]["prompt"] == "" and originals[2]["response"] == "Bo: I ran 10k."      # Bo opens session 2
     assert originals[0]["timestamp_provenance"] == "locomo_session_date"
-    assert dia == {"D1:1": 1, "D1:2": 1, "D1:3": 2, "D2:1": 3, "D2:2": 4}
+    assert dia == {"D1:1": 1, "D1:2": 1, "D1:3": 2, "D2:1": 3, "D2:2": 3}
+    lone = [dict(speaker="Bo", dia_id="D3:1", text="Hi?")]                # a session of the second speaker only
+    assert A.pairs(lone, "Ann") == [[lone, None]]
 
 
 def test_questions_references_and_category_5_excluded():
     originals, dia = A.to_originals(SAMPLE)
-    asks, occ, dropped = A.questions(SAMPLE, dia, 4)
+    asks, occ, dropped = A.questions(SAMPLE, dia, 3)
     assert len(asks) == len(occ) == 2 and all(o["type"] != "adversarial" for o in occ)
     assert dropped == 1                                                      # D9:9 names no message
-    assert asks[0]["id"] == "LOCOMO-conv-x:Q000@4#0" and asks[0]["checkpoint_turn"] == 4
-    assert occ[1]["reference"]["citations"] == [dict(turn=3), dict(turn=4)] and occ[1]["type"] == "temporal"
+    assert asks[0]["id"] == "LOCOMO-conv-x:Q000@3#0" and asks[0]["checkpoint_turn"] == 3
+    assert occ[1]["reference"]["citations"] == [dict(turn=3)] and occ[1]["type"] == "temporal"
 
 
 def test_only_the_pinned_file_is_accepted(tmp_path):
@@ -63,6 +63,6 @@ def test_only_the_pinned_file_is_accepted(tmp_path):
 def test_export_writes_everything_the_runner_reads(tmp_path):
     report = A.export(tmp_path, data=[SAMPLE])
     d = tmp_path / "conv-x"
-    assert report["conv-x"] == dict(turns=4, questions=2, evidence_ids_dropped=1)
+    assert report["conv-x"] == dict(turns=3, questions=2, evidence_ids_dropped=1)
     assert json.loads((d / "ledger.json").read_text()) == dict(entries=[])
     assert {p.name for p in d.iterdir()} == {"originals.json", "asks.json", "occurrences.json", "ledger.json"}
