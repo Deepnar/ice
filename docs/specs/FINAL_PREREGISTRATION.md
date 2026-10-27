@@ -28,7 +28,7 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
 
   | data | conditions answered | scored by |
   |---|---|---|
-  | **our data** — synthetic S1–S9, private B, A, SW, LAP | ICE frozen as it runs (`full_default`, every part on, decay live); plain vector search (`bare_vector`, ICE's own token budget); long context (`long_context`, the newest **256K** tokens — a window many providers offer, a quarter of the answerer's 1M); recent turns only (the no-memory floor) | the judge's verdict (§2) |
+  | **our data** — synthetic S1–S9, private B, A, SW, LAP | ICE frozen as it runs (`full_default`, every part on, decay live); plain vector search (`bare_vector`, ICE's own token budget); long context (`long_context`, the newest **256K** tokens — a window many providers offer, a quarter of the answerer's 1M — read **in time order**: older history, then the recent turns, then the question; every question at a checkpoint starts at the same turn, so the provider serves that start from its cache (2026-10-28)); recent turns only (the no-memory floor) | the judge's verdict (§2) |
   | **S9 only** — the parts test | ICE with decay neutral (`full`), each part switched off one at a time, parts added one at a time | the judge's verdict, on the questions built for each part |
   | **BEAM** — 128K tier (20) + 500K tier (5) | ICE, plain vector search, long context (256K); full history on the 500K tier (§4) | BEAM's own nugget score |
   | **LongMemEval-S** — 100 instances | ICE, plain vector search, full context (every haystack session, ~115K tokens), LongMemEval's own oracle setting (only the answer sessions) | LongMemEval's own judge (its prompts, yes/no) — nothing else |
@@ -145,7 +145,8 @@ headline (kept as a descriptive column).
   conversation within its own 1,048,576-token window; ICE and long context (256K) answer the same
   questions with the same model, so the three compare memory, not answerers, in BEAM's own
   scoring. On the 128K tier (≤ 225K tokens) long context already holds the whole conversation, so
-  there it *is* full history. 100 questions: reported, no verdict.
+  there it *is* full history. 100 questions: reported, no verdict. Full history is laid out like long
+  context, in time order from the first turn, so a conversation's questions share one cached start.
 - **Other memory systems,** run by us in the same setup (same answerer, judge, data):
   Graphiti (Zep), Mem0, A-Mem — **on LoCoMo only**, the benchmark all three report on (maintainer,
   2026-10-28). Each ingests through its own write path with FINAL's background model (gemma4:e4b)

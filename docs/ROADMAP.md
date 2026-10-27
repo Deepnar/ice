@@ -232,6 +232,12 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   - ✅ 2026-10-28: LoCoMo's session-opening second-speaker lines (124) ride the user side with the
     first speaker's reply — ICE embeds the user half only, so an empty user side was unfindable by
     vector (156 of 1,540 questions cite one). LoCoMo has no same-speaker repeats.
+  - ✅ 2026-10-28: caching — long context and full history in time order with one shared start per
+    checkpoint (B: ~97% of each prompt shared, all ≤ 256K); grouped sending in answers; judges keep
+    one session per history. Synthetic conversations on the cloud (MiMo user / DeepSeek assistant),
+    generator checks against invented values. Cache check: a reused 51K start cost 22× less.
+  - ☐ before the full synthetic run: a longer trial on all nine plans (unverified-turn rate), and the
+    maintainer reads the 20 S1 turns; two items fail every try (S2 t6 suggestion, S3 t4 paste).
   - ☐ live trials when the GPU is free must include: a LoCoMo replay slice (144 turns end a session
     with an empty assistant side — never exercised), and one LongMemEval-S full-context read.
   - **Next, in order (2026-10-26):** (1) Z2 local stages finish (~Nov 3–4); (2) GPU free: ~20 generated

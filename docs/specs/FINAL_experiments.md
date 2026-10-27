@@ -145,7 +145,9 @@ design requirements:**
 >    - **Same anti-bias logic applies to any other generative role** where one model
 >      could grade or generate for itself — notably **evolving-GT generation must not
 >      use a judge family** (GT-generator, judge A, judge B = three distinct families
->      where reachable).
+>      where reachable). *(Maintainer, 2026-10-28: this binds the private ground truth,
+>      written by DeepSeek / MiMo. The synthetic set's ground truth is its plan, not a
+>      model's reading, so the models that write its conversations are free of it.)*
 >
 > Unchanged by this rev: which work is local vs cloud (the roadmap's AI-usage map),
 > D8's anchors themselves, budget parity, the synthetic/LME datasets.
@@ -450,6 +452,16 @@ value present on its side; no outdated value of a briefed fact in the reply; a n
 never reappears; a failing turn is regenerated. The prompt stays a few thousand tokens, so the
 assistant runs on whatever free or cheap cloud model is available at the time, else locally
 (Mistral-family models, ~1–1.5 GPU days for all nine).
+**Revised 2026-10-28 (maintainer): both sides on the cloud** — MiMo-V2.6-Flash writes the user,
+DeepSeek V4.1 Flash the assistant (plain text, thinking off; the user side picked in a trial of
+both, `experiments/synth/speaker_trial.py`), about $10 for all nine. The trial found the
+simulated user inventing specifics the plan never gave (an offer salary turns before the plan's
+own) and saying planned values early from the persona and beats, so: planned values not yet due
+are hidden from the persona and beats; a user message with a planned value before its turn, a
+number outside pasted material that nothing given contains, or an echo of its instructions is
+regenerated; pasted values appear word for word; a planned suggestion leads the assistant's
+instructions; up to 5 tries. A turn still unverified is recorded for the maintainer (or a local
+model) to fix by hand.
 
 About 3,900 pairs, ~2 days of replay. **Build:** (1) a structured plan per conversation —
 persona, timeline, every planted fact with its introduce / change / correct turns, speaker,

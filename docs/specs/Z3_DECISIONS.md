@@ -302,7 +302,7 @@ the time, recorded before use — never silently):
 | Memory-system baselines (local) | their background/extraction work | gemma4:e4b |
 | | their answers (cloud) | Muse Spark 1.2, like every condition |
 | | their embedder | nomic-embed-text |
-| Synthetic conversations (local) | user side / assistant side | ministral-3:8b / mistral-nemo |
+| Synthetic conversations (cloud, 2026-10-28) | user side / assistant side | MiMo-V2.6-Flash / DeepSeek V4.1 Flash, plain text, thinking off (was local ministral-3:8b / mistral-nemo); picked by `experiments/synth/speaker_trial.py` |
 | Ground truth for private histories (cloud) | ledger + questions: writer / checker | DeepSeek V4.1 Flash / MiMo V2.6 Flash — **no Muse**; disputes dropped or sent to the maintainer's review |
 | | mechanical jobs (quote finding, dedupe, format) | a small local model |
 | Answers (cloud) | answerer, every condition | Muse Spark 1.2 |
