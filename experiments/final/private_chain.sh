@@ -23,6 +23,12 @@ mkdir -p logs/final-ledger logs/final-questions
 
 chain() {
   local h=$1
+  # a history whose review packet exists is finished: a restart of the cloud prep re-ran SW from
+  # its ledger (2026-10-28), new calls and a new packet over the one awaiting review
+  if [ -f "logs/final-questions/$h/review-packet.md" ] && [ -z "${REDO:-}" ]; then
+    echo "[$h] already has its review packet — skipped (REDO=1 to run it again)"
+    return
+  fi
   echo "[$h] ledger start $(date +%T)"
   "$UV" run --no-sync python experiments/z2/run_ledger.py --out logs/final-ledger --history "$h" --tie-breaker none
   echo "[$h] detail pass start $(date +%T)"
