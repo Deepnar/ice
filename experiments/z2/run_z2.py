@@ -584,7 +584,10 @@ class Oracle(Stage):
 
         def attempt():
             cmd = [sys.executable, "experiments/z2/oracle.py", "run", "--database", self.database(ctx),
-                   "--out", str(self.out(ctx).relative_to(ROOT))]
+                   "--out", str(self.out(ctx).relative_to(ROOT)),
+                   # questions side by side, each worker its own database (one at a time, S12's
+                   # background calls never overlapped); Z2_S12_WORKERS=1 for the old way
+                   "--workers", os.environ.get("Z2_S12_WORKERS", "2")]
             rc = ctx.run_child(cmd, log_path)
             return rc, _tail(log_path)
 

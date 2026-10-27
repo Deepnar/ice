@@ -61,3 +61,10 @@ def test_grade_oracle_grades_answers_side_by_side(tmp_path, monkeypatch):
                              ask=lambda system, prompt: dict(grade="correct", score=5), ask_text=lambda prompt: "yes")
     assert results["full|q1"]["upstream"] is True and results["full|q1"]["grade"] == "correct"
     assert results["bare_vector|q1"]["status"] == "ungraded"
+
+
+def test_workers_split_the_questions_each_with_its_own_database():
+    from experiments.z2 import oracle as O
+    argv = ["experiments/z2/oracle.py", "run", "--database", "ice_z2_main_lme", "--out", "logs/x", "--workers", "2"]
+    assert O.worker_argv(argv, 1, 2) == ["experiments/z2/oracle.py", "run", "--database", "ice_z2_main_lme_1",
+                                         "--out", "logs/x", "--shard", "1/2"]

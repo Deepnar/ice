@@ -239,8 +239,10 @@ def read(inst, plan, out, reader):
     return decay
 
 
-def run(out, *, limit=None, only=None):
-    """Child side: every pending question, one durable unit each."""
+def run(out, *, limit=None, only=None, shard=None):
+    """Child side: every pending question, one durable unit each; with *shard* (i, n) only the
+    questions at positions i, i+n, ... — each worker its own scratch database (every question
+    wipes and replays its own sessions, so they are independent)."""
     from sqlalchemy import create_engine
     from src.api.config import settings
     from experiments.z2.read_passes import Reader
@@ -249,6 +251,8 @@ def run(out, *, limit=None, only=None):
         instances = [i for i in instances if i["question_id"] in only]
     if limit:
         instances = instances[:limit]
+    if shard:
+        instances = [inst for k, inst in enumerate(instances) if k % shard[1] == shard[0]]
     engine = create_engine(settings.database_url)
     reader = None
     failures = []
@@ -279,7 +283,7 @@ def run(out, *, limit=None, only=None):
                                         seconds=round(time.time() - started)), default=str) + "\n")
         print(json.dumps(dict(question=inst["question_id"], seconds=round(time.time() - started),
                               evidence_decay=decay), default=str), flush=True)
-    (out / "failures.json").write_text(json.dumps(failures, indent=1) + "\n")
+    (out / (f"failures-{shard[0]}.json" if shard else "failures.json")).write_text(json.dumps(failures, indent=1) + "\n")
     return failures
 
 
@@ -374,6 +378,21 @@ def report(results):
                              if v["upstream_spoken"] else None) for (c, b), v in sorted(table.items())}
 
 
+def worker_argv(argv, k, n):
+    """Worker k of n's command line: the same run, database <database>_k, --shard k/n."""
+    out = []
+    skip = False
+    for j, a in enumerate(argv):
+        if skip:
+            skip = False
+            continue
+        if a == "--workers":
+            skip = True
+            continue
+        out.append(f"{a}_{k}" if j and argv[j - 1] == "--database" else a)
+    return out + ["--shard", f"{k}/{n}"]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -382,6 +401,10 @@ def main() -> int:
     r.add_argument("--out", type=Path, required=True)
     r.add_argument("--limit", type=int)
     r.add_argument("--only", nargs="*")
+    r.add_argument("--workers", type=int, default=1,
+                   help="questions side by side, each worker its own database <database>_<i> (2026-10-28: "
+                        "one at a time, S12's background calls never overlapped and the GPU sat idle)")
+    r.add_argument("--shard", help="i/n: this worker's share (set by --workers)")
     g = sub.add_parser("grade")
     g.add_argument("--units", type=Path, required=True)
     g.add_argument("--answers", type=Path, required=True)
@@ -402,6 +425,12 @@ def main() -> int:
         ask_text = text_caller(calls, generator("muse").generate, metadata("muse"), "ice-z2-lme-oracle-upstream")
         grade_oracle(args.units, args.answers, out, ask=ask, ask_text=ask_text)
         return 0
+    if args.workers > 1 and not args.shard:
+        import subprocess
+        children = [subprocess.Popen([sys.executable, *worker_argv(sys.argv, k, args.workers)])
+                    for k in range(args.workers)]
+        return max(c.wait() for c in children)
+    shard = tuple(int(x) for x in args.shard.split("/")) if args.shard else None
     if os.environ.get("ICE_TEST_DATABASE") != args.database:
         from experiments.z2.profile_write_path import create_database
         from sqlalchemy.engine import make_url
@@ -413,7 +442,7 @@ def main() -> int:
         os.execve(sys.executable, [sys.executable, *sys.argv],
                   dict(os.environ, DATABASE_URL=url, ICE_TEST_DATABASE=args.database))
     out.mkdir(parents=True, exist_ok=True)
-    failures = run(out, limit=args.limit, only=args.only)
+    failures = run(out, limit=args.limit, only=args.only, shard=shard)
     print(json.dumps(dict(failures=len(failures))))
     return 3 if failures else 0
 
