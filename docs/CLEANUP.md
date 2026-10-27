@@ -1148,3 +1148,14 @@ ROADMAP G77 "DECIDED (maintainer, 2026-10-17 b)".
 | `experiments/lme/cloud_provider.py` `anthropic_messages` endpoint (branch-only, `TextGenerator`) | **REVERTED** to `main`'s bytes | added only for the Haiku second judge; it broke the frozen fingerprint (TRAPS 131, `test_z1_completed_answer_resume`). Recover from the branch history before this merge if a Messages-API model is ever chosen — and re-pin the fingerprint then. |
 | `tests/smoke/test_anthropic_endpoint.py` | **DELETED** with it | tested only that endpoint |
 | `experiments/z2/profiles.py` `haiku` role | **REPLACED** by `glm` (GLM-5.3-Flash, chat completions) | the cross-family judge sample |
+
+**2026-10-27 — fix-pass branch, session summaries removed (maintainer decision; Z2 S8 evidence):**
+
+| what | action | note |
+|---|---|---|
+| `src/workers/reflection.py` `_synthesize_session` + `SUMMARY_PROMPT` | **DELETED** | one background call per conversation per pass, unverified; Z2 S8: 8/44 (B), 3/12 (C) faithful; read by no chat prompt. Recover from the branch history before this commit. |
+| `src/services/retrieval_svc.py::session_start_block` `last_session` | **DELETED** | the block keeps the global slots |
+| `src/mcp/server.py::_render_session_start` "Last session" section | **DELETED** | `ice://session-start` keeps slots + project blocks |
+| `session_summaries` table / `SessionSummary` model | **LEFT** | `delete_conversation` still clears old rows (forget must reach them); no migration |
+| `tests/smoke/test_procedural_evidence.py`, `tests/test_services.py` | updated | they stubbed / expected the summary |
+

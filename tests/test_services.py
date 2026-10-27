@@ -481,8 +481,8 @@ try:
           any(c["pattern"] == f"{MARK}_pattern" for c in conv_list))
 
     block = retrieval_svc.session_start_block(db)
-    check("session_start_block returns slots (+ optional last_session)",
-          isinstance(block["slots"], list) and "last_session" in block)
+    check("session_start_block returns slots, no session summary (dropped 2026-10-27)",
+          isinstance(block["slots"], list) and "last_session" not in block)
 
     # ═══ 9. Runtime lease → create_core boot logic (E7 D6) ═══════════════
     print("── lease boot logic ──")

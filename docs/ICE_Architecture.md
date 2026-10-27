@@ -730,7 +730,7 @@ The procedural_memory table stores recurring behavioural patterns (e.g. "the use
 | **embedding** | Vector(1024) | of pattern_description |
 
 
-It is populated only by the Procedural Extractor (§5.1) and queried by the procedural retrieval leg (§5.4). Reflection retains `patterns_observed` in session summaries but cannot write or reinforce retrievable habits from uncited snippets.
+It is populated only by the Procedural Extractor (§5.1) and queried by the procedural retrieval leg (§5.4). Reflection does not write or reinforce retrievable habits.
 
 ### **3.4 Documents (C12, 2026-07-28)**
 
@@ -1121,7 +1121,7 @@ The Procedural Extractor (workers/procedural_extractor.py::extract_procedural, p
 
 - **No match.** Insert a new pattern with only the cited batch IDs. It is pending at confidence 0.3 unless it already cites at least `procedural_min_cited_turns` (default 10) distinct turns, in which case it is active at 0.8.
 
-Reflection may report `patterns_observed` in a session summary; it is not a second writer of `procedural_memory`.
+Reflection is not a second writer of `procedural_memory`.
 
 ### **5.2 Trigger-condition gating for retrieval**
 
@@ -1636,11 +1636,10 @@ Three independent schedulers (§3.7), all every 5 400 s, max_retries=2, default_
 
 reflection.run_reflection (runtime-scheduled every 2 h + the session-end burst) runs a five-prompt cascade over the 200 most recently active conversations (each with ≥10 turns, last 200 turns, oldest-first):
 
-28. **`_synthesize_session`** (SUMMARY_PROMPT) — emits \{topics_covered, decisions_made, unresolved_items, entities_updated, patterns_observed\} and inserts a SessionSummary row. *(Until G77, 2026-10-17, it also appended unresolved items to the GLOBAL pending_items slot, uncapped — removed; see item 30.)*
+28. ~~**`_synthesize_session`**~~ — **removed 2026-10-27 (branch fix-pass)**: it wrote an unverified SessionSummary row (topics, decisions, unresolved items, entities, patterns) per conversation; Z2 S8 found 8/44 (B) and 3/12 (C) faithful, and no chat prompt read it (only MCP `ice://session-start` showed it). The `session_summaries` table stays so deletion still clears old rows.
 
-29. **Procedural crystallization is removed from reflection.** Session summaries
-retain `patterns_observed` as observations; they cannot create or reinforce
-retrievable habits from uncited snippets. The session-scoped extractor above
+29. **Procedural crystallization is removed from reflection.** Nothing in
+reflection creates or reinforces retrievable habits from uncited snippets. The session-scoped extractor above
 is the procedural writer.
 
 30. **`_refresh_conversation_slots`** (CONVERSATION_SLOTS_PROMPT, G77 2026-10-17) — over the newest turns that fit one piece (`summary_piece_tokens`; turns without speaker spans skipped and counted), one schema-constrained call returns quoted claims under `focus` (≤3) and `open` (≤5). Each claim gets the claim pass's mechanical checks (cited window exists, quote word-for-word in it, speaker said it — `summary_support.cited_premise`/`_collapse`, imported, not edited: that file is bound by `reader_adoption.py`) and an NLI verdict; only `supported` claims are kept. Focus claims are quoted only from the user's own words (schema `speaker: user`, by the authoritative spans). Open items then pass `_open_still_pending` — one call asking per item "still pending?" and "closed later?" (TRAPS 136 framing); kept only if pending and not closed, and a failed call keeps none (fail-closed). They become the conversation's `conversation_focus` / `pending_items` via `slots.write_journaled` (undoable). Output stop 1,500 tokens; one conversation's failure is isolated (`reflection_conversation_slots_failed`). Qualified 2026-10-17 (PROVENANCE): held-out 38/41 lines fit their slot (Muse), 22/56 cases write nothing. A list with no supported claim leaves its slot alone; a conversation whose newest turn was already reflected on is skipped. Replaced `_evolve_memory_slots`, which proposed GLOBAL `project_context` / `user_preferences` / `guidance` text from 200-char snippets (largest store: 107/120 proposals rewrote global `project_context` with the batch topic). User preferences come from the procedural extractor (cited, topic-scoped).

@@ -14,7 +14,7 @@ from sqlalchemy import text
 
 from src.api.config import settings
 from src.api.db import SessionLocal
-from src.memory.models import EpisodicMemory, SessionSummary
+from src.memory.models import EpisodicMemory
 from src.workers.bg_client_factory import (
     bg_timeout,
     get_bg_client,
@@ -29,18 +29,6 @@ bg_client = get_bg_client()
 # ------------------------------------------------------------------
 # Prompts
 # ------------------------------------------------------------------
-SUMMARY_PROMPT = (
-    "Generate a structured session summary from the following conversation turns.\n"
-    "Output ONLY a valid JSON object with these keys:\n"
-    "  - \"topics_covered\": a list of strings (e.g., [\"PostgreSQL\", \"FastAPI\"])\n"
-    "  - \"decisions_made\": a string describing any decisions\n"
-    "  - \"unresolved_items\": a string describing any unresolved questions\n"
-    "  - \"entities_updated\": a list of canonical entity names that appeared\n"
-    "  - \"patterns_observed\": a list of strings describing observed behavioural patterns\n\n"
-    "If a field has no content, use an empty list [] for lists, or an empty string \"\" for strings.\n"
-    "Do NOT include markdown or additional text."
-)
-
 CONVERSATION_SLOTS_PROMPT = (
     "Below are the most recent messages of ONE conversation, split into windows. "
     "Write two short lists about where this conversation stands at its end:\n"
@@ -90,8 +78,8 @@ def _robust_json(raw: str, *, where: str = "?") -> dict:
 # Main task
 # ------------------------------------------------------------------
 def run_reflection():
-    """Execute a full reflection pass: synthesis and the conversation's own
-    slots. Plain callable since C7 — gating/retries live in the runtime."""
+    """Execute a full reflection pass: each conversation's own slots (focus,
+    open items). Plain callable since C7 — gating/retries live in the runtime."""
     db = SessionLocal()
     try:
         # Get distinct conversation IDs from the last 200 turns
@@ -108,12 +96,9 @@ def run_reflection():
             if len(recent) < 10:
                 continue
             recent.reverse()
-            _synthesize_session(db, recent)
-            db.commit()
-            # The session summary retains patterns_observed as non-authoritative
-            # observations. Only extract_procedural may write retrievable habits:
-            # this periodic pass has no numbered, writer-attributed citations and
-            # used to reinforce the same sitting on every run.
+            # Session summaries are no longer written (2026-10-27, Z2 S8: 8/44 faithful in B,
+            # 3/12 in C, read by no chat prompt). Only extract_procedural may write retrievable
+            # habits: this periodic pass has no numbered, writer-attributed citations.
             try:
                 _refresh_conversation_slots(db, conv_id, recent)
             except JobYielded:
@@ -141,51 +126,6 @@ def run_reflection():
         raise
     finally:
         db.close()
-
-
-# ------------------------------------------------------------------
-# Session Synthesis (existing logic, kept)
-# ------------------------------------------------------------------
-def _synthesize_session(db, turns):
-    full_text = "\n\n".join([t.raw_text for t in turns])
-    words = full_text.split()
-    if len(words) > 3000:
-        full_text = " ".join(words[-3000:])
-    completion = bg_client.chat.completions.create(
-        model=get_bg_model_name(),
-        messages=[
-            {"role": "system", "content": "You are a session analysis engine. Output only JSON."},
-            {"role": "user", "content": f"{SUMMARY_PROMPT}\n\n{full_text}"}
-        ],
-        temperature=0.0, max_tokens=400, timeout=bg_timeout(400),
-        response_format=json_schema("session_summary", {
-            "type": "object",
-            "properties": {
-                "topics_covered": {"type": "array", "items": {"type": "string"}},
-                "decisions_made": {"type": "string"},
-                "unresolved_items": {"type": "string"},
-                "entities_updated": {"type": "array", "items": {"type": "string"}},
-                "patterns_observed": {"type": "array", "items": {"type": "string"}},
-            },
-            "required": ["topics_covered", "decisions_made", "unresolved_items",
-                         "entities_updated", "patterns_observed"],
-        }),
-    )
-    raw = (completion.choices[0].message.content or "").strip()
-    data = _robust_json(raw, where="session_summary")
-
-    summary = SessionSummary(
-        topics_covered=data.get("topics_covered", []),
-        decisions_made=data.get("decisions_made", ""),
-        unresolved_items=data.get("unresolved_items", ""),
-        entities_updated=data.get("entities_updated", []),
-        patterns_observed=data.get("patterns_observed", [])
-    )
-    db.add(summary)
-
-    # G77: unresolved items no longer append to the GLOBAL pending_items slot
-    # (every prompt, uncapped); the conversation's own pending_items slot is
-    # written from quoted, checked claims by _refresh_conversation_slots.
 
 
 # ------------------------------------------------------------------

@@ -144,11 +144,10 @@ def test_cited_user_turns_and_independent_sessions_control_habits(monkeypatch):
         assert worker._source_session_ids(db, {uuid.uuid4()}) is None
         assert worker._source_session_ids(db, {cold_batch, uuid.uuid4()}) is None
 
-        # Reflection still runs session synthesis but cannot write/reinforce
-        # procedural rows from uncited snippets on repeated periodic passes.
+        # Reflection's periodic passes cannot write/reinforce procedural rows from
+        # uncited snippets.
         calls = []
-        monkeypatch.setattr(reflection, "_synthesize_session", lambda *_: calls.append("summary"))
-        monkeypatch.setattr(reflection, "_refresh_conversation_slots", lambda *_: None)
+        monkeypatch.setattr(reflection, "_refresh_conversation_slots", lambda *_: calls.append("slots"))
         monkeypatch.setattr(reflection, "bg_client", NS(chat=NS(completions=NS(
             create=lambda **_: (_ for _ in ()).throw(AssertionError("uncited model call"))))))
         reflection.run_reflection()

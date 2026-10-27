@@ -477,21 +477,7 @@ def _render_session_start(block: dict) -> str:
     for slot in block["slots"]:
         content = slot["content"].strip() or "(empty)"
         lines += [f"### {slot['slot_name']} (v{slot['version']})", content, ""]
-    last = block["last_session"]
-    lines.append("## Last session")
-    if last is None:
-        lines.append("(no session summary recorded yet)")
-    else:
-        lines.append(f"date: {last['date']}")
-        if last["topics_covered"]:
-            lines.append("topics: " + ", ".join(last["topics_covered"]))
-        if last["decisions_made"]:
-            lines.append(f"decisions: {last['decisions_made']}")
-        if last["unresolved_items"]:
-            lines.append(f"unresolved: {last['unresolved_items']}")
-        if last["entities_updated"]:
-            lines.append("entities updated: " + ", ".join(last["entities_updated"]))
-    return "\n".join(lines)
+    return "\n".join(lines).rstrip()
 
 
 @mcp.resource("ice://session-start")

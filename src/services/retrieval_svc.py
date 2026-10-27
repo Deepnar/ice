@@ -23,7 +23,6 @@ from src.memory.models import (
     Decision,
     EpisodicMemory,
     ProceduralMemory,
-    SessionSummary,
 )
 from src.memory.representation import choose_representation
 from src.memory.tokens import count as count_tokens
@@ -250,21 +249,10 @@ def conventions(db: Session, limit: int = 15) -> list[dict]:
 
 
 def session_start_block(db: Session) -> dict:
-    """Data behind the ice://session-start resource: active slots + the most
-    recent session summary. E4 enriches THIS function into the full
-    welcome-back block later (resource URI stays stable)."""
-    summary = db.query(SessionSummary).order_by(
-        SessionSummary.session_date.desc()).first()
+    """Data behind the ice://session-start resource: the active global slots.
+    (The last session's summary was dropped 2026-10-27 — no longer written.)"""
     return {
         # C9: global tier only — project slots belong to the per-project
         # where-was-I blocks, conversation slots to their conversation.
         "slots": slots_svc.list_slots(db, scope_tier="global"),
-        "last_session": None if summary is None else {
-            "date": summary.session_date.isoformat() if summary.session_date else None,
-            "topics_covered": summary.topics_covered or [],
-            "decisions_made": summary.decisions_made or "",
-            "unresolved_items": summary.unresolved_items or "",
-            "entities_updated": summary.entities_updated or [],
-            "patterns_observed": summary.patterns_observed or [],
-        },
     }
