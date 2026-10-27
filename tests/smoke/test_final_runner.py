@@ -117,3 +117,17 @@ def test_a_local_model_can_be_a_judge_role():
     assert p.model == "qwen3.8:27b" and p.endpoint == "chat_completions" and "11434" in p.resolved_base_url()
     assert metadata("local:qwen3.8:27b")["model"] == "qwen3.8:27b"
     assert profile("muse").model == "muse-spark-1.3-contributor"
+
+
+def test_local_lanes_keep_each_history_together_and_balance_hours():
+    from types import SimpleNamespace as NS
+    from experiments.final import local_lanes as L
+    stage = lambda key, n: NS(key=key, total=lambda ctx, n=n: n, estimate=3600.0)
+    stages = [stage("prep-x", 1), stage("local-replay-B", 10), stage("local-read-B", 2), stage("local-replay-S1", 5),
+              stage("local-read-S1", 1), stage("local-replay-LOCOMO", 4), stage("local-read-LOCOMO", 1),
+              stage("local-baseline-mem0-LOCOMO", 1), stage("cloud-answers-B", 9)]
+    prep, groups, load = L.plan(stages, None, 2)
+    assert prep == ["prep-x"]
+    assert groups[0] == ["local-replay-B", "local-read-B"] and load == [12.0, 12.0]
+    assert groups[1] == ["local-replay-S1", "local-read-S1", "local-replay-LOCOMO", "local-read-LOCOMO",
+                         "local-baseline-mem0-LOCOMO"]

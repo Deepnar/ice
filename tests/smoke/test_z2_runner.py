@@ -125,3 +125,16 @@ def test_a_lane_reads_its_prerequisites_from_the_main_runner(tmp_path):
     lane.stage_state("s10-B")["status"] = "done"
     assert lane.need_status("s10-B") == "done"                        # its own
     assert lane.need_status("s8-B") == "pending"
+
+
+def test_a_stage_finished_by_another_runner_is_done_for_all(tmp_path):
+    """FINAL's local lanes: the main runner never reruns what a lane finished, and a lane's
+    prerequisite done by another lane counts."""
+    import json
+    from experiments.z2 import run_z2 as Z
+    ctx = Z.Context("t", directory=tmp_path)
+    (tmp_path / "state-local1.json").write_text(json.dumps(dict(stages={"local-replay-S2": dict(status="done")})))
+    assert ctx.need_status("local-replay-S2") == "done" and ctx.need_status("local-replay-S3") == "pending"
+    lane = Z.Context("t", directory=tmp_path, lane="local2")
+    lane.owned = {"local-read-S3"}
+    assert lane.need_status("local-replay-S2") == "done"

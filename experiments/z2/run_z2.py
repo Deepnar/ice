@@ -93,12 +93,27 @@ class Context:
 
     def need_status(self, key):
         """A prerequisite's status. A lane owns only the stages it was given (`owned`); every
-        other stage's status is the main runner's, re-read from its state.json each time."""
+        other stage's status is the main runner's, re-read from its state.json each time. A stage
+        another runner finished counts as done for every runner (FINAL's local lanes, 2026-10-28)."""
         if self.lane and key not in getattr(self, "owned", ()):
             main = self.dir / "state.json"
             stages = json.loads(main.read_text())["stages"] if main.exists() else {}
-            return stages.get(key, {}).get("status", "pending")
-        return self.stage_state(key)["status"]
+            status = stages.get(key, {}).get("status", "pending")
+        else:
+            status = self.stage_state(key)["status"]
+        return "done" if status != "done" and self.done_elsewhere(key) else status
+
+    def done_elsewhere(self, key):
+        """True when another runner of this run (the main one or a lane) has the stage done."""
+        for path in self.dir.glob("state*.json"):
+            if path == self.state_path:
+                continue
+            try:
+                if json.loads(path.read_text())["stages"].get(key, {}).get("status") == "done":
+                    return True
+            except (ValueError, KeyError):
+                continue
+        return False
 
     def save(self):
         tmp = self.state_path.with_suffix(".tmp")
@@ -664,6 +679,12 @@ def drive(ctx, selected):
     for stage in selected:
         st = ctx.stage_state(stage.key)
         if st["status"] == "done" and stage.built and stage.complete(ctx):
+            outcomes[stage.key] = "done"
+            continue
+        if stage.built and ctx.done_elsewhere(stage.key) and stage.complete(ctx):
+            # finished by another runner of this run (a local lane): never run twice
+            st.update(status="done", by="another runner")
+            ctx.save()
             outcomes[stage.key] = "done"
             continue
         blocked = [n for n in stage.needs if outcomes.get(n, ctx.need_status(n)) != "done"]
