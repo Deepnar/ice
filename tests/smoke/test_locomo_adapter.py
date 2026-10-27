@@ -66,3 +66,11 @@ def test_export_writes_everything_the_runner_reads(tmp_path):
     assert report["conv-x"] == dict(turns=3, questions=2, evidence_ids_dropped=1)
     assert json.loads((d / "ledger.json").read_text()) == dict(entries=[])
     assert {p.name for p in d.iterdir()} == {"originals.json", "asks.json", "occurrences.json", "ledger.json"}
+
+
+@pytest.mark.skipif(not A.DATA.exists(), reason="LoCoMo not downloaded")
+def test_manifest_turns_match_the_adapter():
+    """The replay refuses a history whose turn count differs from MANIFEST's (replay.extra_history)."""
+    manifest = json.loads(A.MANIFEST.read_text())["conversations"]
+    for sample in A.load():
+        assert len(A.to_originals(sample)[0]) == manifest[sample["sample_id"]]["turns"], sample["sample_id"]

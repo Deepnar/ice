@@ -8,43 +8,43 @@
  "downloaded": "2026-10-27",
  "conversations": {
   "conv-26": {
-   "turns": 215,
+   "turns": 211,
    "questions": 152
   },
   "conv-30": {
-   "turns": 192,
+   "turns": 185,
    "questions": 81
   },
   "conv-41": {
-   "turns": 349,
+   "turns": 335,
    "questions": 152
   },
   "conv-42": {
-   "turns": 328,
+   "turns": 313,
    "questions": 199
   },
   "conv-43": {
-   "turns": 354,
+   "turns": 344,
    "questions": 178
   },
   "conv-44": {
-   "turns": 355,
+   "turns": 338,
    "questions": 123
   },
   "conv-47": {
-   "turns": 360,
+   "turns": 343,
    "questions": 150
   },
   "conv-48": {
-   "turns": 353,
+   "turns": 341,
    "questions": 191
   },
   "conv-49": {
-   "turns": 269,
+   "turns": 256,
    "questions": 156
   },
   "conv-50": {
-   "turns": 300,
+   "turns": 285,
    "questions": 158
   }
  },
