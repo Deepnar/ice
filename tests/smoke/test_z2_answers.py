@@ -168,3 +168,16 @@ def test_a_provider_refusal_is_its_own_final_outcome(tmp_path):
     assert status["refused"] == 1 and status["answered"] == 1 and status["pending"] == 1
     rows = [json.loads(l) for l in (tmp_path / "s10" / "answers.jsonl").read_text().splitlines()]
     assert [r["finish"] for r in rows] == ["refused"]
+
+
+def test_the_prompt_set_is_kept_on_disk_for_a_fresh_process(tmp_path, monkeypatch):
+    """A fresh `status` re-read every unit file (~7 GB for B) to draw a finished stage's meter."""
+    src = units(tmp_path / "s9", [("full", "a", [dict(role="user", content="q")]), ("full", "b", [dict(role="user", content="r")])])
+    first = A.prompt_set(src)
+    A._PROMPTS.clear()                                             # a fresh process
+    monkeypatch.setattr(A, "load_units", lambda *a, **k: (_ for _ in ()).throw(AssertionError("re-read the units")))
+    assert A.prompt_set(src) == first and len(first) == 2
+    monkeypatch.undo()
+    units(src, [("full", "c", [dict(role="user", content="s")])])  # a new unit: counted again
+    A._PROMPTS.clear()
+    assert len(A.prompt_set(src)) == 3
