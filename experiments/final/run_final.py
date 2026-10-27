@@ -28,6 +28,7 @@ same phases.
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -348,7 +349,10 @@ class LongMemEvalS(Z.Oracle):
 
         def attempt():
             cmd = [sys.executable, "experiments/z2/oracle.py", "run", "--dataset", "s", "--slice",
-                   str(Z._rel(self.SLICE)), "--database", self.database(ctx), "--out", str(self.out(ctx).relative_to(ROOT))]
+                   str(Z._rel(self.SLICE)), "--database", self.database(ctx), "--out", str(self.out(ctx).relative_to(ROOT)),
+                   # questions side by side, as Z2's S12 (this stage built its own command and ran one
+                   # at a time: ~3,500 s a question, the heaviest single local stage)
+                   "--workers", os.environ.get("Z2_S12_WORKERS", "2")]
             return ctx.run_child(cmd, log_path), Z._tail(log_path)
 
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
