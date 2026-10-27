@@ -28,9 +28,11 @@ import json
 import statistics
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+WORKERS = 4                             # answers graded side by side, like the other graders
 sys.path.insert(0, str(ROOT))
 
 POLICY = "ice-final-locomo-grade-1"
@@ -107,27 +109,32 @@ def run(units_dir, answers_dir, occurrences_path, out, judge, *, say=print):
                 row = json.loads(line)
                 done[row["key"]] = row
     unlabelled = 0
-    for unit, answer in contexts(units_dir, answers_dir):
-        key = f"{unit['condition']}|{unit['ask']['id']}"
-        o = occ.get(unit["ask"]["id"])
-        if key in done or o is None:
-            continue
+    todo = [(f"{unit['condition']}|{unit['ask']['id']}", unit, answer, occ.get(unit["ask"]["id"]))
+            for unit, answer in contexts(units_dir, answers_dir)]
+
+    def one(job):
+        """The row, or (key, None) when the judge gave no label (left for the next run)."""
+        key, unit, answer, o = job
         gold = str(o["reference"]["answer"])
         if answer.get("finish") != "complete":
-            row = dict(key=key, condition=unit["condition"], category=o["type"], status="ungraded",
-                       reason=answer.get("finish"))
-        else:
-            j = label(judge(J_PROMPT.format(question=o["question"], gold_answer=gold,
-                                            generated_answer=answer["text"])))
-            if j is None:
+            return dict(key=key, condition=unit["condition"], category=o["type"], status="ungraded",
+                        reason=answer.get("finish"))
+        j = label(judge(J_PROMPT.format(question=o["question"], gold_answer=gold, generated_answer=answer["text"])))
+        if j is None:
+            return key, None
+        return dict(key=key, condition=unit["condition"], category=o["type"], status="graded", j=j,
+                    f1=round(f1(answer["text"], gold), 4), bleu1=round(bleu1(answer["text"], gold), 4))
+
+    # answers side by side (one at a time, FINAL's ~10,800 LoCoMo answers were ~40 hours); one writer
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        for row in pool.map(one, [j for j in todo if j[0] not in done and j[3] is not None]):
+            if isinstance(row, tuple):
                 unlabelled += 1
-                say(f"WARNING: no CORRECT/WRONG label for {key}; left for the next run")
+                say(f"WARNING: no CORRECT/WRONG label for {row[0]}; left for the next run")
                 continue
-            row = dict(key=key, condition=unit["condition"], category=o["type"], status="graded", j=j,
-                       f1=round(f1(answer["text"], gold), 4), bleu1=round(bleu1(answer["text"], gold), 4))
-        with store.open("a") as handle:
-            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-        done[key] = row
+            with store.open("a") as handle:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+            done[row["key"]] = row
     (out / "locomo-report.json").write_text(json.dumps(report(done.values()), indent=1) + "\n")
     (out / "status.json").write_text(json.dumps(dict(pending=unlabelled, finished=not unlabelled)) + "\n")
     return unlabelled

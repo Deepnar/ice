@@ -12,12 +12,15 @@ missing. Incomplete answers are ungraded, never counted wrong (Z2 D11). Writes
 import argparse
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from experiments.beam.adapter import score  # noqa: E402
+
+WORKERS = 4                             # answers graded side by side, like the other graders
 
 
 def contexts(units_dir, answers_dir):
@@ -44,20 +47,23 @@ def run(units_dir, answers_dir, asks_path, out, judge):
             if line.strip():
                 row = json.loads(line)
                 done[row["key"]] = row
-    for unit, answer in contexts(units_dir, answers_dir):
-        key = f"{unit['condition']}|{unit['ask']['id']}"
-        ask = asks.get(unit["ask"]["id"])
-        if key in done or ask is None:
-            continue
+    todo = [(f"{unit['condition']}|{unit['ask']['id']}", unit, answer, asks.get(unit["ask"]["id"]))
+            for unit, answer in contexts(units_dir, answers_dir)]
+
+    def one(job):
+        key, unit, answer, ask = job
         if answer.get("finish") != "complete":
-            row = dict(key=key, condition=unit["condition"], type=ask["type"], status="ungraded",
-                       reason=answer.get("finish"))
-        else:
-            row = dict(key=key, condition=unit["condition"], type=ask["type"], status="graded",
-                       **score(ask, answer["text"], judge))
-        with store.open("a") as handle:
-            handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-        done[key] = row
+            return dict(key=key, condition=unit["condition"], type=ask["type"], status="ungraded",
+                        reason=answer.get("finish"))
+        return dict(key=key, condition=unit["condition"], type=ask["type"], status="graded",
+                    **score(ask, answer["text"], judge))
+
+    # answers side by side (one at a time, FINAL's ~1,600 BEAM answers were hours); one writer
+    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
+        for row in pool.map(one, [j for j in todo if j[0] not in done and j[3] is not None]):
+            with store.open("a") as handle:
+                handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+            done[row["key"]] = row
     report = {}
     for row in done.values():
         cell = report.setdefault(row["condition"], {}).setdefault(row["type"], dict(n=0, graded=0, sum=0.0))
