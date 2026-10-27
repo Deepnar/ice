@@ -20,7 +20,7 @@ Each decision: options, the pick, and what it costs. **⚑ = needs the maintaine
 
 ## D1 ⚑ Private conversations
 
-**Locked 2026-10-26 (maintainer):** B (re-replayed; development), A, D (development), LAP (the
+**Locked 2026-10-26 (maintainer; D dropped 2026-10-28 — the v3 hyper-parameter tuning history):** B (re-replayed; development), A, ~~D (development)~~, LAP (the
 101-pair laptop-decision chat — the DeepSeek thread first chosen is an excluded conversation and is
 never used), SW — each replayed alone. The stitched ICE chat is **dropped** for BEAM (D3). Linux and
 short chats dropped. Written into FINAL_experiments.md §2.1. The text below is the original proposal.
@@ -311,8 +311,8 @@ Already done, not re-run: synthetic plans and questions (Claude Haiku 5.5 agents
 
 **Run order — all local, then all cloud.** Replay checkpoints at every session end, not at
 question points, so only reads need the questions.
-1. *Cloud, inside Z2's cloud block (same plan period):* the private ground truth for A, D,
-   SW, LAP (ledger, questions), then the maintainer's review.
+1. *Cloud, inside Z2's cloud block (same plan period):* the private ground truth for A, SW,
+   LAP (ledger, questions), then the maintainer's review (D dropped 2026-10-28).
 2. *Local:* fix-pass GPU tests → freeze → synthetic generation → every replay (private,
    synthetic, BEAM, LongMemEval-S, LoCoMo, the three memory systems' ingestion) → every
    read pass.
@@ -328,7 +328,7 @@ real calls by `experiments/z2/allowance.py` (TRAPS 148).
 **Data use — accepted by the maintainer, 2026-10-27 (Z2 D6d):** Muse Contributor models may
 train on prompts and are not zero-retention (Z2 spec, Data-use terms); Muse 1.2 Contributor is
 accepted as the answerer on those terms, for every full memory prompt of the private
-histories A, D, SW, LAP.
+histories (B, A, SW, LAP).
 
 **Built 2026-10-27 (fix-pass):** run_final.py runs every prep-/local- stage before any cloud stage
 (answers `cloud-answers-*`, audits, grading, subset, cross-judge); B and S9 freeze their audit

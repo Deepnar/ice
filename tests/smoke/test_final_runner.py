@@ -13,7 +13,7 @@ def test_stage_list_is_consistent():
     reads = {s.history: s for s in stages if isinstance(s, F.FinalRead)}
     assert reads["B"].preset == "final_main+final_ablation"
     assert reads["S9"].preset == "final_main+final_ablation+final_buildup"           # Z3 D10
-    assert reads["S1"].preset == "final_main" and set(reads) >= {"A", "D", "SW", "LAP", "S8"}
+    assert reads["S1"].preset == "final_main" and set(reads) >= {"A", "SW", "LAP", "S8"} and "D" not in reads
     groups = {s.key: s for s in stages if isinstance(s, F.Group)}
     assert groups["local-read-BEAM500K"].needs == ("local-replay-BEAM500K",) and len(groups["local-read-BEAM500K"].members) == 5
     assert "local-read-BEAM1M" not in groups and F.BEAM_TIERS == ("100K", "500K")                  # trimmed 2026-10-28

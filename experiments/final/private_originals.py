@@ -19,7 +19,8 @@ CORPUS = ROOT / "data/simulation/simulation_full.jsonl"
 OUT = ROOT / "logs/final-private-inputs"
 # key -> (conversation id prefix, pairs). LAP: the laptop-decision chat (the maintainer approved
 # it 2026-10-26 in place of a DeepSeek thread that turned out to be an excluded conversation).
-HISTORIES = {"A": ("633e26f8", 290), "D": ("ecc64aab", 251), "SW": ("bd94e64b", 128), "LAP": ("942699a4", 101)}
+# D (ecc64aab, 251 pairs) was dropped from FINAL 2026-10-28 (the v3 hyper-parameter tuning history).
+HISTORIES = {"A": ("633e26f8", 290), "SW": ("bd94e64b", 128), "LAP": ("942699a4", 101)}
 
 
 def main() -> int:

@@ -55,7 +55,8 @@ FINAL_PRIVATE = {
                  ledger=f"logs/final-questions/{key}/ledger.json",
                  changes=f"logs/final-questions/{key}/changes.json",
                  asks=f"logs/final-questions/{key}/asks.json")
-    for key, prefix, pairs in (("A", "633e26f8", 290), ("D", "ecc64aab", 251), ("SW", "bd94e64b", 128),
+    # D (v2 Dataset D, 251 pairs) was dropped from FINAL 2026-10-28: v3's hyper-parameters were tuned on it.
+    for key, prefix, pairs in (("A", "633e26f8", 290), ("SW", "bd94e64b", 128),
                                ("LAP", "942699a4", 101))
 }
 HISTORIES.update(FINAL_PRIVATE)

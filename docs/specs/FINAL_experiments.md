@@ -371,9 +371,9 @@ synthetic set (designed next). Each history is one conversation replayed into it
 
 | History | Pairs (sessions on the Z2 clock) | Reused from Z2 | New work |
 |---|---|---|---|
-| **B** — v2 Dataset B, long-form world-building | 1,119 (45) | ledger, FINAL-sealed 40% of families, answer keys | **replay again** on the fixed system (~11 h); labelled a development history (Z2 fixes were made on B evidence) |
+| **B** — v2 Dataset B, long-form world-building | 1,119 (45) | ledger, FINAL-sealed 40% of families, answer keys | **replay again** on the fixed system (~11 h); labelled a development history (Z2 fixes were made on B evidence); **pooled into LSREP private with that role disclosed** (2026-10-28) — no hyper-parameter sweep ran on it, its FINAL questions are sealed |
 | **A** — v2 Dataset A, fan-fiction continuation | 290 (12) | — | ledger + questions; untouched by tuning and Z2 — the cleanest private test |
-| **D** — v2 Dataset D, academic/personal planning | 251 (10) | — | ledger + questions; **labelled development** (v3 tuning history) |
+| ~~**D** — v2 Dataset D, academic/personal planning~~ | 251 (10) | — | **dropped from FINAL 2026-10-28** (maintainer): v3's hyper-parameters were tuned on it, a deeper fit than B's testing role; no questions, replay or review |
 | **Laptop decision** — the hardware/laptop decision chat (101 pairs, March–April; history `LAP`). Approved by the maintainer 2026-10-26 in place of the long DeepSeek thread first chosen, which opens as the excluded personal conversation (same first message; reserved validation history) and is **never used** | 101 (5) | — | ledger + questions; replayed alone |
 | **Software project** — ERP timetable work project | 128 (5) | — | ledger + questions; a technical domain that is not ICE |
 
@@ -488,8 +488,7 @@ papers, so it makes ICE comparable; it is never a headline (histories fit one wi
 per pair (B), read passes 4–16 s per context, local answers ~50–110 s (qwen3.8:27b, thinking).
 
 *Data curation:*
-1. Private A, D, laptop thread, software project (826 pairs): originals (the laptop thread
-   from the DeepSeek export), two-family ledger + detail pass, changes, questions, forward-walk
+1. Private A, laptop thread, software project (519 pairs; D dropped 2026-10-28): originals, two-family ledger + detail pass, changes, questions, forward-walk
    audit, **maintainer review** (USER-REQUIRED, a few hours). Cloud, ~3–5 days wall. B: none.
 2. Synthetic S1–S9 (~4,900 pairs): plans (fast model + validator), generation, verification,
    questions from the plan; maintainer spot review. Cloud, ~2–3 days wall once built.

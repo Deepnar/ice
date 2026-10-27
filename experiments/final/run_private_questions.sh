@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FINAL private histories (A, D, SW, LAP): Z2's S1-S5 chain, then the maintainer's review.
+# FINAL private histories (A, SW, LAP; B reuses Z2's; D dropped 2026-10-28): Z2's S1-S5 chain, then the maintainer's review.
 # Cloud, inside Z2's cloud block (Z3 D13): DeepSeek V4.1 Flash writes, MiMo V2.6 Flash checks;
 # NO Muse anywhere in the ground truth — a disagreement between the two is not settled by a
 # third model: the entry stays unconfirmed (never used for questions) and goes to the review;

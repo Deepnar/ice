@@ -211,7 +211,9 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
     trimmed to 128K (20) + 500K (5), 1M dropped (`select.py --trim`); upper bound on both kept tiers.
   - ✅ 2026-10-28: B pooled into LSREP private with its role stated (Z2 testing, sealed questions);
     upper bound = Muse 1.2 at a 600K ceiling (`UPPER_BOUND`).
-  - ⚑ Open: drop D (the v3 hyper-parameter tuning history) from FINAL; the long-context window at freeze.
+  - ✅ 2026-10-28: D dropped from FINAL (the v3 hyper-parameter tuning history) — runner, registry,
+    extractor, docs. Private FINAL = B (disclosed), A, SW, LAP.
+  - ⚑ Open: the long-context window at freeze.
   - ✅ A-Mem (paper memory layer, pinned), LoCoMo (pinned, exported), BEAM 128K full-history runner —
     `585e3d3`, `bfcb962`, `c6002ac`, `6d0a950` (§2.1 items 15–17). ⚑ Open: the upper-bound model
     (≥ 256K window) — set `UPPER_BOUND` in run_final.py after the cost check.

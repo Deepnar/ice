@@ -10,9 +10,10 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP (held out)
-  and B — stated plainly: Z2 used B to test the system and find bugs, no parameter was tuned on it,
-  and its FINAL questions are sealed families never shown; D, the v3 hyper-parameter tuning history,
-  is not pooled (⚑ dropping it from FINAL proposed 2026-10-28); LSREP synthetic S1–S9; public benchmarks, each
+  and B — stated plainly: Z2 used B to test the system and find bugs, and those findings shaped
+  fix-pass changes, but no hyper-parameter sweep ran on it, and its FINAL questions are sealed
+  families never shown or used; D, the v3 hyper-parameter tuning history, is dropped from FINAL
+  (maintainer, 2026-10-28); LSREP synthetic S1–S9; public benchmarks, each
   in its own scoring — BEAM 128K tier (20) + 500K tier (5 of the 10 drawn; the 1M tier dropped
   2026-10-28; MANIFEST seed 20261026, trim seed 20261028), LongMemEval-S (100 instances,
   final_slice.json), LoCoMo (10 conversations, extra table).
@@ -85,7 +86,7 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
   | **LSREP synthetic (S1–S9, S8 once)** | 1,044 | 3.9 | 4.6 | 5.0 |
   | *per conversation (deep dives; no verdict)* | | | | |
   | B (sealed: 64 families; seal not opened, ≈2.3 asks each) | ≈147 | 10.2 | 12.2 | 13.2 |
-  | A / D (planned) | ≈131 / ≈113 | 10.8 / 11.7 | 12.9 / 13.9 | 14.0 / 15.0 |
+  | A (planned) | ≈131 | 10.8 | 12.9 | 14.0 |
   | SW / LAP (planned) | ≈58 / ≈45 | 16.1 / 18.2 | 19.1 / >20 | >20 / >20 |
   | synthetic S1–S9 (S8 is S1's twin, not counted) | 1,044 | 3.9 | 4.6 | 5.0 |
   | BEAM (128K 400 · 500K 100; own scoring) | 500 | 5.6 | 6.7 | 7.2 |

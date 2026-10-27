@@ -82,8 +82,9 @@ def beam(run):
 
 # Headline suites (pre-registration r2 §3, revised 2026-10-28): pooled first; each conversation is
 # a deep dive under the aspect it was built to test. B is pooled with the held-out chats, stated
-# plainly: Z2 used B to test the system and find bugs (no parameter was tuned on it) and its FINAL
-# questions are sealed. D, the v3 hyper-parameter tuning history, is not pooled.
+# plainly: Z2 used B to test the system and find bugs — its findings shaped fix-pass changes, but
+# no hyper-parameter sweep ran on it — and its FINAL questions are sealed. D, the v3
+# hyper-parameter tuning history, was dropped from FINAL (2026-10-28).
 # S8 is S1's style twin (same questions) — counted once, through S1.
 SUITES = {
     "LSREP private (A, SW, LAP held out; B tested in Z2, its questions sealed)": ("A", "SW", "LAP", "B"),
