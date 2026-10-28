@@ -44,6 +44,11 @@ fi
 
 one_conversation() {
   local sid=$1 tries=0
+  # already being generated (another launcher, an earlier start): never two writers on one conversation
+  if pgrep -f "generate.py --plan $sid --out" >/dev/null; then
+    echo "[$sid] already running elsewhere — left to it"
+    return
+  fi
   until "$UV" run --no-sync python experiments/synth/generate.py --plan "$sid" --out "logs/final-synth/$sid" \
       ${LIMIT:+--limit "$LIMIT"} >> "logs/final-synth/$sid.log" 2>&1 && [ ! -f "logs/final-synth/$sid/stopped.json" ]; do
     tries=$((tries + 1))

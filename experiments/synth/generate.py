@@ -756,6 +756,13 @@ def main() -> int:
     args = parser.parse_args()
     plan = json.loads((PLANS / f"{args.plan}.json").read_text())
     args.out.mkdir(parents=True, exist_ok=True)
+    import fcntl
+    lock = (args.out / "run.lock").open("a")             # one writer per conversation, whoever started it
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print(f"{args.plan} is already being generated into {args.out} — left to it")
+        return 0
     sides = dict(user=args.user, assistant=args.assistant, checker=args.checker, policy=POLICY)
     sides_path = args.out / "sides.json"
     if (args.out / "turns.jsonl").exists() and sides_path.exists():

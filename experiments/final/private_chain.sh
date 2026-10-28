@@ -29,6 +29,10 @@ chain() {
     echo "[$h] already has its review packet — skipped (REDO=1 to run it again)"
     return
   fi
+  if pgrep -f -- "--history $h( |$)" >/dev/null; then
+    echo "[$h] already running elsewhere — left to it"
+    return
+  fi
   echo "[$h] ledger start $(date +%T)"
   "$UV" run --no-sync python experiments/z2/run_ledger.py --out logs/final-ledger --history "$h" --tie-breaker none
   echo "[$h] detail pass start $(date +%T)"
