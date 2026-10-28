@@ -5,10 +5,11 @@ is **unvalidated until the retests below say otherwise**. Run from the fix-pass 
 (`cd ~/Programs/ice-worktrees/fix-pass`). **GPU** items wait until Z2's S12 is done; **CLOUD**
 items wait for the Go allowance (weekly reset ~Nov 2). Long runs are started by the maintainer.
 
-**⚑ One rule for every number below:** after the judge change (R5), **all of Z2's grades are
-redone under grade-2** (R6) — B, C and S12 — and every comparison (ICE vs plain search, each
-fix vs without it) is read on the grade-2 numbers. grade-1 numbers in FINDINGS stay as the
-record of what the first judge said; they are never mixed with grade-2 ones.
+**⚑ Grading rule (maintainer, 2026-10-29):** Z2 is **not** re-graded. Its grading finishes under
+grade-1 on `main` (R6) so B, C and S12 stay complete and comparable; the new judge (grade-2) is
+measured on a 250-answer sample graded under both rubrics (R5). Corrected Z2 comparisons use the
+per-point rescoring of grade-1's own verdicts — if R5 shows that rescoring agrees with grade-2.
+Retests that compare settings (R3, R4, R7) grade both sides with grade-2. FINAL uses grade-2 only.
 
 | | What | Needs | Status |
 |---|---|---|---|
@@ -16,18 +17,18 @@ record of what the first judge said; they are never mixed with grade-2 ones.
 | R2 | F2 — how many candidates to rank, and keep the rest | GPU | ☐ |
 | R3 | F10 — conversation order for "which came first" | GPU + CLOUD | ☐ |
 | R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ☐ |
-| R5 | F12 — judge the judge: planted panel, paired B and C samples, invariance | CLOUD (~$0.5) | ☐ |
-| R6 | F12 — full re-grade of Z2 under grade-2 | CLOUD (~$12) | ☐ |
+| R5 | F12 — judge the judge: 250 answers under both rubrics, planted panel, invariance | CLOUD (~$0.6) | ☐ |
+| R6 | Z2's grade-1 grading finishes on `main` (B's remaining phases, C, S12) | CLOUD (~$11) | ☐ |
 | R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
 | R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ☐ |
 | R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | ☐ |
 | R10 | F4 — B2 "no memory" on a third of LongMemEval | after S12 graded | ☐ |
 
-**Cloud budget (Go, ~$30 usable Nov 2–27; measured per-call prices):** re-grade B $9.8 (or $7.8
-without ranking/controls/semantic diagnostics), grade C $4.1, S12 answers + grades $3.5, finish
-cloud prep ~$9, R5 $0.5, retest answers + grades (6 settings × 174) $5.7 — **~$32.6 in all**. To fit:
-order R5 → R6 B/C (diagnostics last) → S12 → cloud prep → retests; drop the diagnostics if needed
-(−$3), or Extra Usage for the last ~$3. FINAL's own cloud (~$92) needs Go Plus regardless.
+**Cloud budget (Go, ~$30 usable Nov 2–27; measured per-call prices):** Z2 grade-1 finishing — B's
+remaining claim checks and diagnostics ~$4, C ~$4, S12 answers + grades ~$3.5 — ~$11.5; finish cloud
+prep ~$9; R5 ~$0.6; retest answers + grade-2 grades (6 settings × 174) ~$5.7 — **~$27 in all**, ~$3
+slack. Order: R6 (the Z2 cloud lane as it was) → R5 → cloud prep → retests. FINAL's own cloud
+(~$92) and any private-question top-up need Go Plus.
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 
@@ -65,7 +66,8 @@ uv run --no-sync python experiments/z2/read_passes.py --history B --database ice
   --conditions retest_cand64,retest_conversation_order
 uv run --no-sync python experiments/z2/answers.py --units logs/z2-retest-B --out logs/z2-retest-B-answers --answerer muse12
 ```
-Then grade-2 (R6's command on these folders). Pass: temporal questions improve (ICE reversed 7
+Then grade both settings with fix-pass's `experiments/z2/grade.py` (grade-2) into a new `--out`,
+with the same arguments as Z2's B grading (`--units logs/z2-retest-B --answers logs/z2-retest-B-answers`). Pass: temporal questions improve (ICE reversed 7
 of 21) and no other type falls by more than its interval. Same for C when C is graded.
 
 ## R4 — turn summaries in reads (GPU read + CLOUD)
@@ -78,36 +80,35 @@ summary replaces the turn's text only when it out-scores it by 1 or 2 logits). A
 as R3; also run `retest_coverage.py` and the verbatim-share check from F14. Decide with R7 on B and C.
 **A v3 change that removes something v2 shipped is a maintainer decision** ("memory is earned").
 
-## R5 — judge the judge (CLOUD, ~$0.5) — before R6 spends anything
+## R5 — judge the judge (CLOUD, ~$0.6)
 
-Light, but every part runs, because the largest single loss Z2 found was the judge (F12):
-1. **Planted panel** — `experiments/z2/qualify.py` (planted correct / wrong / partial / abstain
-   answers) under grade-2, beside its grade-1 results. Pass: planted wrong stays wrong (no
-   inflation), planted correct stays correct.
-2. **Paired B sample** — 150 B answers, stratified: grade-1 partial with every point covered,
-   grade-1 incorrect with every point covered, grade-1 correct, grade-1 incorrect with points
-   missing. Grade under grade-2; count flips per stratum. The ~40 that flip go into a blind
-   sheet (answer, REQUIRED, SOURCES, both verdicts, condition hidden) for the maintainer to read:
-   a flip the maintainer disagrees with is a rubric defect, fixed before R6.
-3. **Paired C sample** — 150 C answers graded under BOTH rubrics (C was never graded under
-   grade-1, so this is how much the judge change moves C).
-4. **Invariance** — 20 answers graded twice: as given, and with one true extra detail from the
-   conversation appended. Pass: the grade does not change (the defect F12 found).
-5. The cross-family judge sample (pre-registration §4, ~450 answers) stays as planned for FINAL.
+Light, but every part runs: the largest single loss Z2 found was the judge (F12).
+1. **250 answers graded under grade-2**, already graded under grade-1 — about 60% from the strata
+   F12 found mis-graded and 40% controls, spread across ICE and plain-search settings, B and C:
+   - issue strata (~150): grade-1 *partial* with every required point covered (60), grade-1
+     *incorrect* with every point covered (40), downgrades whose reason cites dates/timestamps (30),
+     C answers of the same kinds once C's grade-1 exists (20);
+   - controls (~100): grade-1 *correct* (35), *incorrect* with points missing (35), *partial* with
+     points missing (30) — grade-2 must not inflate these.
+   Reported per stratum: how many verdicts change, and **how often grade-2 agrees with the
+   per-point rescoring of grade-1** (the number that decides whether Z2's rescored comparisons
+   stand in for a re-grade). The answers that change go into a blind sheet (answer, REQUIRED,
+   SOURCES, both verdicts; condition hidden) for the maintainer to read; a change the maintainer
+   rejects is a rubric defect, fixed before FINAL grades anything.
+2. **Planted panel** — `experiments/z2/qualify.py` under grade-2 beside its grade-1 results: planted
+   wrong stays wrong, planted correct stays correct.
+3. **Invariance** — 20 answers graded as given and with one true extra detail from the
+   conversation appended: the grade must not change.
+4. FINAL's cross-family judge sample (pre-registration §4, ~450 answers) stays as planned.
 
-## R6 — full re-grade under grade-2 (CLOUD, ~$12)
+Script to build before the cloud returns: `experiments/z2/judge_check.py` (strata draw from the
+saved grade-1 verdicts, grade-2 calls through `grade.judge_caller`, report + blind sheet).
 
-```bash
-uv run --no-sync python experiments/z2/grade.py --history B --units logs/z2-run-main/s9-B \
-  --answers logs/z2-run-main/s10-B --questions logs/z2-questions-final \
-  --ledger logs/z2-ledger-detail-2026-10-18-r2/B/ledger.json --changes logs/z2-questions-final/B/changes.json \
-  --audit logs/z2-run-main/s8-B/bg-audit.json --replay logs/z2-run-main/s7-B/progress.jsonl \
-  --out logs/z2-regrade-B
-```
-Same for C and S12 (their run_z2 grade commands with a new `--out`). Rough cost at measured
-prices: B ~4,300 grade + ~3,100 claim calls ≈ $8; C and S12 ≈ $4. The claim check (unsupported
-claims verified against the whole conversation) completes the clean yes/no score: correct under
-grade-2 **and** no claim confirmed invented (M2).
+## R6 — Z2's grade-1 grading finishes (CLOUD, ~$11.5)
+
+`main`'s Z2 cloud lane, restarted as it stopped (B's claim checks, ranking, controls, context
+precision; C; then S12's answers and grades) — grade-1, unchanged. **It must finish before
+fix-pass merges into `main`**, which brings grade-2.
 
 ## R7 — everything together (GPU + CLOUD)
 

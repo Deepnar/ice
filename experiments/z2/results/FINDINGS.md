@@ -264,7 +264,41 @@ clusters 0.0, temporal 0.0 — in full ICE the legs cover for each other, so no 
 removal costs anything measurable. Decay (live vs neutral): 0.0 (±3.6). `no_codex` vs full: +1.7
 (±4.1). Budget curves: F9.
 
-## Where the scores stand, B only (best estimate before the re-grade)
+## F16 — every part, both ablations, every measure (B, grade-1) — and a verdict per part
+
+Effect of a part = with it − without it (+ helps). ADD = the build-up step; REMOVE = full ICE
+vs full ICE without it. Tokens = median change in prompt tokens per answer.
+
+| part | ADD all-points | ADD tokens | REMOVE all-points | REMOVE tokens | outdated values | verdict (B; C pending) |
+|---|---|---|---|---|---|---|
+| BM25 | **+10.4 ±6.6** | +3,531 | 0.0 ±4.9 | +3,506 | −0.6 | keep — biggest single gain; redundant only once the rest is in |
+| reranker | **+5.2 ±5.4** | −116 | −1.7 ±4.9 | −308 | −1.2 | keep — fix its candidate cap (F2) and summary swap (F14) |
+| codex facts | 0.0 ±4.5 | −214 | −1.7 ±4.1 | −531 | −1.2 | keep — neutral on B, cheap; judge on C/FINAL |
+| turn summaries | **−5.8 ±6.0** | −1,039 | −4.6 ±5.5 | −581 | −1.2 | **reduce** — R4 picks off vs margin |
+| fold notes | −2.3 ±5.1 | +564 | −1.2 ±4.0 | +563 | −1.2 | candidate to drop from reads (complete 30% B) — needs C |
+| procedures | +1.7 ±4.9 | +8 | +0.6 ±3.8 | 0 | −1.2 | keep — neutral |
+| gate (source check) | **−4.6 ±3.1** | 0 | **−4.0 ±2.9** | 0 | 0.0 | fixed (F1) |
+| clusters | 0.0 | 0 | 0.0 | 0 | 0.0 | inert on B — D9 decides after C |
+| temporal leg | 0.0 | 0 | 0.0 | 0 | 0.0 | inert on B — D9 decides after C |
+| maintenance | −1.2 ±3.9 | +69 | −1.2 ±3.9 | +69 | −1.7 | keep — store hygiene acts over months, not one history |
+| decay (live vs neutral) | — | — | 0.0 ±3.6 | — | — | keep — designed for long horizons; no effect here |
+
+**Turn summaries in detail.** By question type, adding them: temporal **−24 (±19)**, fact recall
+−11 (±11), cumulative −20 (±26); possibly helpful for update (+12 on removal side, n.s.),
+preference +8, messy rewordings +15 (n.s.). With summaries a prompt spans 46 distinct turns (55
+pieces); without, 34 (35 pieces) — summaries buy breadth and cost detail, and on B detail
+mattered more. Removing them from reads costs ~+580 prompt tokens per answer (~2%), leaves
+outdated values and extra claims within noise, and does not save background cost (they are
+still written; they also serve budget degradation and the classifier prefix).
+
+**Ceiling.** 83% of B's questions (144/174) were answered with every required point by at least
+one of the 34 answered settings (78% by ICE settings alone); 30 by none — full ICE covered a median
+0% of their points; mostly update, multi-hop, cumulative and never-said questions, two with nine
+required points. Those 30 are the first place to look for answer-key defects (SW/LAP's review
+dropped 23–42%). 64% is the best single fixed setting, not a ceiling: the headroom is choosing per
+question what the best settings already found (summaries vs originals, breadth vs detail, order).
+
+## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |
 |---|---|---|
@@ -275,7 +309,7 @@ removal costs anything measurable. Decay (live vs neutral): 0.0 (±3.6). `no_cod
 
 With the skip fixed and summaries reduced, ICE is plausibly **level with plain search on B,
 perhaps a few points ahead, at ~25% fewer prompt tokens** — every gap here is within ±7, so this
-is a direction, not a result. The grade-2 re-grade (R6) and R7 on B and C are what make it one.
+is a direction, not a result. R5 (does per-point rescoring match grade-2?) and R7 on B and C are what make it one.
 
 ## Already found and fixed or decided (fix-pass)
 

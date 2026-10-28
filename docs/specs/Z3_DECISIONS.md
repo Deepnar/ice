@@ -372,7 +372,7 @@ benchmarks use their own scoring and the field's norms only: LoCoMo by Mem0's pr
 BLEU-1; categories 1–4), LongMemEval-S by its own judge, BEAM by its nuggets — no LSREP measure
 is added to them.
 
-## D14 ⚑ Z2's findings carried into FINAL — **proposed 2026-10-29, maintainer to decide**
+## D14 ⚑ Z2's findings carried into FINAL — **approved by the maintainer 2026-10-29**
 
 Z2's grades on B (findings F1–F15 in `experiments/z2/results/FINDINGS.md`) changed four things
 FINAL depends on. Each is built on fix-pass; nothing is a number until its retest
@@ -382,11 +382,17 @@ FINAL depends on. Each is built on fix-pass; nothing is a number until its retes
    order (F10), original-text margin for summaries (F14). Their defaults are set from R2–R4 and
    recorded at freeze.
 2. **Judging:** grade-2 rubric and dated SOURCES (F12) — the same judge model, the same M1/M2,
-   a defined rubric. Every Z2 number is re-graded under grade-2 (R6) before it is compared; FINAL
-   grades only under grade-2, after the judge check (R5).
+   a defined rubric. **Z2 is NOT re-graded (maintainer, 2026-10-29):** its grading finishes under
+   grade-1 on `main` (B's remaining phases, C, S12 — complete and comparable with B), and the
+   judge change is measured on a 250-answer sample graded under both rubrics (R5). Corrected Z2
+   comparisons use the per-point rescoring of grade-1's own verdicts, if R5 shows it agrees with
+   grade-2. FINAL grades only under grade-2, after R5. Z2's grade-1 grading must finish on
+   `main` before fix-pass merges into it (the merge brings grade-2).
 3. **Design decisions the evidence raises** (maintainer's): turn summaries in reads (F13/F14 —
    less summary helps on B), and whether clusters / temporal / maintenance stay (inert on B, F3;
    D9's simplification pass).
-4. **Order:** S12 local → GPU retests (R1, R2, R8, R9 and the reads of R3/R4) → cloud: R5, R6,
-   S12 answers, cloud prep, retest answers → R7 → freeze → FINAL local → FINAL cloud (Go Plus).
+4. **Order:** S12 local → GPU retests (R1, R2, R8, R9 and the reads of R3/R4) → cloud: Z2's
+   grade-1 grading to completion (R6), R5, S12 answers, cloud prep, retest answers → R7 → merge →
+   freeze → FINAL local → FINAL cloud (Go Plus). A later private-question top-up (more questions
+   for A/SW/LAP) is its own cloud block.
 
