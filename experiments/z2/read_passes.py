@@ -209,7 +209,10 @@ RETEST_CONDITIONS = {
                                       settings={"retrieval_evidence_order": "conversation"}),
     "retest_no_summaries": dict(overlay="default", arm="full", subset="questions",
                                 settings={"turn_summaries_in_reads": False}),
+    **{f"retest_original_margin{m}": dict(overlay="default", arm="full", subset="questions",
+                                          settings={"retrieval_rerank_original_margin": float(m)}) for m in (1, 2)},
 }
+PRESETS["retest_summaries"] = ["retest_cand64", "retest_no_summaries", "retest_original_margin1", "retest_original_margin2"]
 PRESETS["retest_candidates"] = [k for k in RETEST_CONDITIONS if k.startswith("retest_cand")]
 
 

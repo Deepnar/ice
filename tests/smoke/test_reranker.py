@@ -348,3 +348,18 @@ def test_kept_candidates_never_bypass_a_relevance_floor(monkeypatch):
     candidates = [fragment(f'piece {i}') for i in range(4)]
     ranked, ok = rerank('q', candidates, lambda pairs: [1.0 for _ in pairs])
     assert ok and len(ranked) == 2
+
+
+@pytest.mark.parametrize("scores,margin,expected", [
+    ([1.0, 1.5], 0.0, "compact summary"),          # shipped: any higher score wins
+    ([1.0, 1.5], 1.0, "long original " * 50),      # within the margin: the turn's own text stays
+    ([1.0, 3.0], 1.0, "compact summary"),          # clearly better: the summary still wins
+])
+def test_original_margin_keeps_the_turns_own_text(monkeypatch, scores, margin, expected):
+    # Z2 F14: summaries were faithful but complete on only ~63% of turns.
+    monkeypatch.setattr(settings, "retrieval_rerank_original_margin", margin)
+    original = "long original " * 50
+    ranked, ok = rerank("query", [fragment(original, degrade_text="compact summary")], lambda pairs: scores)
+    assert ok and ranked[0].text == expected
+    if expected == original:
+        assert ranked[0].degrade_text == "compact summary"       # still there for budget degradation

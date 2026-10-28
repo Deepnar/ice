@@ -296,6 +296,10 @@ class Settings(BaseSettings):
     retrieval_rerank_batch_size: int = Field(default=4, ge=1, le=64)
     retrieval_rerank_max_tokens: int = Field(default=4096, ge=128, le=32768)
     retrieval_rerank_min_score: Optional[float] = Field(default=None, allow_inf_nan=False)
+    # Z2 F14: the reranker lets a summary/abstract replace a turn's own text whenever it scores
+    # higher (51% of B's episodic pieces in prompts were reworded). A margin (reranker logits)
+    # keeps the original unless the shorter form wins by more than it. 0 = shipped; RETESTS R4.
+    retrieval_rerank_original_margin: float = Field(default=0.0, ge=0.0)
     # Z2 F10: order of the selected memory pieces in the prompt. "relevance" (shipped) writes
     # them best-first; "conversation" writes them in the order their turns happened, after the
     # budget has chosen them (ICE reversed 7 of 21 which-came-first answers). RETESTS.md R3.

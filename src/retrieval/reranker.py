@@ -204,8 +204,15 @@ def rerank(query, fragments, scorer=None):
             if not ranked:
                 continue
             primary, score = ranked[0]
+            margin = settings.retrieval_rerank_original_margin
+            if margin and primary != fragment.text:
+                # Z2 F14: a summary/abstract stands in for the turn's own text only when it
+                # scores clearly better; it was faithful but complete on ~63% of B/C turns.
+                own = next((s for t, s in ranked if t == fragment.text), None)
+                if own is not None and score - own <= margin:
+                    primary, score = fragment.text, own
             tokens = count_tokens(primary)
-            alternatives = [t for t, s in ranked[1:] if count_tokens(t) < tokens]
+            alternatives = [t for t, s in ranked if t != primary and count_tokens(t) < tokens]
             output.append(
                 replace(
                     fragment,
