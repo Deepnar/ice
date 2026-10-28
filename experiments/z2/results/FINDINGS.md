@@ -340,6 +340,15 @@ a history spanning many months, or it is reported as "not measurable in FINAL" i
 Today's database for B/C shows decay 1.000 everywhere — the read passes' neutral-decay copy, not
 the live state (the replay's events hold that).
 
+## F19 — the same question asked again later (retention as the history grows)
+
+B asks 123 of its 179 question families two or three times, a median 150 turns apart (50–1,069).
+Later ask minus first ask (per-point, paired by family): plain search **−13.6 (±12.0)**, ICE without
+the skip **−11.9 (±9.6)**, ICE as run −3.3 (±9.3; its first asks were already hurt by F1),
+recent turns only 0.0 — both systems lose about an eighth of their accuracy over ~150 more turns.
+FINAL measures the same thing as M2 by evidence distance (SCA@d bins) and the retention report
+(pre-registration §2, §4); these repeats are the paired version of it.
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |

@@ -11,6 +11,31 @@ measured on a 250-answer sample graded under both rubrics (R5). Corrected Z2 com
 per-point rescoring of grade-1's own verdicts — if R5 shows that rescoring agrees with grade-2.
 Retests that compare settings (R3, R4, R7) grade both sides with grade-2. FINAL uses grade-2 only.
 
+## What happens, in order (written 2026-10-29)
+
+**Why no Z2 re-run is needed.** Every fix and switch so far acts at read time (what reaches the
+prompt) or at grading. The expensive part of Z2 — replaying B and C turn by turn with the
+background model (~11 h and ~14 h of GPU) — builds the stores, and none of the fixes changes what
+is stored. So each retest re-reads the same saved stores for the same questions, answers and
+grades only those, and compares settings question by question (paired, so a few points show).
+A change to what gets *stored* (e.g. not writing some summaries) would need a new replay; none is
+built.
+
+1. **S12 finishes** (~3 h from 2026-10-29 afternoon). Nothing else needs the GPU until then.
+2. **GPU day (~10–12 GPU hours):** R1 database tests + the full disposable rails; R8 fix-pass tests
+   and the three classifier variants (B7); R2 candidate sweep on B (coverage + seconds per read →
+   picks the candidate setting); the reads of R3 and R4 on B and C; R9 live trials.
+3. **Cloud from the Go reset (~Nov 2), ~1 week inside the 5-hour windows:** R6 (Z2's old-judge
+   grading finishes on `main`) → R5 judge check (`judge_check.py`, B then C) → cloud prep finishes
+   (synthetic + A) → retest answers and grade-2 grades for R3/R4.
+4. **R7 (~Nov 8–10):** the chosen settings together on B and C — the fix pass's number. Needs a few
+   dollars beyond Go's month if the budget is spent; else waits for Go Plus.
+5. **Z3 freeze (~Nov 10):** set the switch defaults from R2–R4/R7, D9 simplification, merge fix-pass
+   into `main` (only after R6), record the freeze commit.
+6. **FINAL local (~Nov 10 → ~Nov 21):** 2 lanes, ~9–11 GPU days.
+7. **FINAL cloud (Go Plus, ~$92):** answering can start per history as its local reads finish
+   (~Nov 15 onward); at Go Plus's weekly cap (~$60) it takes two weeks or more → ~early December.
+
 | | What | Needs | Status |
 |---|---|---|---|
 | R1 | F1 fix — database tests of the source check | GPU/DB | ☐ |
