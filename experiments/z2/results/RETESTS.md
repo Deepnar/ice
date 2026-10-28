@@ -25,9 +25,19 @@ built.
 2. **GPU day (~10–12 GPU hours):** R1 database tests + the full disposable rails; R8 fix-pass tests
    and the three classifier variants (B7); R2 candidate sweep on B (coverage + seconds per read →
    picks the candidate setting); the reads of R3 and R4 on B and C; R9 live trials.
-3. **Cloud from the Go reset (~Nov 2), ~1 week inside the 5-hour windows:** R6 (Z2's old-judge
-   grading finishes on `main`) → R5 judge check (`judge_check.py`, B then C) → cloud prep finishes
-   (synthetic + A) → retest answers and grade-2 grades for R3/R4.
+3. **Cloud from the Go reset (~Nov 2), three phases, one after another, never mixed (maintainer,
+   2026-10-29):**
+   - **Phase 1 — Z2's own cloud run** (R6): `main`'s Z2 runner as it stopped — grade-1 grading of B's
+     remaining phases, C, and S12's answers and grades. Run to the end.
+   - **Phase 2 — Z3 judging** (`experiments/z2/z3_judging.py`, its own runner; it waits while any Z2
+     run is active): R5 judge panel and judge checks on B and C, the R3/R4 retest answers and their
+     grade-2 verdicts, and anything Z2 or the GPU reads turn up (R7 is added once R2–R4 choose).
+   - **Phase 3 — cloud prep** (`experiments/final/cloud_prep.sh`): the synthetic conversations and
+     A's private ground truth, then A's review.
+   Budget at measured prices: phase 1 ~$11.5, phase 2 ~$9–10 (answers ~$6.3, verdicts ~$1.5,
+   judge checks ~$1), phase 3 ~$9 — ~$30, the month's whole remainder; phase 3 may spill onto Go
+   Plus, which FINAL's cloud phase needs anyway. Phase 3 last does not delay FINAL: its local
+   phase starts after the Z3 freeze.
 4. **R7 (~Nov 8–10):** the chosen settings together on B and C — the fix pass's number. Needs a few
    dollars beyond Go's month if the budget is spent; else waits for Go Plus.
 5. **Z3 freeze (~Nov 10):** set the switch defaults from R2–R4/R7, D9 simplification, merge fix-pass
@@ -71,7 +81,7 @@ re-read, never set from B alone.
 **Cloud budget (Go, ~$30 usable Nov 2–27; measured per-call prices):** Z2 grade-1 finishing — B's
 remaining claim checks and diagnostics ~$4, C ~$4, S12 answers + grades ~$3.5 — ~$11.5; finish cloud
 prep ~$9; R5 ~$0.6; retest answers + grade-2 grades (6 settings × 174) ~$5.7 — **~$27 in all**, ~$3
-slack. Order: R6 (the Z2 cloud lane as it was) → R5 → cloud prep → retests. FINAL's own cloud
+slack. Order: R6 (Z2's cloud run) → Z3 judging (R5, retest answers and grades) → cloud prep. FINAL's own cloud
 (~$92) and any private-question top-up need Go Plus.
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
