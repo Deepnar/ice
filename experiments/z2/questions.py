@@ -981,8 +981,8 @@ def main() -> int:
     fz.add_argument("--out", type=Path, required=True)
     fz.add_argument("--name", default="families")
     args = parser.parse_args()
-    for path in (args.ledger, args.out):
-        if not path.resolve().is_relative_to(ROOT / "logs"):
+    for path in (getattr(args, "ledger", None), args.out):     # review / finalize-final take no ledger
+        if path and not path.resolve().is_relative_to(ROOT / "logs"):
             raise ValueError("ledger data is private: keep it under logs/")
     if args.command == "threads":
         run_threads(args.history, args.ledger, args.out, device=args.device)
