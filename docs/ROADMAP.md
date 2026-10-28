@@ -125,6 +125,8 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
 *Checklist (✅ done on the branch · ⏳ test later on GPU/DB · ☐ open):*
 - ✅⏳ **Z2 F1 fix (a)** source check never cancels a positive retrieval decision (rescue kept) —
   test: tests/smoke/test_source_need_route.py + test_summary_snapshot.py on the disposable DB.
+- ✅⏳ **Z2 F2/F10 switches** (keep candidates past the cap; conversation-order evidence), off until
+  [RETESTS](../experiments/z2/results/RETESTS.md) R2/R3. **F12 judge grade-2** built; R5/R6 re-grade all of Z2.
 - ☐ **Z2 results findings** (F1 source check cancels memory on 18/174 B questions and 16% of real
   turns; F2 64-candidate ceiling; F3 inert subsystems; F4/F5 open): [experiments/z2/results/FINDINGS.md](../experiments/z2/results/FINDINGS.md).
 - ✅⏳ `561250a` **G79** batch summaries never written (model call rejected `schema`) —

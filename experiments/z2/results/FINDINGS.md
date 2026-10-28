@@ -56,7 +56,7 @@ positive B2 decision — keep only its rescue role for negatives (`source_action
 question itself. (a) removes every measured harm and keeps the only path that can *add*
 memory. Confirm the quote mechanism first on the GPU: re-ask `gemma4:e4b` on the 18.
 
-## F2 OPEN (small) — extra memory budget helps plain search, not ICE
+## F2 SWITCH BUILT (`retrieval_rerank_keep_unranked`, candidates up to 512; off) — extra memory budget helps plain search, not ICE — retest [R2](RETESTS.md)
 
 At its own budget (median ~29k tokens) ICE gains nothing over its 8k selection (−1.6,
 ±4.3) while plain search gains **+12.3 (±6.1)**. Cited-turn coverage (questions not
@@ -119,7 +119,7 @@ search still leads there by +19 (±16) — mostly ordering questions ICE now ans
 the other 155 it changes nothing (−0.3 ±0.6). Overall (partial = half) it recovers +4.6 of
 plain search's +11.3.
 
-## F6 OPEN — ICE's copy of the right turn is often shortened
+## F6 OPEN — ICE's copy of the right turn is often shortened — retest [R4](RETESTS.md)
 
 Where ICE (without the skip) was partial and plain search correct (22 questions), ICE's prompt
 still drew on 94% of the cited turns, but carried a **median 59% of those turns' original
@@ -175,7 +175,7 @@ clear weakness, and the same "which came first" shape F1 skipped. Every advantag
 within one history's noise except the token count; FINAL's pooled suites are where they can
 be claimed.
 
-## F10 OPEN — "which came first": ICE reverses the order
+## F10 SWITCH BUILT (`retrieval_evidence_order`; off) — "which came first": ICE reverses the order — retest [R3](RETESTS.md)
 
 Temporal questions (21), ICE without the skip vs plain search: order reversed **7 vs 4**;
 order right but graded partial 6 vs 4 (an omitted side detail, or extra timestamps flagged as
@@ -198,6 +198,52 @@ choice (F6). At 8k, warm 52.3% vs plain 49.4%: the gap again opens only with mor
 **Token counts** (F9) are the answering provider's own input-token count for the whole prompt
 (system, recent turns, memory, question). Not included: ICE's background model work when
 storing turns, and output tokens.
+
+## F12 ⚑ JUDGE FIXED on fix-pass (grade-2; re-grade pending, [R5/R6](RETESTS.md)) — how much the judge skews
+
+Audit of B's 5,983 grade-1 verdicts against the judge's own per-point coverage:
+- **206 answers graded *incorrect* although every required point was covered** — reasons like
+  "invents extensive dated lore … not in SOURCES": true details from elsewhere in the
+  conversation read as invented, because SOURCES show only the cited quotes.
+- **1,023 partials on one-point questions whose one point was covered**; 1,199 of 1,852 partials
+  overall covered every point (F8).
+- **SOURCES carried no dates** (turn, role, quote only), so every dated statement was
+  unverifiable. Not-correct answers whose reason mentions dates/timestamps/turns: ICE 61–69,
+  plain search 40 — ICE's prompts carry dates, so it was hit harder.
+- The rubric never defined the correct/partial line.
+
+**Size:** ICE (no skip) vs plain search is −11.0 (±7.3) by judge-correct but −4.6 (±7.3) by
+required points covered: **over half the apparent gap is the judge**. Both systems are judged
+alike, so this is a bias against richer answers, not a coin flip.
+
+**Fix (grade-2, `experiments/z2/grade.py`):** the grade is decided by REQUIRED and its values
+only; extra details go to `unsupported_claims` (verified by the claim check against the whole
+conversation) and never lower the grade unless they contradict SOURCES; each source passage
+carries the date the system saw (replay clock — matches ICE's labels exactly); new policy
+`ice-z2-grade-2`, so no cached grade-1 verdict is reused. Clean yes/no score = grade-2 correct
+and no claim confirmed invented (M2). **FINAL's pre-registration names M1 as the judge's
+"correct": with grade-2 that definition stays and its meaning sharpens — record the rubric change
+as pre-registration r3 (maintainer).**
+
+## F13 — the build-up curve: what each part of ICE adds on B (grade-1, all-points)
+
+| step | all-points | vs plain search | step change |
+|---|---|---|---|
+| ICE's vector leg alone | 48.6% | −12.2 ±7.4 | |
+| + keyword search (BM25) | 59.2% | −1.7 ±7.6 | **+10.4 ±6.6** |
+| + reranker | 64.2% | +2.9 ±6.6 | **+5.2 ±5.4** |
+| + facts (codex) | 64.4% | +3.5 ±7.0 | 0.0 ±4.5 |
+| + turn summaries | 59.0% | −2.3 ±6.5 | **−5.8 ±6.0** |
+| + fold notes | 56.1% | −4.7 ±7.4 | −2.3 ±5.1 |
+| + procedures | 58.0% | −2.9 ±7.1 | +1.7 ±4.9 |
+| + gate (F1 skip, now fixed) | 53.4% | −7.5 ±7.5 | **−4.6 ±3.1** |
+| + clusters, + temporal | 53.4% | −7.5 ±7.5 | 0.0, 0.0 (F3) |
+| full (+ maintenance) | 52.0% | −8.7 ±7.8 | −1.2 ±3.9 |
+
+Plain search: 60.7%. **ICE peaks above plain search after its first three parts**; what follows
+— summaries most of all, then the gate's skip — takes it below. Additive order is fixed and each
+step is one history, so this is the map for R4/R7, not a verdict. Removing or changing summaries
+in reads is a v3 design decision for the maintainer.
 
 ## Already found and fixed or decided (fix-pass)
 

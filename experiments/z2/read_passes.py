@@ -194,6 +194,25 @@ PRESETS = {
 }
 
 
+# Z2 findings retests (experiments/z2/results/RETESTS.md): read only when named, never part of
+# "z2", so a finished Z2 read stage stays finished. Questions only; full ICE as it runs plus one
+# change each. Read into a fresh --out (never Z2's own units folder).
+RETEST_CONDITIONS = {
+    **{f"retest_cand{n}": dict(overlay="default", arm="full", subset="questions",
+                               settings={"retrieval_rerank_candidates": n}) for n in (64, 128, 256, 512)},
+    **{f"retest_cand{n}_keep": dict(overlay="default", arm="full", subset="questions",
+                                    settings={"retrieval_rerank_candidates": n,
+                                              "retrieval_rerank_keep_unranked": True}) for n in (64, 128)},
+    "retest_cand256_batch16": dict(overlay="default", arm="full", subset="questions",
+                                   settings={"retrieval_rerank_candidates": 256, "retrieval_rerank_batch_size": 16}),
+    "retest_conversation_order": dict(overlay="default", arm="full", subset="questions",
+                                      settings={"retrieval_evidence_order": "conversation"}),
+    "retest_no_summaries": dict(overlay="default", arm="full", subset="questions",
+                                settings={"turn_summaries_in_reads": False}),
+}
+PRESETS["retest_candidates"] = [k for k in RETEST_CONDITIONS if k.startswith("retest_cand")]
+
+
 def select_conditions(spec):
     """'z2', a preset name, presets joined with '+', or comma-separated condition names."""
     if not spec or spec == "z2":
@@ -201,10 +220,11 @@ def select_conditions(spec):
     names = []
     for part in spec.split("+"):
         names += PRESETS[part] if part in PRESETS else part.split(",")
-    unknown = [n for n in names if n not in CONDITIONS]
+    known = {**CONDITIONS, **RETEST_CONDITIONS}
+    unknown = [n for n in names if n not in known]
     if unknown:
         raise ValueError(f"unknown conditions {unknown}")
-    return {n: CONDITIONS[n] for n in dict.fromkeys(names)}
+    return {n: known[n] for n in dict.fromkeys(names)}
 
 
 def pending(asks, out, conditions=CONDITIONS):
