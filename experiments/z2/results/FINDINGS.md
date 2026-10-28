@@ -10,7 +10,7 @@ Scoring used below: each answer graded once by the judge (Muse Spark 1.3), corre
 partial = 0.5, wrong = 0; differences are **paired** (same questions, two settings), with a
 95% interval. Evidence lives under the gitignored `logs/` (B is a private history).
 
-## F1 ⚑ TO FIX — the source check cancels memory the main decision asked for
+## F1 ⚑ FIXED on fix-pass (2026-10-29, fix (a); DB tests pending) — the source check cancelled memory the main decision asked for
 
 **What happens.** After ICE's main retrieval decision (B2, `src/api/memory_decision.py`)
 says "retrieve", the source refinement (`src/api/memory_preparation.py` →
@@ -18,6 +18,10 @@ says "retrieve", the source refinement (`src/api/memory_preparation.py` →
 message already holds everything needed. On a `visible_evidence` verdict whose quote is a
 substring of the message (and passes source proof), the retrieval is **skipped** and the
 prompt gets no memory at all. It can only ever remove memory a positive decision granted.
+The code settles the mechanism: the positive path called `prove_source_fact(message, message)`
+— the current message proved against itself, so a question naming what it asks about (X and Y)
+proves itself "supported". **Fix (a):** a positive is never put to the source judge (no model
+call on those turns either); the negative rescue is unchanged.
 
 **B, Z2 questions (174).** Skipped on **18**; every one needs older memory (12 are
 "which came first, X or Y" questions, which name X and Y — the likely quote). On those 18

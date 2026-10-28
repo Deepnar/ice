@@ -1,7 +1,10 @@
-"""Current-source proof plus bounded, source-supported memory rescue.
+"""Bounded, source-supported memory rescue for a negative retrieval decision.
 
 Uses the existing gemma4:e4b pin; uncertainty preserves the existing decision.
-B2 remains the fallback and recall floor, never a manufactured probability.
+B2 remains the fallback and recall floor, never a manufactured probability. A
+positive B2 decision is never reconsidered: the former current-message skip proved
+the message against itself and, in Z2, removed needed memory on 18 of B's 174
+questions while correctly skipping none (experiments/z2/results/FINDINGS.md F1).
 """
 
 import json
@@ -91,7 +94,7 @@ def parse_verdict(content, finish_reason, messages):
     return SourceNeed(data["decision"], quote)
 
 
-def judge_source_need(messages, *, current_only=False):
+def judge_source_need(messages):
     """Read the complete final prompt through native Ollama with owned bounds.
 
     Native num_ctx avoids the compatible endpoint silently dropping the bound.
@@ -102,14 +105,6 @@ def judge_source_need(messages, *, current_only=False):
     if (not messages or messages[-1].get("role") != "user"
             or any(not isinstance(m.get("content"), str) for m in messages)):
         return _unknown("invalid_prepared_messages")
-    if current_only and len(messages) != 1:
-        return _unknown("invalid_current_source_messages")
-    if current_only:
-        from src.api.source_proof import prove_source_fact
-        proof = prove_source_fact(messages[0]["content"], messages[0]["content"])
-        return SourceNeed("visible_evidence" if proof.status == "supported"
-                          else "unknown" if proof.status == "unknown"
-                          else "not_supplied", proof.evidence_quote, proof.reason)
     instructions = INSTRUCTIONS
     schema = SCHEMA
     payload = json.dumps({"visible_context_messages": messages[:-1],
@@ -159,11 +154,6 @@ def judge_source_need(messages, *, current_only=False):
         return _unknown("provider_" + type(exc).__name__)
 
 
-def source_action(base_retrieve, verdict, current_prompt):
-    """Never replace a positive prior with a general/partial-source judgment."""
-    if base_retrieve:
-        if (verdict.decision == "visible_evidence" and verdict.evidence_quote
-                and verdict.evidence_quote in current_prompt):
-            return "skip"
-        return "keep"
+def source_action(verdict):
+    """For a negative prior only: search when older private memory is needed."""
     return "rescue" if verdict.decision == "older_memory" else "keep"

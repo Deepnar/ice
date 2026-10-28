@@ -538,8 +538,13 @@ NLI threshold change; broader entity/style/context-material and answer utility
 remain unqualified. A dated present-status statement is not a clean negative
 for then-current status; it cannot establish a separate job start date.
 
-`memory_source_gate_enabled=True` enables current-source proof;
-`memory_source_rescue_enabled=True` enables bounded negative rescue. The user
+**Positive skip removed 2026-10-29 (Z2 F1, fix-pass):** a positive B2 decision is no
+longer put to the source judge — the current-message proof checked the message against
+itself and, at Z2 scale, cancelled needed memory on 18 of B's 174 questions and 16% of real
+replay turns while correctly skipping none ([FINDINGS](../experiments/z2/results/FINDINGS.md)).
+The text below on current-source proof for positives is historical.
+`memory_source_gate_enabled` and `memory_source_rescue_enabled` together enable bounded
+negative rescue. The user
 selected the best measured complete E4B version on2026-09-27, ending candidate
 search rather than returning to the older baseline. A fitted baseline retains standing
 slots, bookmarks, source notes and constraints. Existing positives use only the

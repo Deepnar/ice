@@ -15,7 +15,6 @@ import pytest
 
 from scripts.z1.run_meta import file_digest, run_meta
 from src.api import source_proof
-from src.api.source_need import judge_source_need
 from test_temporal_axis_path import exercise_date_axis
 
 
@@ -53,9 +52,6 @@ def check_frames(*, only_temporal=False):
                                          ('city_absent', source)]:
                 proof = source_proof.prove_source_fact(city, original_source, framed=frozen)
                 results.append(dict(case=name, frame=asdict(frozen), proof=asdict(proof)))
-            current = 'Petra worked at Atlas in 2010. Where did Petra work in 2010?'
-            supplied = judge_source_need([dict(role='user', content=current)], current_only=True)
-            results.append(dict(case='current_supplied', source_need=asdict(supplied)))
     return results, captured
 
 
@@ -82,8 +78,6 @@ if __name__ == '__main__':
                ('workplace_variant', 'city_present'))
     assert all(r['proof']['status'] != 'supported' for r in results if r['case'] in
                ('wrong_year', 'hypothetical', 'undated_past_event', 'unknown_import_clock', 'city_absent'))
-    if not args.temporal_and_rescue_only:
-        assert results[-1]['source_need']['decision'] == 'visible_evidence'
     with pytest.MonkeyPatch.context() as patches:
         result = exercise_date_axis(patches, actual_gate=True, base_retrieve=False)
     print(json.dumps(dict(final_rescue=result), indent=2), flush=True)

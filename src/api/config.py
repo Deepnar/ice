@@ -21,9 +21,10 @@ class Settings(BaseSettings):
     classifier_model_path: str = "models/classifier/ice_classifier_v4_schema2.pt"
     label_schema_path: str = "data/labeled/label_schema.json"
     default_fallback_model: str = "qwen2.5:7b"
-    # G28: conservative current-source skip and source-backed negative rescue.
+    # G28: source-backed rescue of a negative retrieval decision (the current-source
+    # skip of a positive was removed after Z2 F1). Rescue needs both switches.
     # The model's enum is never substituted for a calibrated classifier prior.
-    memory_source_gate_enabled: bool = True  # paired question/source proof; unknown retains B2
+    memory_source_gate_enabled: bool = True  # source-need judge for a negative prior; unknown retains B2
     memory_source_rescue_enabled: bool = True  # admit only a proven, budget-fitting original
     memory_source_gate_model: str = "gemma4:e4b"
     memory_source_gate_input_tokens: int = Field(default=8192, gt=0)

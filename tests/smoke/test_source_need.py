@@ -28,29 +28,13 @@ def test_unqualified_output_is_explicit_unknown(content):
     assert sn.parse_verdict(content, "stop", [{"content": "Input"}]).decision == "unknown"
 
 
-@pytest.mark.parametrize("decision", ["general_knowledge", "older_memory", "unknown"])
-def test_non_sourced_verdict_preserves_positive_prior(decision):
-    assert sn.source_action(True, sn.SourceNeed(decision), "Continue our equations.") == "keep"
-
-
-def test_recent_excerpt_cannot_suppress_positive_prior():
-    verdict = sn.SourceNeed("visible_evidence", "Previous equations: x = y.")
-    assert sn.source_action(True, verdict, "Continue our equations.") == "keep"
-    prompt = "Our port is 7813. Which port?"
-    assert sn.source_action(True, sn.SourceNeed("visible_evidence", "Our port is 7813."), prompt) == "skip"
-
-
-def test_current_proof_missing_is_normal_and_cannot_suppress_prior(monkeypatch, caplog):
-    messages = [{"role": "user", "content": "Which port did we choose before?"}]
-    monkeypatch.setattr(sp, "prove_source_fact", lambda *_a: sp.SourceProof("not_supplied"))
-    verdict = sn.judge_source_need(messages, current_only=True)
-    assert verdict == sn.SourceNeed("not_supplied")
-    assert sn.source_action(True, verdict, messages[0]["content"]) == "keep"
-    assert "memory_source_need_unknown" not in caplog.text
+@pytest.mark.parametrize("decision", ["visible_evidence", "general_knowledge", "unknown"])
+def test_negative_prior_stays_negative_without_a_private_source_need(decision):
+    assert sn.source_action(sn.SourceNeed(decision)) == "keep"
 
 
 def test_negative_search_still_requires_private_source_decision():
-    assert sn.source_action(False, sn.SourceNeed("older_memory"), "Which port did we choose?") == "rescue"
+    assert sn.source_action(sn.SourceNeed("older_memory")) == "rescue"
 
 
 def test_native_call_owns_bounds_and_reads_complete_prepared_messages(monkeypatch):
@@ -83,7 +67,7 @@ def test_complete_overlength_input_never_calls_provider_or_truncates(monkeypatch
     assert messages[-1]["content"].endswith("intact.")
 
 
-def test_positive_proof_freezes_frames_using_only_current_message(monkeypatch):
+def test_rescue_question_frame_reads_only_the_current_message(monkeypatch):
     calls = []
     def post(_url, **kwargs):
         calls.append(kwargs["json"])
@@ -92,13 +76,10 @@ def test_positive_proof_freezes_frames_using_only_current_message(monkeypatch):
             message=dict(content=json.dumps(dict(frame=None, assertion_frame=None,
                                                  reason="unframeable")))))
     monkeypatch.setattr(sn.httpx, "post", post)
-    assert sn.judge_source_need([dict(role="user", content="What was our choice?")],
-                                current_only=True).decision == "not_supplied"
+    assert sp.freeze_source_question("What was our choice?").status == "not_supplied"
     assert calls[0]["format"] == sp.FRAME_SCHEMA
     assert json.loads(calls[0]["messages"][1]["content"]) == {
         "latest_user_request": "What was our choice?"}
     assert calls[0]["think"] is False
     assert calls[0]["options"]["num_predict"] == settings.memory_source_proof_output_tokens
-    assert sn.judge_source_need([dict(role="system", content="Prior source."),
-        dict(role="user", content="Question")], current_only=True).reason == "invalid_current_source_messages"
     assert len(calls) == 1

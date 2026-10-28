@@ -45,10 +45,8 @@ def harness(monkeypatch):
         def record_exposure(self, fragments): captures["exposed"].extend(fragments)
     monkeypatch.setattr(mp, "HybridRetrievalOrchestrator", Orchestrator)
     verdicts = []
-    def judge(messages, *, current_only=False):
-        assert current_only == args["base_retrieve"]
-        if current_only:
-            assert messages == [dict(role="user", content=args["user_message"])]
+    def judge(messages):
+        assert not args["base_retrieve"], "a positive decision reached the source judge"
         captures["judged"].append(messages)
         return verdicts.pop(0)
     monkeypatch.setattr(mp, "judge_source_need", judge)
@@ -104,23 +102,16 @@ def test_evicted_candidate_quote_cannot_admit_rescue(harness):
     assert len(captures["judged"]) == 1
 
 
-def test_current_fact_skips_fetch_without_removing_standing_context(harness):
-    args, captures, verdicts = harness
-    args.update(base_retrieve=True, user_message="Our port is 7813. Which port?")
-    verdicts.append(SourceNeed("visible_evidence", "Our port is 7813."))
+@pytest.mark.parametrize("message", ["Our port is 7813. Which port?",
+                                     "Which came first, the port change or the kiln test?"])
+def test_positive_is_never_cancelled_by_its_own_wording(harness, message):
+    # Z2 F1: a question naming what it asks about once "proved" itself and lost its memory.
+    args, captures, _ = harness
+    args.update(base_retrieve=True, user_message=message)
     result = mp.prepare_memory_context(**args)
-    assert not result.retrieve and not captures["retrieved"]
-    assert result.source_checked
+    assert result.retrieve and result.action == "keep" and captures["retrieved"]
+    assert not result.source_checked and not captures["judged"]
     assert "Standing preference blue" in result.prepared.messages[0]["content"]
-
-
-def test_partial_recent_quote_preserves_prior_positive(harness):
-    args, captures, verdicts = harness
-    args.update(base_retrieve=True, user_message="Continue printing our earlier equations.")
-    verdicts.append(SourceNeed("visible_evidence", "Our earlier model began with x = y."))
-    result = mp.prepare_memory_context(**args)
-    assert result.retrieve and result.action == "keep"
-    assert len(captures["judged"]) == 1
 
 
 def test_unqualified_rescue_is_not_run_by_default(harness, monkeypatch):

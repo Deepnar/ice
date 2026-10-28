@@ -446,15 +446,15 @@ def test_active_original_note_dedup_restores_batch_part_after_eviction(context, 
                  scope={}, conversation_id=str(ctx.cid))
         classifier = NS(embedder=NS(encode=lambda *_a, **_k: VEC))
         traced, fetched, _ = trace._prepare(ctx.db, pre, classifier, ctx.cid)
-        assert traced.source_checked and traced.action == 'keep'
+        # A positive decision is never put to the source judge (Z2 F1): nothing can cancel it.
+        assert not traced.source_checked and traced.action == 'keep'
         assert repeated[0] in fetched
         assert repeated[0] not in traced.prepared.visible_fragments
         assert repeated[0] not in traced.fragments
-        monkeypatch.setattr(mp, 'source_action', lambda *_a, **_k: 'skip')
-        skipped, skipped_fetch, _ = trace._prepare(ctx.db, pre, classifier, ctx.cid)
-        assert skipped.source_checked and not skipped.retrieve
-        assert skipped_fetch == [] and skipped.fragments == []
-        monkeypatch.setattr(mp, 'source_action', lambda *_a, **_k: 'keep')
+        monkeypatch.setattr(mp, 'judge_source_need',
+                            lambda *_a, **_k: pytest.fail('a positive reached the source judge'))
+        kept, kept_fetch, _ = trace._prepare(ctx.db, pre, classifier, ctx.cid)
+        assert kept.retrieve and kept_fetch
         no_note, _, _ = trace._prepare(ctx.db, pre, classifier, ctx.cid,
                                       arm='no_summary')
         assert repeated[0] in no_note.fragments

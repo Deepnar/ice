@@ -49,7 +49,6 @@ def test_copy_restores_original_for_all_four_verifier_pairs(monkeypatch, proof_c
                               decision="visible_evidence", evidence_quote=quote))
     verdict = source_need.parse_verdict(encoded, "stop", [{"content": SOURCE}])
     assert verdict == source_need.SourceNeed("visible_evidence", ORIGINAL)
-    assert source_need.source_action(True, verdict, SOURCE) == "skip"
 
 
 @pytest.mark.parametrize("quote", ["Mira used amber glaze for the earlier kiln test.",

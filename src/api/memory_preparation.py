@@ -106,15 +106,14 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
         return PreparedMemory(base_prompt, [], False, "required_overflow")
     action = "keep"
     source_checked = False
-    if (settings.memory_source_gate_enabled
-            and (base_retrieve or settings.memory_source_rescue_enabled)):
-        # A positive can be suppressed only by evidence in the current message
-        # alone. A negative must consider ALL of the answerer's visible context.
-        evidence = [base_prompt.messages[-1]] if base_retrieve else base_prompt.messages
-        verdict = judge_source_need(evidence, current_only=base_retrieve)
+    if (not base_retrieve and settings.memory_source_gate_enabled
+            and settings.memory_source_rescue_enabled):
+        # Only a negative is reconsidered, against ALL of the answerer's visible
+        # context; a positive is never cancelled (source_need's docstring, Z2 F1).
+        verdict = judge_source_need(base_prompt.messages)
         source_checked = True
-        action = source_action(base_retrieve, verdict, user_message)
-    retrieve = (base_retrieve and action != "skip") or action == "rescue"
+        action = source_action(verdict)
+    retrieve = base_retrieve or action == "rescue"
     if not retrieve:
         logger.info("memory_source_refinement", action=action,
                     base_retrieve=base_retrieve, retrieve=False)

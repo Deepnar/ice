@@ -18,7 +18,7 @@ from src.retrieval.orchestrator import ContextFragment
 
 
 @pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"), reason="disposable DB required")
-@pytest.mark.parametrize("mode", ["rescue", "withhold", "skip"])
+@pytest.mark.parametrize("mode", ["rescue", "withhold", "positive"])
 def test_actual_handler_source_decisions(monkeypatch, mode):
     # Exercise shipped defaults, rather than an opt-in-only qualification arm.
     assert settings.memory_source_gate_enabled
@@ -28,7 +28,7 @@ def test_actual_handler_source_decisions(monkeypatch, mode):
         classify=lambda *_a, **_k: ClassificationResult([], [], "Zero_Shot", [], .99, p_ltm=.01),
         embedder=SimpleNamespace(encode=lambda *_a, **_k: [1.0] + [0.0] * 1023)))
     monkeypatch.setattr(main, "decide_memory_retrieval", lambda *_a, **_k:
-                        SimpleNamespace(retrieve=mode == "skip", breakdown={}))
+                        SimpleNamespace(retrieve=mode == "positive", breakdown={}))
     monkeypatch.setattr(main, "get_model_context_window", lambda *_a: 8192)
     monkeypatch.setattr(main, "serving_window", lambda *_a: 8192)
     monkeypatch.setattr(main, "log_window_truth", lambda *_a: None)
@@ -43,10 +43,8 @@ def test_actual_handler_source_decisions(monkeypatch, mode):
             return [fragment]
         def record_exposure(self, fragments): exposed.extend(fragments)
     monkeypatch.setattr(memory_preparation, "HybridRetrievalOrchestrator", Orchestrator)
-    def judge(messages, *, current_only=False):
-        assert current_only == (mode == "skip")
+    def judge(messages):
         judged.append(messages)
-        if mode == "skip": return SourceNeed("visible_evidence", "Our port is 7813.")
         return SourceNeed("older_memory")
     monkeypatch.setattr(memory_preparation, "judge_source_need", judge)
     monkeypatch.setattr(memory_preparation, "freeze_source_question", lambda _q: object())
@@ -59,7 +57,8 @@ def test_actual_handler_source_decisions(monkeypatch, mode):
         class Request:
             headers = {"X-ICE-Conversation-ID": str(conversation_id)}
             async def json(self):
-                prompt = ("Our port is 7813. Which port?" if mode == "skip"
+                # The question names what it asks about: Z2 F1's shape, once self-proved and skipped.
+                prompt = ("Our port is 7813. Which port?" if mode == "positive"
                           else "Which exact command did I run to check GPU memory during our setup?")
                 return dict(model="controlled-local", messages=[dict(role="user", content=prompt)])
         response = await main.chat_completions(Request(), BackgroundTasks(), db)
@@ -82,6 +81,9 @@ def test_actual_handler_source_decisions(monkeypatch, mode):
         assert "gpu-scan" not in "\n".join(m["content"] for m in judged[0])
         assert proved[0][1] == fragment.text
         assert '"fragments_count": 1' in events
+    elif mode == "positive":
+        # A positive decision is never put to the source judge, so nothing can cancel it.
+        assert judged == [] and proved == [] and exposed == [fragment]
+        assert '"fragments_count": 1' in events
     else:
         assert not exposed and '"fragments_count": 0' in events
-    if mode == "skip": assert len(judged) == 1

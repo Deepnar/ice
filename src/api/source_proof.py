@@ -135,8 +135,7 @@ def prove_source_fact(question, source, *, framed=None):
     """Unknown/unsupported proof preserves B2 and never modifies stored sources.
 
     Source must be a complete original unit, not a generated graph assertion.
-    Current-prompt use necessarily includes its supplied facts in the request;
-    only external source context is withheld from the first frame call.
+    Only the question reaches the first frame call; the source is withheld.
     """
     try:
         if (not isinstance(question, str) or not question.strip()
