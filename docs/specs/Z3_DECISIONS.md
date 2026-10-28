@@ -395,4 +395,10 @@ FINAL depends on. Each is built on fix-pass; nothing is a number until its retes
    grade-1 grading to completion (R6), R5, S12 answers, cloud prep, retest answers → R7 → merge →
    freeze → FINAL local → FINAL cloud (Go Plus). A later private-question top-up (more questions
    for A/SW/LAP) is its own cloud block.
+5. **Every part FINAL tests must be able to act (Z2 F18).** B and C cannot exercise clusters
+   (automatic scoping off), time windows (no question names one), decay (gentle over 33–90 days,
+   no planted questions) or much of maintenance. S9 covers time windows and aliases; for
+   **clusters** the parts test needs an automatic-scoping arm or explicit-scope questions, or the
+   group is dropped as "off by default"; **decay** needs planted recency questions on a long
+   history, or is reported as "not measurable in FINAL". Decided before S9 is answered.
 

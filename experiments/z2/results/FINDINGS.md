@@ -298,6 +298,47 @@ required points. Those 30 are the first place to look for answer-key defects (SW
 dropped 23–42%). 64% is the best single fixed setting, not a ceiling: the headroom is choosing per
 question what the best settings already found (summaries vs originals, breadth vs detail, order).
 
+## F17 ⚑ SWITCHES BUILT — the summary policy exists, and is overridden; on B its premises don't hold
+
+`choose_representation` already decides per question and per turn: the original for fact /
+troubleshooting intents, the summary for analysis / planning / ideation intents, otherwise the
+turn's lossless flag (`inject_raw`, post-flight's "memory is earned"). Measured on B
+(`experiments/z2/summary_allowance.py`):
+- **It does not land.** ~50% of pieces in full ICE's prompts are summaries whether the policy
+  said "prefer original" (49%), "prefer summary" (50%) or "the turn's flag" (54%): the reranker
+  sends whichever version scores highest (F14).
+- **The lossless flag cannot discriminate:** inject_raw is true on 1,104 of 1,119 turns (99%);
+  among audited summaries it does not separate complete from incomplete; turn length does not
+  either (complete 64% at 1.5–4k chars, 62% above).
+- **The intent rule is wrong on B:** summaries hurt the "prefer summary" intents too (−9.1 ±8.2,
+  88 questions); "prefer original" −4.8 to −7.1; time score ≥0.5 −16.7 (±15.2). No group where
+  summaries clearly help (update +12, preference +8, messy +15 — each n.s., 12–20 questions).
+
+**The allowance B supports:** originals first, a summary only when the original cannot fit the
+budget (its degrade-before-drop job). Switches: `retrieval_rerank_representation="policy"` (the
+reranker keeps the policy's pick, one pair per candidate) and `representation_summary_first_intents=False`
+(original first for every intent). Retest R4 (`retest_policy_text`, `retest_originals_first`, beside
+summaries off and the margins); on C and in FINAL before any default changes. Storage side: keep
+writing summaries (budget fallback, classifier prefix), but the lossless flag needs a criterion
+that actually varies — none measured yet predicts an incomplete summary.
+
+## F18 ⚑ Can the test see the part? — why four parts read "no effect" on B and will on C
+
+| part | what it needs to act | on B | on C | FINAL (S9 parts test) |
+|---|---|---|---|---|
+| clusters | automatic cluster scoping — **off since 2026-10-15** (`retrieval_auto_cluster_scope=False`), or an explicit user scope | never acts (0/208 prompts) | never acts | **cannot see it** — 23 ordinary questions, scoping off |
+| time-based retrieval | a question naming a time window ("in March") | fired on 2/174 | 0/75 | **can see it** — all 24 questions name a window |
+| maintenance (slots, merges) | slots written, entities merged, questions about them | 33 slots, 49 merges; few questions | 3 slots, 23 merges | likely — alias questions ("what do my customers call…") |
+| decay | months of history and questions where recency should win | acted live (22,800 row updates over 90 days) but gently — no answer changed | 33 days | **cannot see it** — no planted decay questions; 8 months of gentle decay |
+
+So B and C are the wrong instruments for these four, and a "no effect" on C will be predicted, not
+learned. **For FINAL (Z3 D14 item 5):** the S9 cluster group needs either an arm with automatic
+scoping on or questions under an explicit scope — or it is dropped from the parts test as "off by
+default"; decay needs planted questions (an old value vs a recent one, a long-untouched detail) on
+a history spanning many months, or it is reported as "not measurable in FINAL" in its own words.
+Today's database for B/C shows decay 1.000 everywhere — the read passes' neutral-decay copy, not
+the live state (the replay's events hold that).
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |
