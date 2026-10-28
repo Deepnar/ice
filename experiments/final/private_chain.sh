@@ -45,7 +45,7 @@ chain() {
 
 for h in "${@:-A SW LAP}"; do
   for one in $h; do
-    chain "$one" > "logs/final-questions/chain-$one.log" 2>&1 &
+    chain "$one" >> "logs/final-questions/chain-$one.log" 2>&1 &   # appended: a restart keeps the earlier log
     echo "[$one] running — log: logs/final-questions/chain-$one.log"
   done
 done

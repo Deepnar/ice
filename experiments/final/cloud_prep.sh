@@ -41,9 +41,9 @@ for h in ("A", "SW", "LAP"):
 PY
   exit 0
 fi
-experiments/synth/generate_all.sh > logs/cloud-prep-synth.log 2>&1 &
+experiments/synth/generate_all.sh >> logs/cloud-prep-synth.log 2>&1 &
 echo "synthetic conversations running — log: logs/cloud-prep-synth.log"
-experiments/final/private_chain.sh > logs/cloud-prep-private.log 2>&1 &
+experiments/final/private_chain.sh >> logs/cloud-prep-private.log 2>&1 &
 echo "private ground truth (A, SW, LAP) running — log: logs/cloud-prep-private.log"
 wait
 echo "== synthetic"; tail -11 logs/cloud-prep-synth.log
