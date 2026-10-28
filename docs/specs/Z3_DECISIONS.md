@@ -372,3 +372,21 @@ benchmarks use their own scoring and the field's norms only: LoCoMo by Mem0's pr
 BLEU-1; categories 1–4), LongMemEval-S by its own judge, BEAM by its nuggets — no LSREP measure
 is added to them.
 
+## D14 ⚑ Z2's findings carried into FINAL — **proposed 2026-10-29, maintainer to decide**
+
+Z2's grades on B (findings F1–F15 in `experiments/z2/results/FINDINGS.md`) changed four things
+FINAL depends on. Each is built on fix-pass; nothing is a number until its retest
+(`experiments/z2/results/RETESTS.md`) runs.
+1. **Retrieval:** the source check no longer cancels a positive decision (F1, shipped on fix-pass).
+   Three switches, off until measured: candidates ranked + keep the rest (F2), conversation
+   order (F10), original-text margin for summaries (F14). Their defaults are set from R2–R4 and
+   recorded at freeze.
+2. **Judging:** grade-2 rubric and dated SOURCES (F12) — the same judge model, the same M1/M2,
+   a defined rubric. Every Z2 number is re-graded under grade-2 (R6) before it is compared; FINAL
+   grades only under grade-2, after the judge check (R5).
+3. **Design decisions the evidence raises** (maintainer's): turn summaries in reads (F13/F14 —
+   less summary helps on B), and whether clusters / temporal / maintenance stay (inert on B, F3;
+   D9's simplification pass).
+4. **Order:** S12 local → GPU retests (R1, R2, R8, R9 and the reads of R3/R4) → cloud: R5, R6,
+   S12 answers, cloud prep, retest answers → R7 → freeze → FINAL local → FINAL cloud (Go Plus).
+

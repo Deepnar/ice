@@ -245,6 +245,38 @@ Plain search: 60.7%. **ICE peaks above plain search after its first three parts*
 step is one history, so this is the map for R4/R7, not a verdict. Removing or changing summaries
 in reads is a v3 design decision for the maintainer.
 
+## F14 SWITCH BUILT (`retrieval_rerank_original_margin`; 0) — summaries stand in for half the turns
+
+In full ICE's prompts on B (174 questions, 6,161 single-turn episodic pieces): **51% of pieces are
+reworded** (summary or abstract; 16% of episodic tokens), 45% the whole original (79% of tokens),
+5% verbatim excerpts. S8's audit: turn summaries faithful 95% (B) / 85% (C) but **complete on
+only 63% / 62%**; fold notes complete 30% / 52%; session summaries faithful 18% / 25% (read only
+by MCP). The reranker makes a shorter form the piece's text whenever it scores higher (scores are
+logits, −14 to +7.5). Three Z2 measurements agree that less summary helps on B: adding summaries
+−5.8 (±6.0), summaries off in full ICE +4.6 (±5.5), the older stricter summary guard +7.4 (±8.3,
+81 questions). Switch: a margin the shorter form must beat. Retest [R4](RETESTS.md).
+
+## F15 — the other scores Z2 already holds (B, grade-1, all-points)
+
+Leave-one-out (full ICE minus one part; + = removing helps): gate +4.0 (±2.9, F1), summaries
++4.6 (±5.5), notes +1.2, maintenance +1.2, codex +1.7, rerank +1.7, procedural −0.6, bm25 0.0,
+clusters 0.0, temporal 0.0 — in full ICE the legs cover for each other, so no single leg's
+removal costs anything measurable. Decay (live vs neutral): 0.0 (±3.6). `no_codex` vs full: +1.7
+(±4.1). Budget curves: F9.
+
+## Where the scores stand, B only (best estimate before the re-grade)
+
+| | judge-correct (grade-1) | all required points |
+|---|---|---|
+| plain vector search | 40.5% | 60.7% |
+| ICE as Z2 ran it | 24.7% | 52.3% |
+| ICE without the skip (`loo_gate`) | 29.5% | 56.1% |
+| ICE's first three parts only (`add_3_codex`) | 36.2% | 64.4% |
+
+With the skip fixed and summaries reduced, ICE is plausibly **level with plain search on B,
+perhaps a few points ahead, at ~25% fewer prompt tokens** — every gap here is within ±7, so this
+is a direction, not a result. The grade-2 re-grade (R6) and R7 on B and C are what make it one.
+
 ## Already found and fixed or decided (fix-pass)
 
 From Z2's earlier stages, each in the ROADMAP's FIX-PASS checklist with its numbers:

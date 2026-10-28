@@ -7,6 +7,20 @@ Fixed before FINAL runs; nothing here changes after the first FINAL answer is gr
 after that is a new revision, reported beside the first (Z3 D11 item 3).
 Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DECISIONS.md](Z3_DECISIONS.md).
 
+**Revision 3 — PROPOSED 2026-10-29 from Z2's evidence, before any FINAL answer; maintainer to
+approve** ([Z2 FINDINGS](../../experiments/z2/results/FINDINGS.md) F12, [RETESTS](../../experiments/z2/results/RETESTS.md)):
+- **Judge rubric grade-2.** M1's definition is unchanged — the judge's *correct* — but the
+  rubric now defines it: every REQUIRED item present with SOURCES' values and no superseded value
+  as current; details beyond REQUIRED never lower the grade (they go to the claim check, which
+  feeds M2). SOURCES carry each passage's date. Z2 showed grade-1 marking 65% of partials and
+  206 "incorrect" answers down with every required point covered — over half of ICE's gap to
+  plain search on B.
+- **A judge check gates FINAL's grading** (RETESTS R5): planted panel, paired samples, invariance
+  to a true extra detail; a rubric defect found there is fixed before anything is graded.
+- **The freeze (§1) waits for RETESTS R7** — the fix pass measured on B and C under grade-2 —
+  and records the defaults of the switches built from Z2's findings (`retrieval_rerank_candidates`
+  / `retrieval_rerank_keep_unranked`, `retrieval_evidence_order`, `retrieval_rerank_original_margin`).
+
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP (held out)

@@ -707,6 +707,9 @@ ready evolution material). `lme` keeps its own question set/types unchanged.
 
 ### 2.5 Ground truth & judging
 
+> **2026-10-29:** the judge, rubric and grading path are those of `experiments/z2/grade.py`
+> (grade-2, Z3 D14, pre-registration r3 proposal); the text below is the earlier design.
+
 - **GT:** synth = ledger (exact). Personal sets = regenerated GT with **citation
   requirement**: every GT claim carries source turn ids; an automated pass verifies
   the cited turns contain the claim's key strings (NER-normalized); failures go to a

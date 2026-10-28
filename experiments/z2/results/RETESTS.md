@@ -15,13 +15,19 @@ record of what the first judge said; they are never mixed with grade-2 ones.
 | R1 | F1 fix — database tests of the source check | GPU/DB | ☐ |
 | R2 | F2 — how many candidates to rank, and keep the rest | GPU | ☐ |
 | R3 | F10 — conversation order for "which came first" | GPU + CLOUD | ☐ |
-| R4 | F6/F13 — turn summaries in reads | GPU + CLOUD | ☐ |
-| R5 | F12 — new judge rubric on the qualification panel | CLOUD (cents) | ☐ |
+| R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ☐ |
+| R5 | F12 — judge the judge: planted panel, paired B and C samples, invariance | CLOUD (~$0.5) | ☐ |
 | R6 | F12 — full re-grade of Z2 under grade-2 | CLOUD (~$12) | ☐ |
 | R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
 | R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ☐ |
 | R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | ☐ |
 | R10 | F4 — B2 "no memory" on a third of LongMemEval | after S12 graded | ☐ |
+
+**Cloud budget (Go, ~$30 usable Nov 2–27; measured per-call prices):** re-grade B $9.8 (or $7.8
+without ranking/controls/semantic diagnostics), grade C $4.1, S12 answers + grades $3.5, finish
+cloud prep ~$9, R5 $0.5, retest answers + grades (6 settings × 174) $5.7 — **~$32.6 in all**. To fit:
+order R5 → R6 B/C (diagnostics last) → S12 → cloud prep → retests; drop the diagnostics if needed
+(−$3), or Extra Usage for the last ~$3. FINAL's own cloud (~$92) needs Go Plus regardless.
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 
@@ -66,16 +72,28 @@ of 21) and no other type falls by more than its interval. Same for C when C is g
 
 Z2 already shows (grade-1, all-points): adding summaries −5.8 (±6.0), summaries off in full ICE
 +4.6 (±5.5); where ICE was partial and plain search correct, ICE carried a median 59% of the cited
-turns' words (96% when both correct). `retest_no_summaries` reads full ICE with turn summaries
-off in reads (stored summaries untouched); answer and grade as R3. Decide with R7 on B and C.
+turns' words (96% when both correct). Three settings against `retest_cand64` (preset `retest_summaries`): `retest_no_summaries` (turn
+summaries off in reads; stored ones untouched), `retest_original_margin1` and `…margin2` (F14: a
+summary replaces the turn's text only when it out-scores it by 1 or 2 logits). Answer and grade
+as R3; also run `retest_coverage.py` and the verbatim-share check from F14. Decide with R7 on B and C.
 **A v3 change that removes something v2 shipped is a maintainer decision** ("memory is earned").
 
-## R5 — new judge rubric on the qualification panel (CLOUD, cents)
+## R5 — judge the judge (CLOUD, ~$0.5) — before R6 spends anything
 
-`experiments/z2/qualify.py` asks the judge to grade planted correct / wrong / partial answers.
-Run it with grade-2's rubric and compare with grade-1's panel results. Pass: planted wrong
-answers still graded wrong (no inflation), planted correct ones with extra true details now
-graded correct.
+Light, but every part runs, because the largest single loss Z2 found was the judge (F12):
+1. **Planted panel** — `experiments/z2/qualify.py` (planted correct / wrong / partial / abstain
+   answers) under grade-2, beside its grade-1 results. Pass: planted wrong stays wrong (no
+   inflation), planted correct stays correct.
+2. **Paired B sample** — 150 B answers, stratified: grade-1 partial with every point covered,
+   grade-1 incorrect with every point covered, grade-1 correct, grade-1 incorrect with points
+   missing. Grade under grade-2; count flips per stratum. The ~40 that flip go into a blind
+   sheet (answer, REQUIRED, SOURCES, both verdicts, condition hidden) for the maintainer to read:
+   a flip the maintainer disagrees with is a rubric defect, fixed before R6.
+3. **Paired C sample** — 150 C answers graded under BOTH rubrics (C was never graded under
+   grade-1, so this is how much the judge change moves C).
+4. **Invariance** — 20 answers graded twice: as given, and with one true extra detail from the
+   conversation appended. Pass: the grade does not change (the defect F12 found).
+5. The cross-family judge sample (pre-registration §4, ~450 answers) stays as planned for FINAL.
 
 ## R6 — full re-grade under grade-2 (CLOUD, ~$12)
 
