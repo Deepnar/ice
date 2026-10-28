@@ -29,7 +29,8 @@ sys.path.insert(0, str(ROOT))
 from experiments.synth.plans import PLANS, STYLES, validate  # noqa: E402
 
 POLICY = "ice-final-synth-generate-5"           # 5: cached long history, round-5 review fixes (2026-10-28)
-MAX_TRIES = 8                          # per turn (was 3: cheap on the cloud; a bad draft is rerolled)
+MAX_TRIES = 8
+ROLLBACK = 5                           # turns stepped back, once per stuck turn, before stopping for repair                          # per turn (was 3: cheap on the cloud; a bad draft is rerolled)
 # Every model sees about this much of the conversation (was the last 5 / 8 / 10 exchanges: with so
 # little in view the models invented memories — round-5 review). The window's start moves BLOCK
 # turns at a time, so between moves each call's prompt starts exactly like the previous one's and
@@ -109,7 +110,7 @@ def transcript(pairs, me="User"):
     return "\n\n".join(f"{who}: {text}" for p in pairs for who, text in ((me, p["user"]), ("Assistant", p["assistant"])))
 
 
-def user_prompt(persona, style, beats, beat_now, recent, must_say, topic, last=False, invite=(), unsettled=()):
+def user_prompt(persona, style, beats, beat_now, recent, must_say, topic, last=False, invite=(), unsettled=(), rejected=()):
     """The simulated user's input as plain labelled text (given as JSON, MiMo sometimes answered in
     JSON too — round-3 sample): the conversation first, the same from turn to turn so the provider
     caches it, then this turn's notes."""
@@ -130,7 +131,24 @@ def user_prompt(persona, style, beats, beat_now, recent, must_say, topic, last=F
         lines += ["", f"INSTEAD, ASK A SELF-CONTAINED QUESTION ABOUT: {topic}"]
     lines += ["", "This is your last message in today's chat." if last else
               "Today's chat goes on after this message: no goodbyes or wrapping up."]
+    if rejected:
+        lines += ["", "YOUR PREVIOUS DRAFT WAS NOT USED, because:"] + [f"- {r}" for r in rejected] + \
+                 ["Write a new message that does not do that."]
     return "\n".join(lines) + "\n\nWrite the message now."
+
+
+def feedback(problems):
+    """Why the last try was rejected, for the next one (blind retries repeated the same mistake eight
+    times: S8 turn 102, day 2) — never naming a value the plan only settles later."""
+    out = []
+    for p in problems:
+        if "later value early" in p:
+            out.append("it stated something that is only decided later in the conversation; leave that out")
+        elif p.startswith("never-again fact"):
+            out.append("it brought back a detail from much earlier that should not come up again")
+        else:
+            out.append(re.sub(r"^checker (\w+): ", lambda m: m.group(1).replace("_", " ") + ": ", p)[:240])
+    return out
 
 ATTRIBUTION = {"decided": "the user decided", "preference": "the user's preference",
                "instruction": "the user's standing instruction to you", "hypothetical": "the user only mused about",
@@ -574,11 +592,13 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
     # writer models declined to drop in a company name (S2 turn 6, every round) — the user asks
     # about its topic, never its value
     invite = [invite_topic(i) for i in items["assistant"]]
+    user_rejected, reply_rejected = [], []
     for attempt in range(1, MAX_TRIES + 1):
         try:
             user = user_llm(USER_SYSTEM, user_prompt(persona, STYLES[session["style"]], beats, beat_now, recent,
                                                      must_say, topic, last, invite,
-                                                     [u for u in upcoming(plan, turn) if u not in {m["about"] for m in must_say}]))
+                                                     [u for u in upcoming(plan, turn) if u not in {m["about"] for m in must_say}],
+                                                     feedback(user_rejected)))
             # the user message first: mechanical checks, then the checker's reading; a bad message
             # never costs an assistant reply. An item not found word for word goes to the checker,
             # which judges it by meaning (round-4 review: a date in another format, a rejection in
@@ -593,6 +613,7 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
                                    upcoming=upcoming(plan, turn))
             if problems:
                 log(dict(turn=turn, attempt=attempt, stage="user", problems=problems, user=user))
+                user_rejected = problems
                 continue
             known = briefing(plan, turn, sessions)
             # a planned suggestion leads and closes the system prompt: at the end alone, both
@@ -601,7 +622,9 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
             # what the user had not said yet; it knows the conversation and the briefing only.
             # the system prompt stays fixed (the cached start); this turn's notes follow the window
             notes = ((suggest_note(items["assistant"]).strip() + "\n\n" if items["assistant"] else "")
-                     + f"WHAT YOU KNOW:\n{known or '- nothing yet'}" + suggest_note(items["assistant"]))
+                     + f"WHAT YOU KNOW:\n{known or '- nothing yet'}" + suggest_note(items["assistant"])
+                     + ("\n\nYOUR PREVIOUS REPLY WAS NOT USED, because:\n" + "\n".join(f"- {r}" for r in feedback(reply_rejected))
+                        + "\nWrite a reply that does not do that." if reply_rejected else ""))
             reply = assistant_llm(ASSISTANT_SYSTEM, assistant_messages(history, notes, user))
         except CUT_OFF as exc:                        # a reply cut at the output cap: try again
             problems = [f"reply cut off: {str(exc)[:120]}"]
@@ -620,12 +643,26 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
                 problems = [f"reply cut off: {str(exc)[:120]}"]
         if problems:
             log(dict(turn=turn, attempt=attempt, stage="reply", problems=problems, user=user, reply=reply))
+            reply_rejected = problems
         if not problems:
             return dict(turn=turn, user=user, assistant=reply, attempts=attempt, verified=True)
     return dict(turn=turn, user=user, assistant=reply, attempts=MAX_TRIES, verified=False, problems=problems)
 
 
-def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None, checker=None):
+def rolled_back(out, turn):
+    """The rollback already made for this stuck turn, or None."""
+    path = out / "rollbacks.jsonl"
+    rows = [json.loads(l) for l in path.read_text().splitlines() if l.strip()] if path.exists() else []
+    return next((r for r in rows if r["stuck_turn"] == turn), None)
+
+
+def rollback_to(out, turn, n):
+    """The first turn to redo: *n* turns back, never into the approved seed (seed.json: turns 1-50)."""
+    floor = 51 if (out / "seed.json").exists() else 1
+    return max(turn - n, floor)
+
+
+def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None, checker=None, rollback=ROLLBACK):
     """Generates every turn not yet in <out>/turns.jsonl; *limit* stops after that turn (a
     trial: no originals.json, since the conversation is unfinished). A turn that never verifies
     STOPS the conversation (maintainer's round-4 review: a failed turn left a blank reply the
@@ -663,6 +700,19 @@ def run(plan, out, *, user_llm, assistant_llm, say=print, limit=None, checker=No
         else:
             row = generate_turn(plan, turn, session, history, items, user_llm=user_llm, assistant_llm=assistant_llm,
                                 sessions=sessions, checker=checker, log=attempt_log)
+        if not row["verified"] and rollback and rolled_back(out, turn) is None:
+            # the cause is often a few turns back (S5: an invented deposit at 107 blocked 112; S8:
+            # a rent flip-flop at 101-103 blocked 113): once per stuck turn, step back and redo
+            back_to = rollback_to(out, turn, rollback)
+            if back_to < turn:
+                keep = [done[t] for t in sorted(done) if t < back_to]
+                (out / f"turns.jsonl.before-rollback-{turn}").write_text(store.read_text())
+                store.write_text("".join(json.dumps(dict(r, policy=r.get("policy", POLICY)), ensure_ascii=False) + "\n" for r in keep))
+                with (out / "rollbacks.jsonl").open("a") as handle:
+                    handle.write(json.dumps(dict(stuck_turn=turn, back_to=back_to, problems=row["problems"],
+                                                 backup=f"turns.jsonl.before-rollback-{turn}", policy=POLICY)) + "\n")
+                say(f"ROLLED BACK {plan['id']} from stuck turn {turn} to {back_to}: {row['problems'][:1]}")
+                return dict(plan=plan["id"], turns=total, rolled_back_to=back_to, finished=False)
         if not row["verified"]:
             (out / "stopped.json").write_text(json.dumps(dict(row, policy=POLICY), indent=1, ensure_ascii=False) + "\n")
             say(f"STOPPED {plan['id']} at turn {turn}: no attempt verified in {MAX_TRIES}: {row['problems']} — "

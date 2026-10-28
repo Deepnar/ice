@@ -278,12 +278,12 @@ def test_a_turn_that_never_verifies_stops_the_conversation_and_a_repair_is_used(
         return "forgot it" if "2,000 euros" in vals else f"{hello} {vals}"    # turn 3 never verifies
     assistant_llm = lambda system, messages: "ok " + " ".join(__import__("re").findall(r"- [^:]+: (.+)", messages[-2]["content"]))
     out = tmp_path / "out"
-    status = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
+    status = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None, rollback=0)
     assert status == dict(plan=p["id"], turns=50, stopped_at=3, problems=status["problems"], finished=False)
     kept = [json.loads(l)["turn"] for l in (out / "turns.jsonl").read_text().splitlines()]
     assert kept == [1, 2] and json.loads((out / "stopped.json").read_text())["turn"] == 3
     (out / "repair-3.json").write_text(json.dumps(dict(user="my budget is 2,000 euros", assistant="noted")))
-    status = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None)
+    status = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None, rollback=0)
     assert status["finished"] and status["repaired"] == [3]
     rows = [json.loads(l) for l in (out / "turns.jsonl").read_text().splitlines()]
     assert rows[2]["repaired"] and rows[2]["user"] == "my budget is 2,000 euros" and not (out / "stopped.json").exists()
@@ -439,3 +439,37 @@ def test_full_run_stops_s1_s3_s7():
     name = dict(id="F27", about="victim's name", values=[dict(turn=78, value="the victim is Enid Harlow"),
                                                          dict(turn=207, value="Edith Harlow, I typed Enid by mistake")])
     assert G.hide_future(dict(facts=[name]), 201, ["realises it is Edith Harlow, not Enid"]) == ["realises it is …, not Enid"]
+
+
+
+def test_a_retry_is_told_why_and_never_given_a_later_value():
+    from experiments.synth import generate as G
+    fb = G.feedback(["checker contradiction: \"£1,150\" the rent is £1,250", "user said F19's later value early: no bus pass, cycling instead"])
+    assert fb[0].startswith("contradiction:") and "cycling" not in fb[1]
+    text = G.user_prompt(dict(name="Ana"), "casual", [], None, [], [], None, rejected=fb)
+    assert "YOUR PREVIOUS DRAFT WAS NOT USED" in text and "the rent is £1,250" in text
+
+
+def test_a_stuck_turn_steps_back_once_then_stops(tmp_path, monkeypatch):
+    import json
+    from experiments.synth import generate as G
+    monkeypatch.setattr(G, "validate", lambda p: [])
+    monkeypatch.setattr(G, "MAX_TRIES", 1)
+    p = plan()
+    plans = tmp_path / "plans"; plans.mkdir(); (plans / f"{p['id']}.asks.json").write_text("[]")
+    monkeypatch.setattr(G, "PLANS", plans)
+    calls = {"n": 0}
+
+    def user_llm(system, prompt):
+        calls["n"] += 1
+        must = prompt.split("THIS MESSAGE MUST SAY:\n")[1].split("\n\n")[0].splitlines()
+        vals = " ".join(line.split(": ", 1)[1].rsplit(" (", 1)[0] for line in must if line.startswith("- "))
+        hello = "".join(chr(97 + int(d)) for d in str(calls["n"]))
+        return "forgot it" if "TransEuropa" in prompt or "2,000 euros" in vals else f"{hello} {vals}"
+    assistant_llm = lambda system, messages: "ok " + " ".join(__import__("re").findall(r"- [^:]+: (.+)", messages[-2]["content"]))
+    out = tmp_path / "out"
+    first = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None, rollback=2)
+    assert first["rolled_back_to"] == 1 and (out / "turns.jsonl").read_text() == ""          # stuck at 3: back to 1
+    assert json.loads((out / "rollbacks.jsonl").read_text())["stuck_turn"] == 3
+    second = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None, rollback=2)
+    assert second["stopped_at"] == 3 and not second["finished"]                               # once per turn, then stop
