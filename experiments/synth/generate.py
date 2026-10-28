@@ -195,6 +195,9 @@ def assistant_messages(history, notes, user):
     return msgs + [dict(role="system", content=notes), dict(role="user", content=user)]
 
 
+NEVER_AGAIN_SLACK = 25                  # turns after its planting a never-again value may still come up
+
+
 def drift_problems(plan, turn, user, reply, items=None):
     """A never-again fact reappearing on either side after it was said. (An outdated value in a
     reply is the reply check's call — it may be named as the past: "£1,500 was quoted against the
@@ -210,6 +213,10 @@ def drift_problems(plan, turn, user, reply, items=None):
             # turn 185 names the never-again version from turn 180)
             due_text = " ".join(f"{i['about']} {i['value']}" for side in ("user", "assistant") for i in (items or {}).get(side, []))
             if contains(due_text, f["values"][0]["value"]):
+                continue
+            # a mention close to where it was planted leaves the long-range questions as they are
+            # (S3: v0.9.4 planted at turn 180, named again at 185); far away it shortens their distance
+            if turn - f["values"][0]["turn"] <= NEVER_AGAIN_SLACK:
                 continue
             if contains(user, f["values"][0]["value"]) or contains(reply, f["values"][0]["value"]):
                 out.append(f"never-again fact {f['id']} reappeared")

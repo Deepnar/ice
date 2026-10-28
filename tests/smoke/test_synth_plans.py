@@ -434,7 +434,8 @@ def test_full_run_stops_s1_s3_s7():
     ver = dict(id="F40", about="release version", speaker="user", status="decided", values=[dict(turn=180, value="v0.9.4")])
     due = dict(user=[dict(id="F41", about="release date", value="Friday 2026-10-09 for v0.9.4")], assistant=[])
     assert G.drift_problems(dict(facts=[ver]), 185, "the release date for v0.9.4", "ok", due) == []
-    assert G.drift_problems(dict(facts=[ver]), 185, "back on v0.9.4", "ok", dict(user=[], assistant=[]))
+    assert G.drift_problems(dict(facts=[ver]), 185, "back on v0.9.4", "ok", dict(user=[], assistant=[])) == []   # 5 turns on
+    assert G.drift_problems(dict(facts=[ver]), 260, "back on v0.9.4", "ok", dict(user=[], assistant=[]))          # 80 turns on
     name = dict(id="F27", about="victim's name", values=[dict(turn=78, value="the victim is Enid Harlow"),
                                                          dict(turn=207, value="Edith Harlow, I typed Enid by mistake")])
     assert G.hide_future(dict(facts=[name]), 201, ["realises it is Edith Harlow, not Enid"]) == ["realises it is …, not Enid"]
