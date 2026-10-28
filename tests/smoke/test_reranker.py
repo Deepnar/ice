@@ -315,3 +315,36 @@ def test_a_long_relevant_passage_no_longer_ranks_last(monkeypatch):
                                  score=0.9, token_count=5)
     ranked, ok = module.rerank("q", [short_miss, long_hit])
     assert ok and ranked[0].text == long_hit.text
+
+
+def test_candidates_past_the_cap_are_dropped_by_default(monkeypatch):
+    monkeypatch.setattr(settings, 'retrieval_rerank_candidates', 3)
+    monkeypatch.setattr(settings, 'retrieval_rerank_min_score', None)
+    candidates = [fragment(f'piece {i}') for i in range(6)]
+    ranked, ok = rerank('q', candidates, lambda pairs: [1.0 for _ in pairs])
+    assert ok and [f.text for f in ranked] == ['piece 0', 'piece 1', 'piece 2']
+
+
+def test_kept_candidates_stay_behind_every_ranked_one_in_fusion_order(monkeypatch):
+    # Z2 F2: past the cap, fusion order is kept and the token budget is the only bound.
+    monkeypatch.setattr(settings, 'retrieval_rerank_candidates', 3)
+    monkeypatch.setattr(settings, 'retrieval_rerank_min_score', None)
+    monkeypatch.setattr(settings, 'retrieval_rerank_keep_unranked', True)
+    from src.memory.tokens import count
+    candidates = [ContextFragment(f'piece {i}', 'episodic', 50.0 - i, count(f'piece {i}')) for i in range(6)]
+    ranked, ok = rerank('q', candidates, lambda pairs: [-3.0, 0.5, -1.0])
+    assert ok and [f.text for f in ranked] == ['piece 1', 'piece 2', 'piece 0',
+                                              'piece 3', 'piece 4', 'piece 5']
+    assert max(f.score for f in ranked[3:]) < min(f.score for f in ranked[:3])
+    o = HybridRetrievalOrchestrator(None, None)
+    room = sum(f.token_count for f in ranked[:4])
+    selected = o._enforce_token_budget(ranked, max_tokens=room, relevance_order=ok)
+    assert [f.text for f in selected] == [f.text for f in ranked[:4]]   # budget is the only bound
+
+
+def test_kept_candidates_never_bypass_a_relevance_floor(monkeypatch):
+    monkeypatch.setattr(settings, 'retrieval_rerank_candidates', 2)
+    monkeypatch.setattr(settings, 'retrieval_rerank_keep_unranked', True)
+    candidates = [fragment(f'piece {i}') for i in range(4)]
+    ranked, ok = rerank('q', candidates, lambda pairs: [1.0 for _ in pairs])
+    assert ok and len(ranked) == 2

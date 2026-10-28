@@ -217,3 +217,34 @@ def test_turn_summaries_switch_off_reads_raw_only(monkeypatch):
 def test_bm25_is_a_supported_ablation_flag():
     from src.retrieval.configurable_orchestrator import SUPPORTED_FLAGS
     assert "bm25" in SUPPORTED_FLAGS
+
+
+def test_conversation_order_writes_chosen_pieces_in_turn_order():
+    # Z2 F10: best-first order put a later turn ahead of an earlier one and the answer reversed.
+    from datetime import datetime, timedelta
+    t0 = datetime(2025, 1, 1)
+    late = ContextFragment("User: the later event.", "episodic", 9.0, 5, source_batch_id="r3")
+    early = ContextFragment("User: the earlier event.", "episodic", 1.0, 5, source_batch_id="r1")
+    fact = ContextFragment("[Fact] middle.", "codex", 5.0, 5, fact_source_row_ids=("r2",))
+    note = ContextFragment("[Observed user behavior] prefers detail.", "procedural", 4.0, 5)
+    stamps = {"r1": t0, "r2": t0 + timedelta(days=1), "r3": t0 + timedelta(days=2)}
+    asked = []
+    class Query:
+        def __init__(self, *_cols): pass
+        def filter(self, clause):
+            asked.append(set(clause.right.value))
+            return self
+        def all(self): return [(k, v) for k, v in stamps.items() if k in asked[-1]]
+    db = SimpleNamespace(query=Query)
+    ordered = mp.conversation_order(db, [late, note, fact, early])
+    assert [f.text for f in ordered] == [note.text, early.text, fact.text, late.text]
+    assert asked == [{"r1", "r2", "r3"}]
+
+
+def test_relevance_order_is_the_shipped_default(harness, monkeypatch):
+    args, captures, _ = harness
+    monkeypatch.setattr(settings, "memory_source_gate_enabled", False)
+    monkeypatch.setattr(mp, "conversation_order", lambda *_a: pytest.fail("reordered by default"))
+    args["base_retrieve"] = True
+    assert settings.retrieval_evidence_order == "relevance"
+    assert mp.prepare_memory_context(**args).retrieve

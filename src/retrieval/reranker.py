@@ -219,10 +219,21 @@ def rerank(query, fragments, scorer=None):
             )
         output.sort(key=lambda f: f.score, reverse=True)
         output.extend(unscored)
+        kept = []
+        if settings.retrieval_rerank_keep_unranked and settings.retrieval_rerank_min_score is None:
+            # Z2 F2: candidates past the cap stay, behind every reranked one and in fusion
+            # order; their fusion scores are on another scale, so they sit below the lowest.
+            # Under a relevance floor they were never shown to pass it, so they are not kept.
+            pooled = {id(f) for f in candidates}
+            floor = min((f.score for f in output), default=0.0) - 1.0
+            kept = [replace(f, score=floor - i * 1e-6)
+                    for i, f in enumerate(f for f in fragments if id(f) not in pooled)]
+            output.extend(kept)
         logger.info(
             "retrieval_reranked",
             candidates=len(candidates),
-            omitted_by_cap=max(0, len(fragments) - len(candidates)),
+            omitted_by_cap=max(0, len(fragments) - len(candidates) - len(kept)),
+            kept_unranked=len(kept),
             pool_method='family_representative_v1',
             available_families=dict(Counter(f.source_type for f in fragments)),
             pool_families=dict(Counter(f.source_type for f in candidates)),

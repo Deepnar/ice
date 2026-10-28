@@ -10,7 +10,7 @@ from src.api.prompt_assembler import conversation_summary_block
 from src.api.prompt_budget import BudgetedPrompt, assemble_budgeted_prompt, recent_row_ids
 from src.api.source_need import judge_source_need, source_action
 from src.api.source_proof import freeze_source_question, prove_source_fact
-from src.memory.models import ConversationSummary
+from src.memory.models import ConversationSummary, EpisodicMemory
 from src.memory.usage import evidence_after_eviction
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 
@@ -24,6 +24,33 @@ class PreparedMemory:
     retrieve: bool
     action: str
     source_checked: bool = False
+
+
+def _source_rows(fragment):
+    """The stored turn rows a piece came from: an episodic row, or a fact's sources."""
+    rows = tuple(getattr(fragment, "fact_source_row_ids", ()) or ())
+    if not rows and fragment.source_type == "episodic" and fragment.source_batch_id:
+        rows = (fragment.source_batch_id,)
+    return tuple(str(r) for r in rows)
+
+
+def conversation_order(db, fragments):
+    """Selected pieces in the order their turns happened (retrieval_evidence_order).
+
+    Runs after the budget has chosen the pieces, so it changes only where each one is
+    written, never which are kept (prompt eviction removes whole blocks). A piece dated by
+    its earliest source turn; undated pieces (notes, procedures) first, in their given
+    order. Z2 F10: best-first order put a later turn ahead of an earlier one and the answer
+    reversed which came first (7 of 21 on B)."""
+    ids = {r for f in fragments for r in _source_rows(f)}
+    times = {str(i): t for i, t in db.query(EpisodicMemory.id, EpisodicMemory.timestamp)
+             .filter(EpisodicMemory.id.in_(ids)).all()} if ids else {}
+
+    undated, dated = [], []
+    for index, fragment in enumerate(fragments):
+        stamps = [times[r] for r in _source_rows(fragment) if times.get(r) is not None]
+        (dated.append((min(stamps), index, fragment)) if stamps else undated.append(fragment))
+    return undated + [fragment for _, _, fragment in sorted(dated, key=lambda d: d[:2])]
 
 
 def _shown_recent_rows(dry, retrieval_budget):
@@ -131,6 +158,8 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
         classification=classification, conversation_id=str(conversation_id),
         prompt_embedding=embedding(), scope=scope, defer_exposure=True,
         **({"exclude_rows": shown} if shown else {}))
+    if settings.retrieval_evidence_order == "conversation" and fragments:
+        fragments = conversation_order(db, fragments)
     prepared = assemble(fragments, final_recent)
     selected = evidence_after_eviction(prepared.visible_fragments, prepared.removed)
     if action == "rescue":

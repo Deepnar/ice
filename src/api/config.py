@@ -288,10 +288,18 @@ class Settings(BaseSettings):
     retrieval_rerank_model: str = "Qwen/Qwen3-Reranker-0.6B"
     retrieval_rerank_revision: str = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
     retrieval_rerank_device: str = "auto"
-    retrieval_rerank_candidates: int = Field(default=64, ge=1, le=256)
-    retrieval_rerank_batch_size: int = Field(default=4, ge=1, le=16)
+    retrieval_rerank_candidates: int = Field(default=64, ge=1, le=512)
+    # Z2 F2: fusion finds a median 250 candidates on B and the cap above dropped the rest
+    # unseen. True keeps them behind the reranked set in fusion order, so the token budget
+    # is the only bound. Off until the GPU re-read and re-grade decide (RETESTS.md R2).
+    retrieval_rerank_keep_unranked: bool = False
+    retrieval_rerank_batch_size: int = Field(default=4, ge=1, le=64)
     retrieval_rerank_max_tokens: int = Field(default=4096, ge=128, le=32768)
     retrieval_rerank_min_score: Optional[float] = Field(default=None, allow_inf_nan=False)
+    # Z2 F10: order of the selected memory pieces in the prompt. "relevance" (shipped) writes
+    # them best-first; "conversation" writes them in the order their turns happened, after the
+    # budget has chosen them (ICE reversed 7 of 21 which-came-first answers). RETESTS.md R3.
+    retrieval_evidence_order: Literal["relevance", "conversation"] = "relevance"
     coverage_alpha: float = 0.7            # coverage vs retrieval-confidence blend
     coverage_min_gain: float = 0.02        # a pick must cover at least this much
     coverage_min_keep: int = 2             # the knee may never cut below this
