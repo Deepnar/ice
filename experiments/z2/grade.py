@@ -39,7 +39,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-POLICY = "ice-z2-grade-1"
+# grade-2 (2026-10-29, Z2 FINDINGS F12): the grade is decided by REQUIRED alone — B's grade-1
+# verdicts marked 65% of partials and 206 "incorrect" answers down although every required
+# point was covered, for details the judge could not see (SOURCES showed only the cited
+# quotes, without dates). Extra details go to unsupported_claims, which the claim check
+# verifies against the whole conversation. grade-1 and grade-2 grades are never mixed.
+POLICY = "ice-z2-grade-2"
 JUDGE = "muse"
 OUTPUT_TOKENS = 16_000        # was 8,000: one answer's claims checked together cut it (2026-10-28)
 MAX_ERRORS = 3
@@ -56,11 +61,22 @@ wording). SOURCES are the conversation passages REQUIRED comes from: use them fo
 wrong on that item even if it sounds right. SUPERSEDED lists values that were true earlier but were
 changed — presenting one of them as current is an error. EXPECT_ABSTENTION true means the
 conversation never stated the answer and the right response says so.
+Grade against REQUIRED only:
+- correct: every REQUIRED item is present with the values SOURCES give, and no SUPERSEDED value
+  is presented as current (with EXPECT_ABSTENTION: the answer says it was never stated);
+- partial: some REQUIRED items are present, or all are but one lacks a qualifier REQUIRED states;
+- incorrect: no REQUIRED item is present, a value contradicts SOURCES, or a SUPERSEDED value is
+  presented as current;
+- uncertain: you cannot tell.
+SOURCES show only the passages REQUIRED comes from, not the rest of the conversation. Details in
+ANSWER beyond REQUIRED are therefore not errors by themselves and never lower the grade or score
+unless they contradict SOURCES: list them in unsupported_claims, where they are checked against
+the whole conversation separately. A date that matches a passage's date in SOURCES is supported.
 Return only JSON:
 {"items": [{"item": <index into REQUIRED>, "covered": true|false}],
  "grade": "correct|partial|incorrect|uncertain",
- "score": 1-5,   (5 every required item and qualifier, no errors; 4 one minor omission;
-                  3 partial; 2 mostly missing or stale; 1 wrong or invented)
+ "score": 1-5,   (5 every required item and qualifier; 4 one minor qualifier missing;
+                  3 some items missing; 2 most items missing or one stale; 1 none, or contradicted)
  "superseded_used": true|false, "abstained": true|false,
  "unsupported_claims": ["each specific claim in ANSWER about the conversation that REQUIRED does
                          not support, copied briefly"],
@@ -85,10 +101,25 @@ conversations. Compare the two replies A and B for how well they answer MESSAGE.
 Return only JSON: {"better": "A|B|tie", "reason": "..."}"""
 
 
-def sources(reference):
-    """The cited passages of a reference (turn, role, exact quote), for the judge."""
-    return [dict(turn=c.get("turn"), role=c.get("role"), text=c.get("quote")) for c in reference.get("citations", [])
-            if c.get("quote")]
+def sources(reference, dates=None):
+    """The cited passages of a reference (turn, role, date, exact quote), for the judge. The
+    date is the one the system saw for that turn (the replay clock), so a dated answer can be
+    checked instead of read as invented (F12)."""
+    dates = dates or {}
+    return [dict(turn=c.get("turn"), role=c.get("role"), **({"date": dates[c["turn"]]} if c.get("turn") in dates else {}),
+                 text=c.get("quote")) for c in reference.get("citations", []) if c.get("quote")]
+
+
+def turn_dates(history):
+    """{turn: 'YYYY-MM-DD HH:MM'} on the history's replay clock; {} with a warning when it has none."""
+    from experiments.z2 import clock
+    try:
+        times = clock.table(history, clock.load_history(history))["turn_times"]
+    except Exception as exc:                                  # noqa: BLE001
+        print(f"WARNING: grade: no turn dates for {history} ({type(exc).__name__}: {exc}); "
+              "SOURCES go to the judge undated", flush=True)
+        return {}
+    return {n: t[:16].replace("T", " ") for n, t in enumerate(times, 1)}
 
 
 def _sha(*parts):
@@ -136,7 +167,7 @@ def load(units_dir, answers_dir, questions_dir, history, occurrences=None):
     return out
 
 
-def grade_answers(contexts, out, ask, *, say=print):
+def grade_answers(contexts, out, ask, *, dates=None, say=print):
     """Absolute grade + 1-5 + flags for every complete answer to a question (4 in flight)."""
     from experiments.z2.bg_audit import _parallel
     errors = Errors(out / "grade-errors.json")
@@ -150,7 +181,7 @@ def grade_answers(contexts, out, ask, *, say=print):
             results[key] = dict(status="ungraded", reason=f"answer {answer['finish']}")
             continue
         ref = occ["reference"]
-        body = dict(QUESTION=unit["ask"]["question"], REQUIRED=ref.get("required", []), SOURCES=sources(ref),
+        body = dict(QUESTION=unit["ask"]["question"], REQUIRED=ref.get("required", []), SOURCES=sources(ref, dates),
                     SUPERSEDED=ref.get("superseded", []), EXPECT_ABSTENTION=bool(occ.get("expected_abstention")),
                     ANSWER=answer["text"])
         item_key = _sha(body)                      # identical (answer, reference): graded once
@@ -297,7 +328,7 @@ def _overlap(a, b):
 RANKED = ("full_default", "full", "warm_vector", "bare_vector", "recent_only")
 
 
-def rank(contexts, ask, out, seed_key="rank", ranked=RANKED):
+def rank(contexts, ask, out, seed_key="rank", ranked=RANKED, dates=None):
     """Blind ranking of the distinct answers per question occurrence, in two orders; occurrences
     side by side (one at a time, B's 348 ranking calls were over an hour)."""
     errors, lock = Errors(out / "rank-errors.json"), threading.Lock()
@@ -318,7 +349,7 @@ def rank(contexts, ask, out, seed_key="rank", ranked=RANKED):
         for o in (order, list(reversed(order))):
             labels = {chr(65 + i): t for i, t in enumerate(o)}
             body = dict(QUESTION=unit["ask"]["question"], REQUIRED=occ["reference"].get("required", []),
-                        SOURCES=sources(occ["reference"]), ANSWERS=[dict(label=l, text=t) for l, t in labels.items()])
+                        SOURCES=sources(occ["reference"], dates), ANSWERS=[dict(label=l, text=t) for l, t in labels.items()])
             key = _sha(body)
             if errors.given_up(key):
                 break
@@ -441,7 +472,7 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
 CLAIM_SHARE = 0.73          # B, 2026-10-28: 3,120 of 4,300 graded answers had unsupported claims
 
 
-def planned_calls(contexts, ranked=RANKED, semantic=SEMANTIC_CONDITIONS, baseline="recent_only"):
+def planned_calls(contexts, ranked=RANKED, semantic=SEMANTIC_CONDITIONS, baseline="recent_only", dates=None):
     """How many judge calls each phase makes, from the contexts alone (the runner's meter guessed
     contexts x 1.4 and B needed far more): grading one per distinct (answer, reference); claims
     estimated until grading is done (then check_claims writes the real count); ranking two orders
@@ -452,7 +483,7 @@ def planned_calls(contexts, ranked=RANKED, semantic=SEMANTIC_CONDITIONS, baselin
         kind, done = unit["ask"]["kind"], answer["finish"] == "complete"
         if kind == "question" and occ is not None and done:
             ref = occ["reference"]
-            graded.add(_sha(dict(QUESTION=unit["ask"]["question"], REQUIRED=ref.get("required", []), SOURCES=sources(ref),
+            graded.add(_sha(dict(QUESTION=unit["ask"]["question"], REQUIRED=ref.get("required", []), SOURCES=sources(ref, dates),
                                  SUPERSEDED=ref.get("superseded", []), EXPECT_ABSTENTION=bool(occ.get("expected_abstention")),
                                  ANSWER=answer["text"])))
             if unit["condition"] in ranked:
@@ -486,13 +517,14 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     from experiments.z2.questions import originals_index
     out.mkdir(parents=True, exist_ok=True)
     contexts = load(units, answers, questions, history, occurrences)
-    plan = planned_calls(contexts)
+    dates = turn_dates(history)
+    plan = planned_calls(contexts, dates=dates)
     if verdicts_only:                              # the cross-family judge: its verdicts only
         plan.update(claims=0, rank=0, controls=0, semantic=0, claims_estimated=False)
     elif not ranking:                              # FINAL: no multi-answer ranking (r2 §4)
         plan.update(rank=0)
     write_meter(out, **plan)
-    graded, p1 = grade_answers(contexts, out, ask)
+    graded, p1 = grade_answers(contexts, out, ask, dates=dates)
     if verdicts_only:
         (out / "grades.json").write_text(json.dumps(dict(policy=POLICY, history=history, graded=graded,
                                                          verdicts_only=True), ensure_ascii=False, indent=1) + "\n")
@@ -502,7 +534,7 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     originals = load_history(history)
     verdicts, p2 = check_claims(graded, contexts, ledger, originals,
                                 originals_index(originals, cache=out / "originals-index.npz"), ask, out)
-    ranks, p3 = rank(contexts, ask, out) if ranking else ({}, 0)
+    ranks, p3 = rank(contexts, ask, out, dates=dates) if ranking else ({}, 0)
     ctl, p4 = controls(contexts, ask, out)
     semantic, p5 = semantic_credit(contexts, ask, out)
     pending = p1 + p2 + p3 + p4 + p5

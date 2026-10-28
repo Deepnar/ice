@@ -189,3 +189,25 @@ def test_planned_calls_count_each_phase_and_claims_replace_the_estimate(tmp_path
     G.write_meter(tmp_path, claims=7, claims_estimated=False)
     meter = json.loads((tmp_path / "meter.json").read_text())
     assert meter["claims"] == 7 and meter["grade"] == 2 and not meter["claims_estimated"]
+
+
+def test_sources_carry_the_date_the_system_saw():
+    # Z2 F12: undated SOURCES made every dated answer look invented to the judge.
+    from experiments.z2 import grade as G
+    ref = {"citations": [{"turn": 7, "role": "user", "quote": "we picked amber"},
+                         {"turn": 9, "role": "assistant", "quote": None}]}
+    assert G.sources(ref, {7: "2025-01-03 10:15"}) == [
+        {"turn": 7, "role": "user", "date": "2025-01-03 10:15", "text": "we picked amber"}]
+    assert G.sources(ref) == [{"turn": 7, "role": "user", "text": "we picked amber"}]
+
+
+def test_grade_rubric_decides_on_required_only():
+    from experiments.z2 import grade as G
+    assert G.POLICY == "ice-z2-grade-2"
+    assert "never lower the grade" in G.GRADE_SYSTEM and "against REQUIRED only" in G.GRADE_SYSTEM
+
+
+def test_missing_clock_warns_and_grades_undated(capsys):
+    from experiments.z2 import grade as G
+    assert G.turn_dates("no-such-history") == {}
+    assert "no turn dates for no-such-history" in capsys.readouterr().out
