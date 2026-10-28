@@ -89,6 +89,59 @@ the F1 skip, 9 retrieved but missed), 11 had only facts/summaries/notes of those
 19 had the original words present. After F1, the 9 misses and 11 processed-only cases are
 the next look; the 19 suggest answer-side noise rather than retrieval.
 
+## F1 addendum — the rescue half of the same check, and how much the skip explains
+
+**Rescues** (B2 said no, the check proved older memory was needed and admitted one verified
+original): B and C — **0**, in the question reads and in both replays of the real
+conversations (1,570 turns). LongMemEval (S12, partial): 31 in the log; of the 15 in saved
+units, the reference answer reached a prompt that otherwise had no memory on **8**; held back
+on 15 where plain search had the answer. The rescue does real work, only on LongMemEval —
+so the fix that keeps it (candidate (a)) is preferred over switching the check off.
+
+**Measured counterfactual, no rerun:** `loo_gate` is full ICE with this check off and memory
+always retrieved — on B's questions the main decision already said retrieve every time, so it
+*is* ICE without the skip. On the 18: +47 (±12.5) over ICE as run, of the 67-point gap; plain
+search still leads there by +19 (±16) — mostly ordering questions ICE now answers partly. On
+the other 155 it changes nothing (−0.3 ±0.6). Overall (partial = half) it recovers +4.6 of
+plain search's +11.3.
+
+## F6 OPEN — ICE's copy of the right turn is often shortened
+
+Where ICE (without the skip) was partial and plain search correct (22 questions), ICE's prompt
+still drew on 94% of the cited turns, but carried a **median 59% of those turns' original
+words** (bottom quarter ~3%: a summary or abstract stood in for the original); where both were
+correct, 96%. The missed required points' 3-word phrases are in ICE's prompt at 16% vs plain
+search's 40% (control: points ICE covered, 28% vs 28%) — only 9 testable points, so a lead,
+not proof. The budget had room for the originals (F7). Proof needs one small targeted read:
+these 22 questions with originals preferred over summaries.
+
+## F7 — the budget is not too tight; ICE cannot use it
+
+Same per-question budget for ICE and plain search (median ~29k memory tokens). ICE fills ~95%
+of it but chooses from 64 candidates (F2), packs whole exchanges, and on F6's questions sends
+shortened copies. Earlier smaller tests read this as "budget too tight"; at Z2's scale the
+limiter is what ICE puts in the budget, not its size.
+
+## F8 ⚑ MEASUREMENT — "partial" mostly means "all required points, plus extra details"
+
+The judge chooses correct / partial / incorrect; FINAL's M1 counts partial as wrong. On B,
+**1,199 of 1,852 partial answers (65%) covered every required point**; 1,196 of them were
+flagged for "unsupported claims" (median 8 each) — details beyond the cited turns, which the
+judge cannot see. The rubric never defines the correct/partial line. ICE's answers carry more
+such claims (5.4 per answer vs plain search's 4.3), 8–11% of them its own date/order labels
+echoed by the answerer (plain search 1%). So judge-correct penalises ICE's richer prompts.
+
+Re-scored from the judge's own per-point coverage (correct = every required point covered,
+no outdated value; no new calls): ICE as run 24.7% → 52.3%, plain search 40.5% → 60.7%.
+Plain search minus ICE: as run +8.7 (±7.5); **without the skip +4.6 (±7.3, no difference)**;
+at 8k −2.3 (±7.8). Judge-correct gives +16.2 / +11.0 / +5.7 for the same pairs.
+
+**Not yet counted:** whether those extra claims are true. The claim-check phase (phase 2,
+paused at the cloud cap) checks each against the whole conversation; with it, "all required
+points + no confirmed-invented claim" is the clean binary score. **Decision before FINAL
+(pre-registration revision, maintainer):** define M1 from per-point coverage plus the claim
+check, or tighten the rubric's partial definition, or keep judge-correct and report this.
+
 ## Already found and fixed or decided (fix-pass)
 
 From Z2's earlier stages, each in the ROADMAP's FIX-PASS checklist with its numbers:
