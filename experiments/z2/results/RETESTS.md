@@ -36,6 +36,24 @@ built.
 7. **FINAL cloud (Go Plus, ~$92):** answering can start per history as its local reads finish
    (~Nov 15 onward); at Go Plus's weekly cap (~$60) it takes two weeks or more → ~early December.
 
+**The GPU day is one command** (`experiments/z2/gpu_day.py`, Z2's runner — meter, resume, lock):
+gates (DB tests, full rails) → R8 (G60, G75, B7's four trainings; run even if a gate fails) → R2
+sweep (7 settings on B, one stage each for timing) → coverage report → R3/R4 reads on B and C →
+R9 LoCoMo slice. A failed gate holds every read and the slice; it waits by itself while S12 uses
+the GPU. LongMemEval-S full-context and BEAM trials are not in it (short, run by hand after).
+
+```bash
+cd ~/Programs/ice-worktrees/fix-pass
+uv run --no-sync python experiments/z2/gpu_day.py run
+uv run --no-sync python experiments/z2/gpu_day.py status --watch
+```
+
+**Decisions wait for C (maintainer, 2026-10-29).** The GPU day measures; it decides nothing. C's
+grade-1 results (R6) can arrive during the cloud week and may disagree with B — on the summary
+policy, on fold notes, on any part. Every setting is chosen at R7 from B **and** C together (code
+checks plus grade-2 answers), after R5; where C disagrees with B, that part's default waits or is
+re-read, never set from B alone.
+
 | | What | Needs | Status |
 |---|---|---|---|
 | R1 | F1 fix — database tests of the source check | GPU/DB | ☐ |
