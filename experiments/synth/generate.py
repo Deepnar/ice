@@ -195,7 +195,7 @@ def assistant_messages(history, notes, user):
     return msgs + [dict(role="system", content=notes), dict(role="user", content=user)]
 
 
-def drift_problems(plan, turn, user, reply):
+def drift_problems(plan, turn, user, reply, items=None):
     """A never-again fact reappearing on either side after it was said. (An outdated value in a
     reply is the reply check's call — it may be named as the past: "£1,500 was quoted against the
     Bishopston flat" stopped S1 here, full run 2026-10-28; presented as current, it is a
@@ -206,6 +206,11 @@ def drift_problems(plan, turn, user, reply):
         if not said:
             continue
         if never_again(f) and len(norm(f["values"][0]["value"])) >= 4:
+            # unless this turn's planned item is about it (S3: "the release date for v0.9.4" at
+            # turn 185 names the never-again version from turn 180)
+            due_text = " ".join(f"{i['about']} {i['value']}" for side in ("user", "assistant") for i in (items or {}).get(side, []))
+            if contains(due_text, f["values"][0]["value"]):
+                continue
             if contains(user, f["values"][0]["value"]) or contains(reply, f["values"][0]["value"]):
                 out.append(f"never-again fact {f['id']} reappeared")
     return out
@@ -241,6 +246,20 @@ GENERIC = set("""budget cost costs price amount total date time plan number valu
 limit target count rate week weeks month months year years day days""".split())
 
 
+def changed_said(text, fact, value):
+    """A later value counts as said early only through what differs from the fact's earlier values:
+    its content words and numbers that no earlier value has (S1: "no bus pass, cycling instead"
+    shares "bus pass" with the topic itself — "cycling instead" is the change). A short value is
+    taken word for word; one with nothing new cannot be told from an earlier value."""
+    words = lambda v: {w.lower() for w in re.findall(r"[A-Za-z][\w'\-]*|\d+(?:[.,:]\d+)*", v)
+                       if (w[0].isdigit() or len(w) > 2) and w.lower() not in COMMON}
+    if len(value["value"].split()) < 4:
+        return said(text, value["value"])
+    before = set().union(*(words(v["value"]) for v in fact["values"] if v["turn"] < value["turn"]))
+    new = words(value["value"]) - before
+    return bool(new) and all(re.search(rf"(?<!\w){re.escape(norm(w))}(?!\w)", norm(text)) for w in new)
+
+
 def on_topic(text, fact, value):
     """A one-word value ("£900") counts as said only beside its fact's topic (a content word of what
     it is about): S8 stopped on "£900" said of something other than the furniture budget."""
@@ -267,7 +286,7 @@ def invented_values(plan, turn, user, history):
         due_now = {norm(v["value"]) for v in f["values"] if v["turn"] <= turn}
         for v in f["values"][1:]:
             if v["turn"] > turn and norm(v["value"]) not in due_now and (any(c.isdigit() for c in v["value"]) or len(v["value"].split()) >= 2) \
-                    and said(user, v["value"]) and not said(earlier, v["value"]) and on_topic(user, f, v["value"]):
+                    and changed_said(user, f, v) and not said(earlier, v["value"]) and on_topic(user, f, v["value"]):
                 out.append(f"user said {f['id']}'s later value early: {v['value']}")
     if LEAK.search(user):
         return ["user side echoed its instructions"]
@@ -290,6 +309,11 @@ def hide_future(plan, turn, beats):
                     words = [re.escape(w) for w in re.split(r"[\s\-_,.]+", v["value"]) if w]
                     if words:
                         text = re.sub(r"[\s\-_,.]+".join(words), "…", text, flags=re.I)
+                    # and its first clause (S7: "Edith Harlow, I typed Enid by mistake" was worded
+                    # otherwise in the beats, so "Edith Harlow" showed and was said early)
+                    head = re.split(r"[,;]", v["value"], maxsplit=1)[0].split()
+                    if v["value"].count(",") + v["value"].count(";") and len(head) >= 2 and any(w[0].isupper() or w[0].isdigit() for w in head):
+                        text = re.sub(r"[\s\-_,.]+".join(re.escape(w) for w in head), "…", text, flags=re.I)
                     # its numbers too, wherever they stand alone (round 4: a persona's "2,400 USD"
                     # budget was said turns before the plan's "2400 usd all in, flights included")
                     for n in (x for x in NUMBER.findall(v["value"]) if len(x.replace(",", "")) >= 2):
@@ -580,7 +604,7 @@ def generate_turn(plan, turn, session, history, items, *, user_llm, assistant_ll
         # "assistant suggested brown rice for Kit's dinners; rejected, he won't eat it")
         problems = ([f"assistant missing {i['id']}: {i['value']}" for i in items["assistant"]
                      if not said(reply, i["value"])]
-                    + drift_problems(plan, turn, user, reply) + artifacts(reply))
+                    + drift_problems(plan, turn, user, reply, items) + artifacts(reply))
         if not problems and checker:                  # follows, continuity, facts, stays in the chat
             try:
                 problems = checker(established(plan, turn, persona, suggestions=True), recent, [], user, reply=reply,

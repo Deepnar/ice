@@ -422,3 +422,19 @@ def test_untold_events_are_unsettled_topics_and_generic_words_are_not_a_topic():
     assert G.upcoming(plan, 107) == ["paid the Oaxaca flight deposit, on the travel card"] and G.upcoming(plan, 113) == []
     budget = dict(facts=[dict(id="F18", about="furniture budget", values=[dict(turn=195, value="£1,500"), dict(turn=229, value="£900")])])
     assert G.invented_values(budget, 97, "the budget gives roughly £900 more headroom", []) == []
+
+
+
+def test_full_run_stops_s1_s3_s7():
+    from experiments.synth import generate as G
+    bus = dict(id="F19", about="Bristol bus pass", values=[dict(turn=220, value="£60 a month bus pass"),
+                                                          dict(turn=262, value="no bus pass, cycling instead")])
+    assert G.invented_values(dict(facts=[bus]), 220, "do i even need a bus pass at all", []) == []
+    assert G.invented_values(dict(facts=[bus]), 220, "no bus pass for me, cycling instead", [])[0].startswith("user said F19")
+    ver = dict(id="F40", about="release version", speaker="user", status="decided", values=[dict(turn=180, value="v0.9.4")])
+    due = dict(user=[dict(id="F41", about="release date", value="Friday 2026-10-09 for v0.9.4")], assistant=[])
+    assert G.drift_problems(dict(facts=[ver]), 185, "the release date for v0.9.4", "ok", due) == []
+    assert G.drift_problems(dict(facts=[ver]), 185, "back on v0.9.4", "ok", dict(user=[], assistant=[]))
+    name = dict(id="F27", about="victim's name", values=[dict(turn=78, value="the victim is Enid Harlow"),
+                                                         dict(turn=207, value="Edith Harlow, I typed Enid by mistake")])
+    assert G.hide_future(dict(facts=[name]), 201, ["realises it is Edith Harlow, not Enid"]) == ["realises it is …, not Enid"]
