@@ -123,6 +123,8 @@ shown about the system and the FINAL preparation (machinery, datasets). A new se
 resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
 
 *Checklist (✅ done on the branch · ⏳ test later on GPU/DB · ☐ open):*
+- ☐ **Z2 results findings** (F1 source check cancels memory on 18/174 B questions and 16% of real
+  turns; F2 64-candidate ceiling; F3 inert subsystems; F4/F5 open): [experiments/z2/results/FINDINGS.md](../experiments/z2/results/FINDINGS.md).
 - ✅⏳ `561250a` **G79** batch summaries never written (model call rejected `schema`) —
   test: a replay that writes batch notes + the source-support check.
 - ✅⏳ `1b4b79b` **G60** fact replacements 53/99 wrong → `same_item` question required —
