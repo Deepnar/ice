@@ -175,6 +175,30 @@ clear weakness, and the same "which came first" shape F1 skipped. Every advantag
 within one history's noise except the token count; FINAL's pooled suites are where they can
 be claimed.
 
+## F10 OPEN — "which came first": ICE reverses the order
+
+Temporal questions (21), ICE without the skip vs plain search: order reversed **7 vs 4**;
+order right but graded partial 6 vs 4 (an omitted side detail, or extra timestamps flagged as
+unsupported — F8). ICE's pieces carry correct dates and conversation order; both cited turns
+are usually present. Neither system orders evidence by time — both use relevance — but ICE's
+labels are long (`[imported; source time unknown: …] [Verified conversation order: N; …]`) and
+its instructions say to order events by these dates, while plain search shows `[User, turn N]`.
+Example read: the later turn at position 1, the earlier at position 8, answer reversed.
+**Proposal (maintainer's, 2026-10-29):** after reranking and the budget cut, put the selected
+pieces in conversation order. Test: re-read + answer B's questions both ways.
+
+## F11 — ICE's own vector leg is where the gap sits
+
+`warm_vector` (ICE's vector leg alone, with its reranker, 64-candidate cap and version choice)
+scores 48.6% all-points vs plain vector search's 60.7%; full ICE without the skip adds +7.6
+(±5.6) over its own vector leg. So the other legs help; the shortfall against plain search is
+inside the vector pipeline — candidate cap (F2), whole exchanges vs single messages, version
+choice (F6). At 8k, warm 52.3% vs plain 49.4%: the gap again opens only with more budget.
+
+**Token counts** (F9) are the answering provider's own input-token count for the whole prompt
+(system, recent turns, memory, question). Not included: ICE's background model work when
+storing turns, and output tokens.
+
 ## Already found and fixed or decided (fix-pass)
 
 From Z2's earlier stages, each in the ROADMAP's FIX-PASS checklist with its numbers:
