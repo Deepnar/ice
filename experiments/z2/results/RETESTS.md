@@ -23,7 +23,7 @@ Retests that compare settings (R3, R4, R7) grade both sides with grade-2. FINAL 
 | R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ☐ |
 | R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | ☐ |
 | R10 | F4 — B2 "no memory" on a third of LongMemEval | after S12 graded | ☐ |
-| R11 | F18 — before FINAL: S9 can exercise every part it tests (clusters, decay) | design | ☐ |
+| R11 | F18 — clusters dropped from FINAL's parts test (audit A12); decay tested on S4 + S9 | design | ✅ |
 
 **Cloud budget (Go, ~$30 usable Nov 2–27; measured per-call prices):** Z2 grade-1 finishing — B's
 remaining claim checks and diagnostics ~$4, C ~$4, S12 answers + grades ~$3.5 — ~$11.5; finish cloud

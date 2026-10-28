@@ -326,15 +326,16 @@ that actually varies — none measured yet predicts an incomplete summary.
 
 | part | what it needs to act | on B | on C | FINAL (S9 parts test) |
 |---|---|---|---|---|
-| clusters | automatic cluster scoping — **off since 2026-10-15** (`retrieval_auto_cluster_scope=False`), or an explicit user scope | never acts (0/208 prompts) | never acts | **cannot see it** — 23 ordinary questions, scoping off |
+| clusters | automatic cluster scoping — **off since 2026-10-15 after audit A12 measured it scoping out 19 of 108 gold turns** (`retrieval_auto_cluster_scope=False`), or an explicit user scope | never acts (0/208 prompts) | never acts | **cannot see it** — 23 ordinary questions, scoping off |
 | time-based retrieval | a question naming a time window ("in March") | fired on 2/174 | 0/75 | **can see it** — all 24 questions name a window |
 | maintenance (slots, merges) | slots written, entities merged, questions about them | 33 slots, 49 merges; few questions | 3 slots, 23 merges | likely — alias questions ("what do my customers call…") |
 | decay | months of history and questions where recency should win | acted live (22,800 row updates over 90 days) but gently — no answer changed | 33 days | **cannot see it** — no planted decay questions; 8 months of gentle decay |
 
 So B and C are the wrong instruments for these four, and a "no effect" on C will be predicted, not
-learned. **For FINAL (Z3 D14 item 5):** the S9 cluster group needs either an arm with automatic
-scoping on or questions under an explicit scope — or it is dropped from the parts test as "off by
-default"; decay needs planted questions (an old value vs a recent one, a long-untouched detail) on
+learned. **For FINAL (Z3 D14 item 5, decided 2026-10-29):** the cluster group is dropped from the parts
+test — automatic scoping was measured harmful (audit A12, 19/108 gold turns scoped out) and ships
+off, so there is nothing to switch; decay is tested live vs neutral on S4 (353 days) and S9 (250 days)
+with `decay_by_age.py`. Decay needs planted questions (an old value vs a recent one, a long-untouched detail) on
 a history spanning many months, or it is reported as "not measurable in FINAL" in its own words.
 Today's database for B/C shows decay 1.000 everywhere — the read passes' neutral-decay copy, not
 the live state (the replay's events hold that).

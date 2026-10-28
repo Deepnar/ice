@@ -397,8 +397,10 @@ FINAL depends on. Each is built on fix-pass; nothing is a number until its retes
    for A/SW/LAP) is its own cloud block.
 5. **Every part FINAL tests must be able to act (Z2 F18).** B and C cannot exercise clusters
    (automatic scoping off), time windows (no question names one), decay (gentle over 33–90 days,
-   no planted questions) or much of maintenance. S9 covers time windows and aliases; for
-   **clusters** the parts test needs an automatic-scoping arm or explicit-scope questions, or the
-   group is dropped as "off by default"; **decay** needs planted recency questions on a long
-   history, or is reported as "not measurable in FINAL". Decided before S9 is answered.
+   no planted questions) or much of maintenance. S9 covers time windows and aliases. **Decided
+   2026-10-29:** **clusters** leave the parts test — audit A12 (2026-10-15) measured automatic
+   scoping cutting 19 of 108 gold turns, so it ships off and its switch changes nothing; reported
+   as "off by default after A12, not tested". **Decay** is tested: live vs neutral decay on S4
+   (353 days, `final_decay` preset) and S9 (250 days), split by evidence age and update questions
+   (`experiments/z2/decay_by_age.py`); B's questions use evidence under 30 days old (133/158).
 

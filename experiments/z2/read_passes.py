@@ -183,9 +183,12 @@ PRESETS = {
     # the main experiment: ICE frozen, as it runs, against the baselines (maintainer, 2026-10-28) —
     # `full` (decay neutral) and ICE's own vector leg alone belong to S9's parts test only
     "final_main": ["full_default", "recent_only", "bare_vector", "long_context"],
-    # Clusters are not tested in FINAL (maintainer, 2026-10-29): automatic cluster scoping is off
-    # since 2026-10-15 (it scoped out 19 of 108 gold turns), so switching the group off or on
-    # changes no read — Z2 F18 measured 0 of 208 prompts. Reported as "off by default, not tested".
+    # Clusters are not in FINAL's parts test. Reason (audit A12, 2026-10-15, commit 22d8f1d):
+    # automatic scoping to the top clusters, measured on meaningful clusters (38, largest 44%),
+    # scoped out 19 of 108 gold turns across 67 reviewed questions, so it ships OFF
+    # (`retrieval_auto_cluster_scope=False`; an explicit user scope still applies). The parts test's
+    # cluster switch therefore changes no read (Z2 F18: 0 of 208 prompts on B). Reported as
+    # "automatic scoping off by default after audit A12 — not tested" (Z3 D14 item 5).
     "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER if n != "clusters"],
     "final_buildup": ["full", "recent_only"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))
                                                 if ORDER[k - 1] != "clusters"],
