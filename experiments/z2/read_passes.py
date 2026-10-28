@@ -183,8 +183,16 @@ PRESETS = {
     # the main experiment: ICE frozen, as it runs, against the baselines (maintainer, 2026-10-28) —
     # `full` (decay neutral) and ICE's own vector leg alone belong to S9's parts test only
     "final_main": ["full_default", "recent_only", "bare_vector", "long_context"],
-    "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER],
-    "final_buildup": ["full", "recent_only"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))],
+    # Clusters are not tested in FINAL (maintainer, 2026-10-29): automatic cluster scoping is off
+    # since 2026-10-15 (it scoped out 19 of 108 gold turns), so switching the group off or on
+    # changes no read — Z2 F18 measured 0 of 208 prompts. Reported as "off by default, not tested".
+    "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER if n != "clusters"],
+    "final_buildup": ["full", "recent_only"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))
+                                                if ORDER[k - 1] != "clusters"],
+    # Decay (Z2 F18): live (`full_default`) vs neutral (`full`) on the longest histories, split by
+    # the evidence's age and by update questions — S9 has both through its parts test; S4 (353 days)
+    # adds `full` here.
+    "final_decay": ["full"],
     # LoCoMo (an extra table, prereg r2 §4): every history fits the long-context window; recent_only
     # is the envelope the memory systems' prompts reuse
     # LoCoMo: its whole conversations fit 256K, so long_context is the field's "full context"; ICE

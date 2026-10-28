@@ -13,6 +13,7 @@ def test_stage_list_is_consistent():
     reads = {s.history: s for s in stages if isinstance(s, F.FinalRead)}
     assert reads["B"].preset == "final_main"                                        # B's parts run dropped 2026-10-28
     assert reads["S9"].preset == "final_main+final_ablation+final_buildup"           # Z3 D10
+    assert reads["S4"].preset == "final_main+final_decay"                            # Z2 F18
     assert reads["S1"].preset == "final_main" and set(reads) >= {"A", "SW", "LAP", "S8"} and "D" not in reads
     groups = {s.key: s for s in stages if isinstance(s, F.Group)}
     assert groups["local-read-BEAM500K"].needs == ("local-replay-BEAM500K",) and len(groups["local-read-BEAM500K"].members) == 5
@@ -131,3 +132,13 @@ def test_local_lanes_keep_each_history_together_and_balance_hours():
     assert groups[0] == ["local-replay-B", "local-read-B"] and load == [12.0, 12.0]
     assert groups[1] == ["local-replay-S1", "local-read-S1", "local-replay-LOCOMO", "local-read-LOCOMO",
                          "local-baseline-mem0-LOCOMO"]
+
+
+def test_clusters_are_not_in_the_parts_test_and_decay_has_both_arms():
+    # Z2 F18 / maintainer 2026-10-29: cluster scoping is off by default, so FINAL does not test it;
+    # decay is tested live vs neutral.
+    from experiments.z2 import read_passes as R
+    for preset in ("final_ablation", "final_buildup"):
+        assert not [c for c in R.select_conditions(preset) if "clusters" in c]
+    assert {"full_default", "full"} <= set(R.select_conditions("final_main+final_decay"))
+    assert {"full_default", "full"} <= set(R.select_conditions("final_main+final_ablation+final_buildup"))

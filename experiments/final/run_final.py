@@ -63,7 +63,8 @@ UPPER_BOUND = dict(answerer="muse12", window=1_048_576)
 BEAM_TIERS = tuple(t for t in ("100K", "500K", "1M") if any(k.startswith(f"BEAM-{t}-") for k in BEAM))
 UPPER_TIERS = ("500K",)
 # The parts test (switch one part off / add parts one by one) on S9 only — B's run dropped 2026-10-28
-PRESET = {"S9": "final_main+final_ablation+final_buildup"}                         # D5 + D10
+PRESET = {"S9": "final_main+final_ablation+final_buildup",                        # D5 + D10
+          "S4": "final_main+final_decay"}            # decay on the longest history (Z2 F18, Z3 D14)
 PRESET.update({k: "final_locomo" for k in LOCOMO})                               # prereg r2 §4
 REPLAY_SECONDS = {"B": 35.0, "S3": 120.0}          # per pair; long pastes are slower (Z2's C ran ~160 s)
 
