@@ -190,7 +190,9 @@ PRESETS = {
     # cluster switch therefore changes no read (Z2 F18: 0 of 208 prompts on B). Reported as
     # "automatic scoping off by default after audit A12 — not tested" (Z3 D14 item 5).
     "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER if n != "clusters"],
-    "final_buildup": ["full", "recent_only"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))
+    # warm_vector is the build-up's step 0 (ICE's vector leg alone; Z2 F13 measured +10.4 for the
+    # first step from it) — the pre-registration's "warm vector appears only inside S9's parts test"
+    "final_buildup": ["full", "recent_only", "warm_vector"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))
                                                 if ORDER[k - 1] != "clusters"],
     # Decay (Z2 F18): live (`full_default`) vs neutral (`full`) on the longest histories, split by
     # the evidence's age and by update questions — S9 has both through its parts test; S4 (353 days)
