@@ -72,6 +72,16 @@ difference on these questions is within noise, so this is the smaller problem.
 **Next.** GPU: re-read B's questions with 128 and 256 candidates and compare cited-turn
 coverage and read time — no answering or grading needed to see whether coverage moves.
 
+**Measured from the read logs (B, 5,088 rerank calls):** ICE's legs find a median **250**
+candidates (quartiles 195–269); the cap keeps 64 and **drops the rest outright** — a median 186,
+on 100% of reads — before the token budget sees them. Reranking costs 39 ms per scored text
+(median 3.3 s per read for ~93 texts), so reranking all 250 would add ~10 s per turn. The
+reranker also picks each piece's version (original / shorter / abstract) by the highest score,
+which may be what shortens copies (F6). **Proposal (maintainer's, 2026-10-29):** rerank the top
+64 as now, keep the rest behind them in fusion order instead of dropping them, and let the token
+budget be the only bound — no extra rerank cost. Test on the GPU: B's questions re-read, cited-
+turn coverage and read time compared.
+
 ## F3 OPEN — three subsystems change nothing on B
 
 Prompts compared directly (208 per setting): adding clusters changed **0**; adding the
@@ -145,6 +155,25 @@ paused at the cloud cap) checks each against the whole conversation; with it, "a
 points + no confirmed-invented claim" is the clean binary score. **Decision before FINAL
 (pre-registration revision, maintainer):** define M1 from per-point coverage plus the claim
 check, or tighten the rubric's partial definition, or keep judge-correct and report this.
+
+## F9 — where ICE is better, and where it is clearly worse (B, all-points rule)
+
+| | ICE without the skip | plain search |
+|---|---|---|
+| correct (all required points, no outdated value) | 56.1% | 60.7% (+4.6 ±7.3, no difference) |
+| prompt tokens per answer (median) | **26,723** | 35,816 (+34%) |
+| correct per 10k prompt tokens | **0.21** | 0.19 |
+| outdated value presented as current | **2.3%** (update questions 23.5%) | 3.5% (29.4%) |
+| declined although the answer existed | **0** | 4 |
+| never-said questions declined correctly | 9 / 15 | 8 / 15 |
+| unsupported claims per answer | 5.3 | **4.3** |
+
+At equal budgets ICE is level or slightly ahead (2k +1.7, 4k +0.6, 8k +2.3, each ±7–8). By
+question type (ICE − plain): procedure/advice +14 (±20), multi-hop +5 (±28), update 0,
+fact recall −9 (±17), messy rewordings −15 (±21), **temporal ordering −24 (±19)** — the one
+clear weakness, and the same "which came first" shape F1 skipped. Every advantage above is
+within one history's noise except the token count; FINAL's pooled suites are where they can
+be claimed.
 
 ## Already found and fixed or decided (fix-pass)
 
