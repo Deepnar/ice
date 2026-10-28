@@ -2946,3 +2946,42 @@ real units before any grading (2026-10-27): 0% for bare vector, which nothing re
 badly. **When a metric spans conditions built by different code, run it on one real unit of
 EACH condition and look for a None or a zero before trusting any comparison.** (Z2 D6e.)
 
+
+### 150. A later stage that picks "the best-scoring version" silently overrules the policy before it
+
+`choose_representation` decides per question whether a turn shows its original or its summary
+(intent, the lossless flag); the reranker then scored the original, the summary and the abstract
+and sent whichever scored highest. On B ~50% of pieces were summaries whatever the policy chose
+— "prefer original" 49%, "prefer summary" 50% — so the policy and `inject_raw` had no visible
+effect, while both stayed in code, tests and docs as if they decided. **When a later stage can
+re-choose among alternatives an earlier stage ranked, measure what reaches the output per
+earlier-stage decision**: a decision that leaves the same distribution in every class is not
+landing. (2026-10-29, Z2 F14/F17; switch `retrieval_rerank_representation`.)
+
+### 151. A judge shown only part of the evidence grades everything else as invented
+
+Z2's grade-1 judge saw REQUIRED plus the cited quotes only — no dates, nothing else from the
+conversation. True details from other turns read as "invented": 206 answers graded incorrect
+and 1,199 of 1,852 partials marked down with every required point covered, ICE (whose prompts
+carry dates) hit harder than plain search. Over half the measured ICE–plain gap was the judge.
+**A rubric must say what decides the grade, and the judge must see every fact it is asked to
+check (dates included); details it cannot see go to a separate check, never into the grade.**
+Test it with an invariance pair: the same answer plus one true unseen detail must keep its grade.
+(2026-10-29, Z2 F8/F12; grade-2, `judge_check.py`.)
+
+### 152. An ablation of a part that is already off measures nothing — and reads as "inert"
+
+Z2's cluster group switched off `cluster_restrict`, but automatic cluster scoping had shipped OFF
+since audit A12 (2026-10-15); 0 of 208 prompts changed, which looked like "clusters do nothing".
+The time-window leg fired on 2 of 174 B questions (none name a window); decay had 90 days and no
+question about old evidence. **Before reading an ablation, check that the part's trigger occurred
+in the run** (its switch on, its input present, the history long enough); "no effect" without
+that is "not tested", in those words. (2026-10-29, Z2 F18; FINAL drops clusters, tests decay on S4/S9.)
+
+### 153. A store that read passes restore into shows the last overlay, not the live state
+
+After Z2's read passes, B's and C's databases showed decay 1.000 on every turn — it looked like
+decay never ran. The read passes restore checkpoints into that same database and apply the
+neutral-decay overlay; the live replay had changed episodic scores 22,800 times (its
+`events.jsonl`). **Read a replay's live state from its event log or checkpoint, never from a
+database an analysis stage reuses.** (2026-10-29, Z2 F18.)
