@@ -134,3 +134,13 @@ def test_stale_or_missing_support_never_substitutes(change):
     else: row.representation_verification['summary']['verifier'] = 'old-model'
     assert choose_representation(row)[0] == row.raw_text
     assert choose_representation(row)[1] is None
+
+
+def test_summary_first_intents_switch_puts_the_original_first(monkeypatch):
+    # Z2 F17: on B, overview intents lost with summaries too; off = original first, summary kept
+    # as the budget fallback.
+    row = turn(inject_raw=True)
+    overview = SimpleNamespace(intent_tags=["Analysis_&_Summarization"])
+    assert choose_representation(row, overview)[0] == row.summary_text          # shipped
+    monkeypatch.setattr(settings, "representation_summary_first_intents", False)
+    assert choose_representation(row, overview) == (row.raw_text, row.summary_text, None)

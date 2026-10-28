@@ -76,8 +76,11 @@ Z2 already shows (grade-1, all-points): adding summaries −5.8 (±6.0), summari
 +4.6 (±5.5); where ICE was partial and plain search correct, ICE carried a median 59% of the cited
 turns' words (96% when both correct). Three settings against `retest_cand64` (preset `retest_summaries`): `retest_no_summaries` (turn
 summaries off in reads; stored ones untouched), `retest_original_margin1` and `…margin2` (F14: a
-summary replaces the turn's text only when it out-scores it by 1 or 2 logits). Answer and grade
-as R3; also run `retest_coverage.py` and the verbatim-share check from F14. Decide with R7 on B and C.
+summary replaces the turn's text only when it out-scores it by 1 or 2 logits). Plus F17's two: `retest_policy_text` (the reranker
+keeps choose_representation's pick) and `retest_originals_first` (that, with the summary-first
+intents off — summaries only as the budget fallback; the allowance B's evidence supports). Answer
+and grade as R3; run `retest_coverage.py`, and `summary_allowance.py` on the retest units to see
+the policy land. Decide with R7 on B and C.
 **A v3 change that removes something v2 shipped is a maintainer decision** ("memory is earned").
 
 ## R5 — judge the judge (CLOUD, ~$0.6)

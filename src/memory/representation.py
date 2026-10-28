@@ -59,7 +59,9 @@ def choose_representation(row, classification=None, prompt_keywords=()):
     intents = set(getattr(classification, "intent_tags", None) or [])
     if intents & INTENTS_PREFER_RAW:
         return raw, summary, abstract
-    if intents & INTENTS_PREFER_SUMMARY:
+    # Z2 F17: on B these intents lost with summaries too (−9.1 ±8.2 adding them); off = the
+    # original first, the summary only when the budget cannot fit it. RETESTS R4.
+    if intents & INTENTS_PREFER_SUMMARY and settings.representation_summary_first_intents:
         return summary, None, abstract
     if getattr(row, "inject_raw", True):
         return raw, summary, abstract

@@ -209,10 +209,16 @@ RETEST_CONDITIONS = {
                                       settings={"retrieval_evidence_order": "conversation"}),
     "retest_no_summaries": dict(overlay="default", arm="full", subset="questions",
                                 settings={"turn_summaries_in_reads": False}),
+    "retest_policy_text": dict(overlay="default", arm="full", subset="questions",
+                               settings={"retrieval_rerank_representation": "policy"}),
+    "retest_originals_first": dict(overlay="default", arm="full", subset="questions",
+                                   settings={"retrieval_rerank_representation": "policy",
+                                             "representation_summary_first_intents": False}),
     **{f"retest_original_margin{m}": dict(overlay="default", arm="full", subset="questions",
                                           settings={"retrieval_rerank_original_margin": float(m)}) for m in (1, 2)},
 }
-PRESETS["retest_summaries"] = ["retest_cand64", "retest_no_summaries", "retest_original_margin1", "retest_original_margin2"]
+PRESETS["retest_summaries"] = ["retest_cand64", "retest_no_summaries", "retest_original_margin1", "retest_original_margin2",
+                               "retest_policy_text", "retest_originals_first"]
 PRESETS["retest_candidates"] = [k for k in RETEST_CONDITIONS if k.startswith("retest_cand")]
 
 

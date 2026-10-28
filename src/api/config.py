@@ -300,6 +300,11 @@ class Settings(BaseSettings):
     # higher (51% of B's episodic pieces in prompts were reworded). A margin (reranker logits)
     # keeps the original unless the shorter form wins by more than it. 0 = shipped; RETESTS R4.
     retrieval_rerank_original_margin: float = Field(default=0.0, ge=0.0)
+    # Z2 F17: who picks a piece's representation. "best_score" (shipped): the reranker sends the
+    # highest-scoring of the text choose_representation picked, its summary and its abstract —
+    # on B the policy had no visible effect. "policy": the reranker scores only the picked text;
+    # the shorter forms remain for budget degradation (also ~1/3 fewer rerank pairs). RETESTS R4.
+    retrieval_rerank_representation: Literal["best_score", "policy"] = "best_score"
     # Z2 F10: order of the selected memory pieces in the prompt. "relevance" (shipped) writes
     # them best-first; "conversation" writes them in the order their turns happened, after the
     # budget has chosen them (ICE reversed 7 of 21 which-came-first answers). RETESTS.md R3.
@@ -526,6 +531,9 @@ class Settings(BaseSettings):
     # Read switch for Z2 ablation group 4 (spec D10): off = every read shows a turn's
     # raw text only — no summary standing in for it, no summary/abstract fallback.
     turn_summaries_in_reads: bool = True
+    # Z2 F17: choose_representation shows the summary first for analysis/planning/ideation
+    # intents. Off: the original first for every intent, the summary kept as the budget fallback.
+    representation_summary_first_intents: bool = True
     turn_max_must_terms: int = 25
     # ⚑ The summariser's generation ceiling, and it BOUND — hard. It was a
     # literal 300 in post_flight, and on the arm-B seed 84 of 212 summaries

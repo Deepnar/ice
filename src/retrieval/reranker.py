@@ -172,8 +172,12 @@ def rerank(query, fragments, scorer=None):
     start = time.monotonic()
     try:
         candidates = candidate_pool(fragments, settings.retrieval_rerank_candidates)
+        # Z2 F17: "best_score" lets a shorter form out-score the text choose_representation picked —
+        # on B the policy then had no visible effect (~50% summaries whatever it preferred).
+        # "policy" scores only the picked text; the shorter forms stay for budget degradation.
+        policy = settings.retrieval_rerank_representation == "policy"
         variants = [
-            list(
+            [f.text] if policy else list(
                 dict.fromkeys(t for t in (f.text, f.degrade_text, f.abstract_text) if t)
             )
             for f in candidates
@@ -212,7 +216,8 @@ def rerank(query, fragments, scorer=None):
                 if own is not None and score - own <= margin:
                     primary, score = fragment.text, own
             tokens = count_tokens(primary)
-            alternatives = [t for t, s in ranked if t != primary and count_tokens(t) < tokens]
+            alternatives = ([t for t in (fragment.degrade_text, fragment.abstract_text) if t] if policy
+                            else [t for t, s in ranked if t != primary and count_tokens(t) < tokens])
             output.append(
                 replace(
                     fragment,

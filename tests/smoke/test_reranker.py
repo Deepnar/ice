@@ -363,3 +363,15 @@ def test_original_margin_keeps_the_turns_own_text(monkeypatch, scores, margin, e
     assert ok and ranked[0].text == expected
     if expected == original:
         assert ranked[0].degrade_text == "compact summary"       # still there for budget degradation
+
+
+def test_policy_representation_keeps_the_picked_text_and_its_fallbacks(monkeypatch):
+    # Z2 F17: choose_representation's pick reaches the prompt; shorter forms stay for degradation.
+    monkeypatch.setattr(settings, "retrieval_rerank_representation", "policy")
+    picked = "the original turn " * 30
+    calls = []
+    ranked, ok = rerank("query", [fragment(picked, degrade_text="summary", abstract_text="abstract")],
+                        lambda pairs: calls.extend(pairs) or [0.5 for _ in pairs])
+    assert ok and calls == [("query", picked)]                     # one pair, not three
+    assert ranked[0].text == picked
+    assert (ranked[0].degrade_text, ranked[0].abstract_text) == ("summary", "abstract")
