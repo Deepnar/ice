@@ -69,3 +69,10 @@ def test_context_passage_variants():
     f = facts.context_passage("fields", **common)
     assert f["subject"] == "rent" and f["object"] == "1250" and "user_message" not in f
     assert facts.context_passage("window", quote="x", said=None)["passage"] == "x"      # no source turn
+
+
+def test_dates_reach_the_model_in_utc():
+    from datetime import datetime, timedelta, timezone
+    assert facts.utc_stamp(datetime(2026, 6, 4, 22, 34, tzinfo=timezone(timedelta(hours=8)))) == "2026-06-04 14:34 UTC"
+    assert facts.utc_stamp("2025-01-15T12:05:00+00:00") == "2025-01-15 12:05 UTC"
+    assert facts.utc_stamp(None) is None

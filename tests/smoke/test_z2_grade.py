@@ -211,3 +211,9 @@ def test_missing_clock_warns_and_grades_undated(capsys):
     from experiments.z2 import grade as G
     assert G.turn_dates("no-such-history") == {}
     assert "no turn dates for no-such-history" in capsys.readouterr().out
+
+
+def test_turn_dates_are_utc_like_icess_labels():
+    # C's clock is written at +08:00; the judge must see the UTC time ICE's prompts show (2026-10-29)
+    from experiments.z2 import grade as G
+    assert G.turn_dates("C")[1] == "2026-06-04 14:34 UTC"

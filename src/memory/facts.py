@@ -355,6 +355,16 @@ def context_passage(mode: str, *, quote: str, said, turn_text: str = "", user_te
     return out
 
 
+def utc_stamp(when) -> Optional[str]:
+    """'YYYY-MM-DD HH:MM UTC' — one form for every date the model sees (a naive time is taken as UTC)."""
+    if when is None:
+        return None
+    if isinstance(when, str):
+        when = datetime.fromisoformat(when.replace("Z", "+00:00"))
+    when = when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+    return when.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+
 def _fields(fact) -> dict:
     get = (lambda k: fact.get(k)) if isinstance(fact, dict) else (lambda k: getattr(fact, k, None))
     return {k: get(k) for k in ("speaker", "modality", "subject", "relation", "object")}
@@ -375,7 +385,7 @@ def passages(db, earlier, assertion, claim, when, turn=None):
         return None
     from src.memory.models import EpisodicMemory
     mode = settings.codex_fact_reconcile_context
-    stamp = lambda t: t.isoformat()[:16] if t else None
+    stamp = lambda t: utc_stamp(t)
     source = (db.query(CodexFactSource).filter(CodexFactSource.fact_id == earlier.id)
               .order_by(CodexFactSource.recorded_at).first())
     row = db.get(EpisodicMemory, source.episodic_id) if source is not None and source.episodic_id and mode != "quote" else None

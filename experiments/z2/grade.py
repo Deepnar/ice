@@ -111,7 +111,10 @@ def sources(reference, dates=None):
 
 
 def turn_dates(history):
-    """{turn: 'YYYY-MM-DD HH:MM'} on the history's replay clock; {} with a warning when it has none."""
+    """{turn: 'YYYY-MM-DD HH:MM UTC'} on the history's replay clock, in UTC as ICE's own fragment
+    labels show it (C's clock is written at +08:00: slicing the text gave the judge a local time 8
+    hours from the prompt's, 2026-10-29); {} with a warning when it has none."""
+    from datetime import datetime, timezone
     from experiments.z2 import clock
     try:
         times = clock.table(history, clock.load_history(history))["turn_times"]
@@ -119,7 +122,8 @@ def turn_dates(history):
         print(f"WARNING: grade: no turn dates for {history} ({type(exc).__name__}: {exc}); "
               "SOURCES go to the judge undated", flush=True)
         return {}
-    return {n: t[:16].replace("T", " ") for n, t in enumerate(times, 1)}
+    return {n: datetime.fromisoformat(t).astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            for n, t in enumerate(times, 1)}
 
 
 def _sha(*parts):

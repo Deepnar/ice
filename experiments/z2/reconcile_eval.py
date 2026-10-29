@@ -97,7 +97,7 @@ def run(mode, limit=None):
 
     def evidence(x):
         t, u = turn_of(int(x["turn"]) if str(x.get("turn", "")).isdigit() else None)
-        return facts.context_passage(mode, quote=x.get("quote") or x["text"], said=(x.get("ts") or "")[:16] or None,
+        return facts.context_passage(mode, quote=x.get("quote") or x["text"], said=facts.utc_stamp(x.get("ts")),
                                      turn_text=t, user_text=u, fields=facts._fields(x))
     bare = lambda text: facts.context_passage(mode, quote=text, said=None)
     fact = lambda x: NS(text=x["text"], modality=x.get("modality", "asserted"), mentioned_at=None)
