@@ -176,6 +176,32 @@ RECONCILE_SYSTEM = (
     "run, batch, test, event, decision or the same property of one thing? Two runs, two files, "
     "two batches or two lists of the same kind are different things: answer false.\n"
     "Use only what the sentences say.")
+# pre-G60 (main, what Z2 measured): the first two questions only
+RECONCILE_PRE_G60_SYSTEM = RECONCILE_SYSTEM.split("3. same_item")[0].rstrip() + "\nUse only what the sentences say."
+RECONCILE_PRE_G60_SCHEMA = {"type": "object", "additionalProperties": False,
+                            "required": ["same_information", "both_can_be_true"],
+                            "properties": {"same_information": {"type": "boolean"},
+                                           "both_can_be_true": {"type": "boolean"}}}
+# Z2 F20 (2026-10-29): with the two sentences alone no design separated correct from wrong
+# replacements (S8: the pre-G60 rule kept 44 of 53 wrong ones, G60 lost 35 of 46 correct ones);
+# what the audit's judge used was the source passages. Graphiti's rule — contradicted only on
+# explicit evidence, never from recency — with each fact's cited quote and date, reason first.
+RECONCILE_CONTEXT_SYSTEM = (
+    "You compare two memory facts said by the same speaker: an EARLIER one and a NEWER one. Each "
+    "comes with the passage it was taken from and when it was said.\n"
+    "- about: first, in one sentence, what each fact is about and whether the newer one changes the "
+    "earlier one, repeats it, adds to it, or is a separate occurrence.\n"
+    "- same_information: do both facts state the same thing, neither adding nor changing anything?\n"
+    "- contradicts: does the NEWER fact make the EARLIER one no longer true - it corrects it, updates "
+    "the same value, reverses it, or says it stopped? Answer true only with explicit evidence in the "
+    "facts and their passages. Never infer it from the newer one being later. A different instance of "
+    "the same kind (another run, file, error, batch, list or measurement of a different thing), extra "
+    "detail, a restatement, a question, a suggestion or a possibility does not contradict.\n"
+    "Judge only from the facts and their passages.")
+RECONCILE_CONTEXT_SCHEMA = {"type": "object", "additionalProperties": False,
+                            "required": ["about", "same_information", "contradicts"],
+                            "properties": {"about": {"type": "string"}, "same_information": {"type": "boolean"},
+                                           "contradicts": {"type": "boolean"}}}
 RECONCILE_SCHEMA = {"type": "object", "additionalProperties": False,
                     "required": ["same_information", "both_can_be_true", "same_item"],
                     "properties": {"same_information": {"type": "boolean"},
@@ -226,8 +252,9 @@ def screen(claim: dict, earlier: list, *, ask_many: Optional[Callable]) -> list:
         answers = ask_many([e.text for e in earlier], claim["text"].strip())
         if len(answers) != len(earlier):
             raise ValueError(f"{len(answers)} answers for {len(earlier)} facts")
+        item = settings.codex_fact_reconcile_design == "g60"
         return [bool(a["same_information"])
-                or (not bool(a["both_can_be_true"]) and bool(a.get("same_item"))) for a in answers]
+                or (not bool(a["both_can_be_true"]) and (bool(a.get("same_item")) or not item)) for a in answers]
     except Exception as exc:                                  # noqa: BLE001
         logger.warning("fact_reconcile_batch_failed", candidates=len(earlier),
                        error_type=type(exc).__name__)
@@ -267,27 +294,44 @@ def candidates(db, claim: dict, vector, *, exclude=()) -> list:
     return [db.get(CodexFact, i) for i in sorted(ids, key=str)]
 
 
-def reconcile(claim: dict, earlier, *, ask: Callable, when) -> str:
+def reconcile(claim: dict, earlier, *, ask: Callable, when, passages=None) -> str:
     """'same' | 'replaces' | 'both_true' for one earlier fact. *ask(earlier_text,
-    newer_text)* returns the two booleans. An older observation never replaces a
-    newer one; unknown or failed answers are both_true (TRAPS 99)."""
+    newer_text[, passages])* returns the answer for codex_fact_reconcile_design (passages: each
+    fact's cited quote and date, for "context"). An older observation never replaces a newer one;
+    unknown or failed answers are both_true (TRAPS 99)."""
+    design = settings.codex_fact_reconcile_design
     try:
-        answer = ask(earlier.text, claim["text"].strip())
-        same, compatible = bool(answer["same_information"]), bool(answer["both_can_be_true"])
-        same_item = bool(answer.get("same_item"))
+        if design == "context":
+            answer = ask(earlier.text, claim["text"].strip(), passages)
+            same, compatible, same_item = bool(answer["same_information"]), not bool(answer["contradicts"]), True
+        else:
+            answer = ask(earlier.text, claim["text"].strip())
+            same, compatible = bool(answer["same_information"]), bool(answer["both_can_be_true"])
+            same_item = bool(answer.get("same_item")) if design == "g60" else True
     except Exception as exc:                                  # noqa: BLE001
         logger.warning("fact_reconcile_failed", error_type=type(exc).__name__)
         return "both_true"
     if same:
         return "same"
     # Z2 S8 (2026-10-26): of 99 judged replacements 53 were wrong - restatements, extra
-    # detail, and two different runs/files/batches of the same kind. A replacement now
-    # also needs the model to say both sentences are about the same specific thing.
+    # detail, and two different runs/files/batches of the same kind (designs: Z2 F20).
     if (compatible or not same_item
             or claim.get("modality") in _NO_REPLACE or earlier.modality in _NO_REPLACE
             or (earlier.mentioned_at and when and when < earlier.mentioned_at)):
         return "both_true"
     return "replaces"
+
+
+def passages(db, earlier, assertion, claim, when):
+    """Each fact's cited quote and date, for the "context" reconcile design; None otherwise."""
+    if settings.codex_fact_reconcile_design != "context":
+        return None
+    source = (db.query(CodexFactSource).filter(CodexFactSource.fact_id == earlier.id)
+              .order_by(CodexFactSource.recorded_at).first())
+    stamp = lambda t: t.isoformat()[:16] if t else None
+    return dict(earlier=dict(said=stamp(getattr(source, "recorded_at", None) or earlier.mentioned_at),
+                             passage=getattr(source, "quote", None) or earlier.text),
+                newer=dict(said=stamp(when), passage=assertion.get("quote") or claim["text"]))
 
 
 def write_turn_facts(db, turn, record: dict, *, embedder,
@@ -332,7 +376,8 @@ def write_turn_facts(db, turn, record: dict, *, embedder,
                 if not confirm:
                     continue
                 counts["reconcile_calls"] += 1
-                verdict = reconcile(claim, earlier, ask=ask, when=when)
+                verdict = reconcile(claim, earlier, ask=ask, when=when,
+                                    passages=passages(db, earlier, assertion, claim, when))
                 if verdict == "same":
                     existing = earlier
                     break

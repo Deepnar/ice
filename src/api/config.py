@@ -652,6 +652,12 @@ class Settings(BaseSettings):
     codex_fact_candidate_cosine: float = 0.80
     codex_fact_candidate_k: int = 8
     codex_fact_reconcile_model: str = ""
+    # How a new fact decides whether it replaces an earlier one (Z2 F20, 2026-10-29). "pre_g60":
+    # can-both-be-true (what Z2 measured). "g60": + same specific item — blocked 35 of 46 correct
+    # replacements. "context": each fact's cited quote and date beside the sentences, the reason
+    # written first, "contradicts" decides (Graphiti's explicit-evidence rule) — fewest errors on
+    # the S8 + qualification sets. Chosen after the production-path eval (RETESTS R8).
+    codex_fact_reconcile_design: Literal["pre_g60", "g60", "context"] = "pre_g60"
     # ── Z1 probe generation (tooling, not a runtime path) ───────────────────
     # An external model writes the typed probe set (G48). Declared here because
     # Settings forbids extra keys: leaving these as bare .env lines made EVERY

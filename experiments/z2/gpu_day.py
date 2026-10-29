@@ -119,7 +119,8 @@ def stages(_limit=None):
                               "tests/smoke/test_memory_preparation.py", "tests/smoke/test_reranker.py",
                               "tests/test_summary_snapshot.py"], estimate=600),
         Command("gate-rails", "full disposable test rails", DISPOSABLE + ["tests/smoke"], estimate=1200),
-        Command("r8-g60", "G60 same-item supersession eval", PY + ["logs/fix-pass/reconcile_eval.py"], estimate=3600),
+        Command("r8-reconcile", "fact-replacement designs: pre_g60 / g60 / context (Z2 F20)",
+                PY + ["experiments/z2/reconcile_eval.py"], estimate=2400),
         Command("r8-g75", "G75 summary claim-check eval", PY + ["logs/fix-pass/claim_check_eval.py"], estimate=3600),
         Command("r8-b7", "B7 classifier variants (4 trainings)", PY + ["logs/fix-pass/b7_variants.py"], estimate=7200),
     ]

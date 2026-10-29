@@ -96,18 +96,28 @@ def _mentions(sentence: str):
     return extract_entities(sentence, get_embedder(), tier="background")
 
 
-def _ask(earlier: str, newer: str) -> dict:
-    """D6's two questions on the background model (or codex_fact_reconcile_model)."""
+def _ask(earlier: str, newer: str, passages=None) -> dict:
+    """D6's question on the background model (or codex_fact_reconcile_model), in the form
+    codex_fact_reconcile_design names (Z2 F20)."""
     import json
     from src.workers.bg_client_factory import bg_timeout, get_bg_client, get_bg_model_name, json_schema
     from src.workers.completion_text import complete_text
     model = settings.codex_fact_reconcile_model or get_bg_model_name()
+    design = settings.codex_fact_reconcile_design
+    body = {"earlier": earlier, "newer": newer}
+    if design == "context":
+        system, schema, cap = facts.RECONCILE_CONTEXT_SYSTEM, facts.RECONCILE_CONTEXT_SCHEMA, 200
+        if passages:
+            body = {"earlier": {"fact": earlier, **passages["earlier"]}, "newer": {"fact": newer, **passages["newer"]}}
+    elif design == "pre_g60":
+        system, schema, cap = facts.RECONCILE_PRE_G60_SYSTEM, facts.RECONCILE_PRE_G60_SCHEMA, 80
+    else:
+        system, schema, cap = facts.RECONCILE_SYSTEM, facts.RECONCILE_SCHEMA, 80
     completion = get_bg_client().chat.completions.create(
-        model=model, temperature=0.0, max_tokens=80, timeout=bg_timeout(80),
-        messages=[{"role": "system", "content": facts.RECONCILE_SYSTEM},
-                  {"role": "user", "content": json.dumps({"earlier": earlier, "newer": newer},
-                                                         ensure_ascii=False)}],
-        response_format=json_schema("fact_relation", facts.RECONCILE_SCHEMA))
+        model=model, temperature=0.0, max_tokens=cap, timeout=bg_timeout(cap),
+        messages=[{"role": "system", "content": system},
+                  {"role": "user", "content": json.dumps(body, ensure_ascii=False)}],
+        response_format=json_schema("fact_relation", schema))
     return json.loads(complete_text(completion))
 
 

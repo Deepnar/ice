@@ -349,6 +349,27 @@ recent turns only 0.0 — both systems lose about an eighth of their accuracy ov
 FINAL measures the same thing as M2 by evidence distance (SCA@d bins) and the retention report
 (pre-registration §2, §4); these repeats are the paired version of it.
 
+## F20 ⚑ SWITCH BUILT (`codex_fact_reconcile_design`, default `pre_g60`) — fact replacement needs the source passages
+
+G60 (fix-pass 1b4b79b, a third "same specific item?" question) failed its own acceptance on the
+GPU day: of Z2 S8's 99 judged replacements it kept 9 of 46 correct and 7 of 53 wrong — it said
+"keep both" to nearly everything. Designs compared on the same pairs (`supersession_designs.py`,
+answers saved): with **the two sentences alone no design separated correct from wrong** — pre-G60
+kept 33/46 correct and 44/53 wrong (more wrong than right), Graphiti's explicit-contradiction rule
+20/46 and 18/53, an attribute decomposition 1/46 and 7/53. The audit's judge had decided from the
+source turns. Giving the model each fact's source passage (D4) separated them for the first time
+(29 vs 19); writing the reason before the answer (D5) improved it (31 vs 16).
+
+Through the production path (`experiments/z2/reconcile_eval.py`: batch screen + single-pair, each
+fact's cited quote and date): pre_g60 33/46 kept, 44/53 wrong kept, real 87/99, planted 10/12;
+g60 10, 8, 91, 8; **context 33, 15, 81, 10** — the fewest errors overall (48 vs 71 / 56), every
+correct replacement pre-G60 keeps, two thirds fewer wrong ones; weaker on the qualification set's
+ordinary pairs (81 vs 87). No design reaches the bar (≥38/46, ≤10/53, ≥89/99): the S8 labels are
+partly inconsistent (a later prediction run of the same prompt "replaces"; a later run of the same
+test "does not"; two training runs to different files labelled both ways). Default stays
+`pre_g60` (what Z2 measured); the GPU day reruns the eval with the qualification misses broken down
+(harmless merges vs wrong replacements), then the maintainer picks.
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |
