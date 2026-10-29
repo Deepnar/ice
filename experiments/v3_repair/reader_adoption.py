@@ -23,8 +23,8 @@ BEFORE_REF = "80730ae"
 TRANSITIONS = {
     "src/memory/summary_support.py": {
         "before": "be07047be33e3a2c6e0461264229104e51224ffd028c3a2dee2bb7ecd6ae1016",
-        "after": "a79f363f309060a1937f901fb2faf755e938f25f6f2bb079338f7a8fcf3eb1ac",
-        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side. 2026-10-16 (CODEX_V4): v4 claim method (modality + subject/relation/object, opening-context header, role-present speaker enum) behind summary_assertion_method, now the default; v2/v3 records still verify under their own policy. 2026-10-18 (Z2 S0): output_cap's floor is elastic for mid-size pieces (summary_output_small_ratio × input up to summary_output_small_cap); a stop, not a length control. 2026-10-19 (Z2): a failed claim piece is retried once before it is skipped.",
+        "after": "7ccd78f7ec910c4d8c1f1d9e38042e7a3a53aed927ffdd7a828f174360221f99",
+        "reason": "Approved exact cited-span union and exact supported-v1-proof compatibility. 2026-10-15 (SUMMARY_CLAIMS_V3): v3 quoted-claim method added behind summary_assertion_method; v2/v1 records verify under their own policy exactly as before; pieces and input-scaled caps are producer-side. 2026-10-16 (CODEX_V4): v4 claim method (modality + subject/relation/object, opening-context header, role-present speaker enum) behind summary_assertion_method, now the default; v2/v3 records still verify under their own policy. 2026-10-18 (Z2 S0): output_cap's floor is elastic for mid-size pieces (summary_output_small_ratio × input up to summary_output_small_cap); a stop, not a length control. 2026-10-19 (Z2): a failed claim piece is retried once before it is skipped. 2026-10-26 (G75, fix-pass f42e956): optional second reading of summary claims for roles and values behind summary_claim_check_enabled (default off).",
     },
     "src/workers/turn_density.py": {
         "before": "4bf4314d21994907393de946dd43c42d20324263044843df1ecb2ede074d6ecc",
@@ -58,8 +58,8 @@ TRANSITIONS = {
     },
     "src/api/memory_preparation.py": {
         "before": "9e398224c93a64de475f8299132ae8e6119eac2b8bec14b1d6c5f86cecb8bbee",
-        "after": "ed38415df30dc1d4f3a2520879017f73e28b70c6e5b15085d3d663429a9b408d",
-        "reason": "Approved explicit note/bookmark metadata forwarding through shared preparation. 2026-10-19 (Z2): rows the final recent window shows are excluded from retrieval when the evidence-free prompt plus the whole retrieval budget fits (else none, with a warning).",
+        "after": "dbbfcf577127cbbdd347e018b3268225595217c6d6469198d981fc607e4df8ac",
+        "reason": "Approved explicit note/bookmark metadata forwarding through shared preparation. 2026-10-19 (Z2): rows the final recent window shows are excluded from retrieval when the evidence-free prompt plus the whole retrieval budget fits (else none, with a warning). 2026-10-29 (Z2 F1, fix-pass 4a7de71): a positive B2 decision is never put to the source judge (the current-message skip is removed; negative rescue unchanged); (Z2 F10, 890a338) retrieval_evidence_order='conversation' reorders the budget-chosen pieces (default relevance, unchanged).",
     },
     "scripts/z1/production_parity.py": {
         "before": "ed058e799864c1128c705b45d6a1098c26ab144ea922b35b941b6a59d1bdc5f5",
