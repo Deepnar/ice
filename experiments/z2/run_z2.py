@@ -579,7 +579,8 @@ class Oracle(Stage):
         return f"ice_z2_{ctx.name}_lme"
 
     def total(self, ctx):
-        return 500
+        from experiments.z2 import oracle
+        return oracle.progress(self.out(ctx))[1]      # 500 less the never-replayable
 
     def done(self, ctx):
         from experiments.z2 import oracle
@@ -591,7 +592,7 @@ class Oracle(Stage):
         return gaps[len(gaps) // 2] if len(gaps) >= 3 else None
 
     def complete(self, ctx):
-        return self.done(ctx) >= 500
+        return self.done(ctx) >= self.total(ctx)
 
     def run(self, ctx):
         log_path = ctx.dir / f"{self.key}.log"
