@@ -255,7 +255,7 @@ def run(out, *, limit=None, only=None, shard=None):
         instances = [inst for k, inst in enumerate(instances) if k % shard[1] == shard[0]]
     engine = create_engine(settings.database_url)
     reader = None
-    failures = []
+    failures, skipped = [], []
     for inst in instances:
         directory = out / "instances" / inst["question_id"]
         done = directory / "done.json"
@@ -264,7 +264,9 @@ def run(out, *, limit=None, only=None, shard=None):
         started = time.time()
         plan = layout(inst)
         if not plan["eligible"]:
-            failures.append(dict(question_id=inst["question_id"], reason="question date is not after the history"))
+            # never replayable: LongMemEval dates it inside its own history — skipped, not a failure
+            # (a failure made the runner relaunch S12 forever; 44 of 500, 2026-10-29)
+            skipped.append(dict(question_id=inst["question_id"], reason="question date is not after the history"))
             continue
         if directory.exists():
             shutil.rmtree(directory)                 # an unfinished attempt: start the question afresh
@@ -283,13 +285,17 @@ def run(out, *, limit=None, only=None, shard=None):
                                         seconds=round(time.time() - started)), default=str) + "\n")
         print(json.dumps(dict(question=inst["question_id"], seconds=round(time.time() - started),
                               evidence_decay=decay), default=str), flush=True)
-    (out / (f"failures-{shard[0]}.json" if shard else "failures.json")).write_text(json.dumps(failures, indent=1) + "\n")
+    suffix = f"-{shard[0]}" if shard else ""
+    (out / f"failures{suffix}.json").write_text(json.dumps(failures, indent=1) + "\n")
+    (out / f"skipped{suffix}.json").write_text(json.dumps(skipped, indent=1) + "\n")
     return failures
 
 
 def progress(out, total=500):
-    """(questions done, total) for the runner's meter, from files only."""
-    return len(list((Path(out) / "instances").glob("*/done.json"))), total
+    """(questions done, total) for the runner's meter, from files only; skipped questions
+    (never replayable) leave the total."""
+    skipped = {s["question_id"] for p in Path(out).glob("skipped*.json") for s in json.loads(p.read_text())}
+    return len(list((Path(out) / "instances").glob("*/done.json"))), total - len(skipped)
 
 
 # ── grading ─────────────────────────────────────────────────────────────────
