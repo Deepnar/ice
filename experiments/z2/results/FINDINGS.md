@@ -397,6 +397,18 @@ On S8's 393 judged items: unfaithful flagged 38/46, **faithful flagged 245/347**
 It would drop most faithful summaries; 7 calls still cut on 18–40-claim items. Stays off
 (`summary_claim_check_enabled=False`); not a FINAL candidate as built.
 
+## F21 — where an answer's evidence is lost, and what each leg puts in front of the model (`funnel.py`)
+
+B, 174 questions, 239 cited turns (fix-pass, F1 fixed). **64 candidates:** 78.2% reach the prompt; 5.4%
+never found by any leg; 16.3% found but cut by the 64-candidate cap; nothing lost to the budget. **256:**
+90.4% reach the prompt; the same 5.4% never found; 4.2% ranked but over the token budget (budget-matched
+to plain search; filled 98% at the median); nothing lost at final assembly. All 13 never-found turns are
+truly absent from the prompt (not in the recent window) and belong to vague questions ("list everything you
+know about my saga", "what did you say about that side-plot thing") whose answer turn shares few words with
+the question. Per leg at 256 — share of prompt tokens / of cited turns delivered: facts 6% / **47%**, vector
+38% / 25%, BM25+vector 24% / 22%, BM25 alone 31% / 5%, procedural 0.2% / 0.7%. The same report runs on any
+read units, FINAL's included. Follow-up variants (wider legs, the summary settings at 256, C): `gpu_extra.py`.
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |

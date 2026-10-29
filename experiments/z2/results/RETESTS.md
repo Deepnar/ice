@@ -122,6 +122,11 @@ search 87.5%, Z2's ICE as run 71.3% (the F1 fix accounts for 71→81). 256 is th
 search, at +7.9 s per message — over this plan's own +3 s rule, so the pick is the maintainer's (128 is the
 middle ground); answers decide at R7.
 
+**R2 follow-up (`experiments/z2/gpu_extra.py`, after the GPU day):** the corrected B7 (moved here from the
+GPU day), and at 256+ candidates on B — wider legs (BM25/vector 300, facts 192, rank up to 512) for the
+never-found turns, originals first, the reranker keeping the policy's text, wider + originals — plus C at
+64 / 256 / wider; each with `funnel.py` (loss stage per cited turn, per-leg shares) and seconds per read.
+
 ## R3 — conversation order (GPU read + CLOUD answers/grade)
 
 ```bash

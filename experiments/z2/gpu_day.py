@@ -123,8 +123,6 @@ def stages(_limit=None):
                 PY + ["experiments/z2/reconcile_eval.py"], estimate=4800),
         Command("r8-g75", "G75 summary claim-check eval", PY + ["logs/fix-pass/claim_check_eval.py"], estimate=3600),
         Command("r8-b7", "B7 classifier variants (4 trainings)", PY + ["logs/fix-pass/b7_variants.py"], estimate=7200),
-        Command("r8-b7-calibrated", "B7 judged like the live model: cap 5, val-fitted threshold, test F1",
-                PY + ["experiments/z2/b7_calibrated.py"], estimate=3600),
     ]
     out += [Reads(f"r2-B-{c.removeprefix('retest_')}", "B", c) for c in SWEEP]
     out.append(Command("r2-coverage", "R2 coverage report (B)", PY + [

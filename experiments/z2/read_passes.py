@@ -232,6 +232,21 @@ RETEST_CONDITIONS = {
 }
 PRESETS["retest_summaries"] = ["retest_cand64", "retest_no_summaries", "retest_original_margin1", "retest_original_margin2",
                                "retest_policy_text", "retest_originals_first"]
+# Z2 R2 follow-up (2026-10-29): at 256 candidates 90.4% of B's cited turns reach the prompt; of the rest
+# 5.4% are never found by any leg (vague questions) and 4.2% are ranked but over the budget. Variants:
+# wider legs for the never-found, and the summary settings' coverage cost at 256.
+_WIDE = {"retrieval_rerank_candidates": 512, "retrieval_bm25_candidate_limit": 300,
+         "retrieval_vector_candidate_limit": 300, "codex_fact_candidate_limit": 192}
+_ORIGINALS = {"retrieval_rerank_representation": "policy", "representation_summary_first_intents": False}
+RETEST_CONDITIONS.update({
+    "retest_c256_wide": dict(overlay="default", arm="full", subset="questions", settings=dict(_WIDE)),
+    "retest_c256_originals_first": dict(overlay="default", arm="full", subset="questions",
+                                        settings={"retrieval_rerank_candidates": 256, **_ORIGINALS}),
+    "retest_c256_policy": dict(overlay="default", arm="full", subset="questions",
+                               settings={"retrieval_rerank_candidates": 256, "retrieval_rerank_representation": "policy"}),
+    "retest_c256_wide_originals": dict(overlay="default", arm="full", subset="questions",
+                                       settings={**_WIDE, **_ORIGINALS}),
+})
 PRESETS["retest_candidates"] = [k for k in RETEST_CONDITIONS if k.startswith("retest_cand")]
 
 
