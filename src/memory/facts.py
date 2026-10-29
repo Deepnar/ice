@@ -188,7 +188,8 @@ RECONCILE_PRE_G60_SCHEMA = {"type": "object", "additionalProperties": False,
 # explicit evidence, never from recency — with each fact's cited quote and date, reason first.
 RECONCILE_CONTEXT_SYSTEM = (
     "You compare two memory facts said by the same speaker: an EARLIER one and a NEWER one. Each "
-    "comes with the passage it was taken from and when it was said.\n"
+    "comes with the passage it was taken from and when it was said, and may come with the user "
+    "message that prompted it and its recorded speaker, modality, subject, relation and object.\n"
     "- about: first, in one sentence, what each fact is about and whether the newer one changes the "
     "earlier one, repeats it, adds to it, or is a separate occurrence.\n"
     "- same_information: do both facts state the same thing, neither adding nor changing anything?\n"
@@ -322,16 +323,70 @@ def reconcile(claim: dict, earlier, *, ask: Callable, when, passages=None) -> st
     return "replaces"
 
 
-def passages(db, earlier, assertion, claim, when):
-    """Each fact's cited quote and date, for the "context" reconcile design; None otherwise."""
+CONTEXT_WINDOW = 1200          # characters of the source turn around a fact's cited quote
+
+
+def _around(text: str, quote: str, size: int = CONTEXT_WINDOW) -> str:
+    """The part of a source turn around a fact's quote (exact match first, else most shared words)."""
+    if len(text) <= size:
+        return text
+    at = text.find(quote[:80]) if quote else -1
+    if at >= 0:
+        start = max(0, min(at + len(quote) // 2 - size // 2, len(text) - size))
+        return text[start:start + size]
+    words = set(re.findall(r"[a-z0-9]{3,}", (quote or "").lower()))
+    starts = range(0, len(text) - size + 1, size // 3)
+    best = max(starts, key=lambda s: len(words & set(re.findall(r"[a-z0-9]{3,}", text[s:s + size].lower()))))
+    return text[best:best + size]
+
+
+def context_passage(mode: str, *, quote: str, said, turn_text: str = "", user_text: str = "",
+                    fields: Optional[dict] = None) -> dict:
+    """One fact's evidence for the "context" reconcile design, per codex_fact_reconcile_context:
+    quote — the cited sentence; window — the source turn around it; turn — the window plus the
+    user message of that turn (why it was said); fields — the window plus the fact's stored
+    speaker / modality / subject / relation / object (Z2 F20)."""
+    out = {"said": said}
+    out["passage"] = quote if mode == "quote" or not turn_text else _around(turn_text, quote)
+    if mode == "turn" and user_text and user_text[:200] not in out["passage"]:
+        out["user_message"] = user_text[:600]
+    if mode == "fields" and fields:
+        out.update({k: v for k, v in fields.items() if v})
+    return out
+
+
+def _fields(fact) -> dict:
+    get = (lambda k: fact.get(k)) if isinstance(fact, dict) else (lambda k: getattr(fact, k, None))
+    return {k: get(k) for k in ("speaker", "modality", "subject", "relation", "object")}
+
+
+def _turn_texts(row):
+    """(whole turn text, its user message) of a stored turn."""
+    from src.memory.source import source_units
+    if row is None:
+        return "", ""
+    user = " ".join(u.text for u in source_units(row) if u.role == "user")
+    return getattr(row, "raw_text", "") or "", user
+
+
+def passages(db, earlier, assertion, claim, when, turn=None):
+    """Each fact's evidence for the "context" reconcile design; None for the other designs."""
     if settings.codex_fact_reconcile_design != "context":
         return None
+    from src.memory.models import EpisodicMemory
+    mode = settings.codex_fact_reconcile_context
+    stamp = lambda t: t.isoformat()[:16] if t else None
     source = (db.query(CodexFactSource).filter(CodexFactSource.fact_id == earlier.id)
               .order_by(CodexFactSource.recorded_at).first())
-    stamp = lambda t: t.isoformat()[:16] if t else None
-    return dict(earlier=dict(said=stamp(getattr(source, "recorded_at", None) or earlier.mentioned_at),
-                             passage=getattr(source, "quote", None) or earlier.text),
-                newer=dict(said=stamp(when), passage=assertion.get("quote") or claim["text"]))
+    row = db.get(EpisodicMemory, source.episodic_id) if source is not None and source.episodic_id and mode != "quote" else None
+    e_text, e_user = _turn_texts(row)
+    n_text, n_user = _turn_texts(turn) if mode != "quote" else ("", "")
+    return dict(
+        earlier=context_passage(mode, quote=getattr(source, "quote", None) or earlier.text,
+                                said=stamp(getattr(source, "recorded_at", None) or earlier.mentioned_at),
+                                turn_text=e_text, user_text=e_user, fields=_fields(earlier)),
+        newer=context_passage(mode, quote=assertion.get("quote") or claim["text"], said=stamp(when),
+                              turn_text=n_text, user_text=n_user, fields=_fields(claim)))
 
 
 def write_turn_facts(db, turn, record: dict, *, embedder,
@@ -377,7 +432,7 @@ def write_turn_facts(db, turn, record: dict, *, embedder,
                     continue
                 counts["reconcile_calls"] += 1
                 verdict = reconcile(claim, earlier, ask=ask, when=when,
-                                    passages=passages(db, earlier, assertion, claim, when))
+                                    passages=passages(db, earlier, assertion, claim, when, turn))
                 if verdict == "same":
                     existing = earlier
                     break

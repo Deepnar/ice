@@ -366,7 +366,11 @@ g60 10, 8, 91, 8; **context 33, 15, 81, 10** — the fewest errors overall (48 v
 correct replacement pre-G60 keeps, two thirds fewer wrong ones; weaker on the qualification set's
 ordinary pairs (81 vs 87). No design reaches the bar (≥38/46, ≤10/53, ≥89/99): the S8 labels are
 partly inconsistent (a later prediction run of the same prompt "replaces"; a later run of the same
-test "does not"; two training runs to different files labelled both ways). Default stays
+test "does not"; two training runs to different files labelled both ways). **Correction (2026-10-29):** the 33/15 result used a ~1,200-character window of each source turn, while the
+first production code sent only the cited quote (median 131 characters). `codex_fact_reconcile_context`
+now offers quote / window (default) / turn (+ that turn's user message) / fields (+ speaker, modality,
+subject, relation, object), each built by `facts.passages` from the stored facts; the GPU day measures
+all four (pre_g60 and g60 are not re-run). Default stays
 `pre_g60` (what Z2 measured); the GPU day reruns the eval with the qualification misses broken down
 (harmless merges vs wrong replacements), then the maintainer picks.
 

@@ -54,3 +54,18 @@ def test_screen_uses_same_item_only_under_g60(monkeypatch, design, expected):
                dict(same_information=False, both_can_be_true=False, same_item=True),
                dict(same_information=True, both_can_be_true=True, same_item=True)]
     assert facts.screen({"text": "newer"}, earlier, ask_many=lambda e, n: answers) == expected
+
+
+def test_context_passage_variants():
+    turn = "User: " + "intro " * 200 + "the landlord raised the rent to 1250 this month. " + "outro " * 200
+    common = dict(quote="the landlord raised the rent to 1250 this month.", said="2025-02-02T10:00",
+                  turn_text=turn, user_text="why is my rent different?",
+                  fields=dict(speaker="user", modality="asserted", subject="rent", relation="is", object="1250"))
+    q = facts.context_passage("quote", **common)
+    assert q == {"said": "2025-02-02T10:00", "passage": common["quote"]}
+    w = facts.context_passage("window", **common)
+    assert common["quote"] in w["passage"] and len(w["passage"]) == facts.CONTEXT_WINDOW
+    assert facts.context_passage("turn", **common)["user_message"] == "why is my rent different?"
+    f = facts.context_passage("fields", **common)
+    assert f["subject"] == "rent" and f["object"] == "1250" and "user_message" not in f
+    assert facts.context_passage("window", quote="x", said=None)["passage"] == "x"      # no source turn

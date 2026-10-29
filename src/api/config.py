@@ -658,6 +658,10 @@ class Settings(BaseSettings):
     # written first, "contradicts" decides (Graphiti's explicit-evidence rule) — fewest errors on
     # the S8 + qualification sets. Chosen after the production-path eval (RETESTS R8).
     codex_fact_reconcile_design: Literal["pre_g60", "g60", "context"] = "pre_g60"
+    # The "context" design's evidence per fact: quote (the cited sentence), window (~1,200 chars of
+    # the source turn around it — what Z2 F20's 33/15 result used), turn (window + that turn's user
+    # message), fields (window + speaker / modality / subject / relation / object). RETESTS R8.
+    codex_fact_reconcile_context: Literal["quote", "window", "turn", "fields"] = "window"
     # ── Z1 probe generation (tooling, not a runtime path) ───────────────────
     # An external model writes the typed probe set (G48). Declared here because
     # Settings forbids extra keys: leaving these as bare .env lines made EVERY
