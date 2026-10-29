@@ -42,9 +42,11 @@ built.
    dollars beyond Go's month if the budget is spent; else waits for Go Plus.
 5. **Z3 freeze (~Nov 10):** set the switch defaults from R2–R4/R7, D9 simplification, merge fix-pass
    into `main` (only after R6), record the freeze commit.
-6. **FINAL local (~Nov 10 → ~Nov 21):** 2 lanes, ~9–11 GPU days.
+5½. **Research briefing (~1 week, maintainer 2026-10-29) — gate before FINAL's local run:** a for external review (ICE v3 architecture, Z2→Z3 findings, the FINAL plan; a 4–6 page PDF, appendices if useful; task in the gitignored docs/PUBLISHING.md [PRIVATE:research-briefing]). Made from the frozen configuration and the retest results, sent for critical feedback while the
+   design can still change; feedback goes into the pre-registration as a revision. No code, config or runs change.
+6. **FINAL local (~Nov 17 → ~Nov 28, after the briefing):** 2 lanes, ~9–11 GPU days.
 7. **FINAL cloud (Go Plus, ~$92):** answering can start per history as its local reads finish
-   (~Nov 15 onward); at Go Plus's weekly cap (~$60) it takes two weeks or more → ~early December.
+   (~Nov 22 onward); at Go Plus's weekly cap (~$60) it takes two weeks or more → ~early December.
 
 **The GPU day is one command** (`experiments/z2/gpu_day.py`, Z2's runner — meter, resume, lock):
 gates (DB tests, full rails) → R8 (G60, G75, B7's four trainings; run even if a gate fails) → R2

@@ -123,6 +123,8 @@ shown about the system and the FINAL preparation (machinery, datasets). A new se
 resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
 
 *Checklist (✅ done on the branch · ⏳ test later on GPU/DB · ☐ open):*
+- ☐ **⚑ GATE before FINAL's local run (maintainer, 2026-10-29): research briefing for external review (ICE v3 architecture, Z2→Z3 findings, the FINAL plan; a 4–6 page PDF, appendices if useful; task in the gitignored docs/PUBLISHING.md [PRIVATE:research-briefing]).** Once Z3 is frozen and only FINAL remains; ~1 week; external feedback goes into the
+  pre-registration before FINAL's first answer. No code, config or experiment changes while it is made.
 - ✅⏳ **Z2 F1 fix (a)** source check never cancels a positive retrieval decision (rescue kept) —
   test: tests/smoke/test_source_need_route.py + test_summary_snapshot.py on the disposable DB.
 - ✅⏳ **Z2 F2/F10 switches** (keep candidates past the cap; conversation-order evidence), off until

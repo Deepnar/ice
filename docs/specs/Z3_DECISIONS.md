@@ -394,7 +394,8 @@ FINAL depends on. Each is built on fix-pass; nothing is a number until its retes
 4. **Order:** S12 local → GPU retests (R1, R2, R8, R9 and the reads of R3/R4) → cloud: Z2's
    grade-1 grading and S12 to completion (R6) → Z3 judging (R5, retest answers + grade-2) → cloud
    prep (synthetic, A) — three phases, never mixed (maintainer, 2026-10-29) → R7 → merge →
-   freeze → FINAL local → FINAL cloud (Go Plus). A later private-question top-up (more questions
+   freeze → **research briefing for external review (ICE v3 architecture, Z2→Z3 findings, the FINAL plan; a 4–6 page PDF, appendices if useful; task in the gitignored docs/PUBLISHING.md [PRIVATE:research-briefing]) — the gate before FINAL starts; ~1 week; feedback becomes a
+   pre-registration revision** → FINAL local → FINAL cloud (Go Plus). A later private-question top-up (more questions
    for A/SW/LAP) is its own cloud block.
 5. **Every part FINAL tests must be able to act (Z2 F18).** B and C cannot exercise clusters
    (automatic scoping off), time windows (no question names one), decay (gentle over 33–90 days,
