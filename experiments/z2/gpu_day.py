@@ -145,6 +145,12 @@ def gpu_free():
                           capture_output=True, text=True).stdout.split()
     if busy:
         problems.append(f"Z2 still on the GPU ({len(busy)} process(es): S12 or a read/replay) — waiting")
+    # a Z2 runner driving a GPU stage relaunches it after a backoff, with no worker alive in between
+    # (S12, 2026-10-29: 44 ineligible questions kept the stage "unfinished")
+    runner = subprocess.run(["pgrep", "-f", r"experiments/z2/run_z2\.py run .*--only [^ ]*(s7-|s9-|s12)"],
+                            capture_output=True, text=True).stdout.split()
+    if runner and not busy:
+        problems.append("a Z2 runner still owns a GPU stage (between its retries) — stop it, or wait")
     return problems
 
 
