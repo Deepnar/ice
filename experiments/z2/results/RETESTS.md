@@ -69,7 +69,7 @@ re-read, never set from B alone.
 | | What | Needs | Status |
 |---|---|---|---|
 | R1 | F1 fix — database tests of the source check | GPU/DB | ☐ |
-| R2 | F2 — how many candidates to rank, and keep the rest | GPU | ☐ |
+| R2 | F2 — how many candidates to rank, and keep the rest | GPU | ✅ measured (pick pending) |
 | R3 | F10 — conversation order for "which came first" | GPU + CLOUD | ☐ |
 | R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ☐ |
 | R5 | F12 — judge the judge: 250 answers under both rubrics, planted panel, invariance | CLOUD (~$0.6) | ☐ |
@@ -114,6 +114,14 @@ tokens, seconds per read. **Pick** the smallest setting within 1 point of the be
 read time is at most ~3 s above `retest_cand64`; batch 16 is kept if it is faster at equal
 coverage. Coverage is presence, not quality — the chosen setting goes on to R7 for answers.
 
+**R2 RESULT (GPU day, 2026-10-29; B, 159 questions with cited turns; fix-pass with F1 fixed):**
+cited-turn coverage / seconds per read — 64 candidates 81.1% / 7.3 s; 128: 85.5% / 10.7 s; **256: 90.8% /
+15.2 s**; 512: 90.8% / 15.2 s (the pool is ~250); 64 + keep the rest 82.2% / 7.4 s (fills the budget,
++1 point); 128 + keep 85.9%; 256 with batch 16 90.8% / 22.1 s (slower, rejected). Reference: plain vector
+search 87.5%, Z2's ICE as run 71.3% (the F1 fix accounts for 71→81). 256 is the first setting above plain
+search, at +7.9 s per message — over this plan's own +3 s rule, so the pick is the maintainer's (128 is the
+middle ground); answers decide at R7.
+
 ## R3 — conversation order (GPU read + CLOUD answers/grade)
 
 ```bash
@@ -138,6 +146,12 @@ intents off — summaries only as the budget fallback; the allowance B's evidenc
 and grade as R3; run `retest_coverage.py`, and `summary_allowance.py` on the retest units to see
 the policy land. Decide with R7 on B and C.
 **A v3 change that removes something v2 shipped is a maintainer decision** ("memory is earned").
+
+**R3/R4 CODE CHECKS (GPU day; B reads done, C running):** conversation order — the same pieces, now
+100% in turn order (0% before), coverage unchanged (81.1%). Summary share of single-turn pieces in the
+prompt: shipped 50%, margin 1 44%, margin 2 37%, policy text 26%, originals first 10%, summaries off 0%;
+coverage 79.5–81.1% throughout (summaries change detail, not which turns). Memory tokens rise as
+originals replace summaries (20.7k → 28.6k). Answers and grade-2 decide (Z3 judging).
 
 ## R5 — judge the judge (CLOUD, ~$0.6)
 
