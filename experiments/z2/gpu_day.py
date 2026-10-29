@@ -15,15 +15,13 @@ Order and dependencies:
 Nothing here decides a setting: decisions are made at R7, after C's grade-1 results (R6), the
 judge check (R5) and the retest answers.
 
-Starts only when Z2's S12 has stopped using the GPU (it waits, showing why), so it can be launched
-early. Run from the fix-pass worktree:
+Start it by hand once Z2's GPU stages are finished (it does not check). Run from the fix-pass worktree:
 
     uv run --no-sync python experiments/z2/gpu_day.py run                 # everything, resumable
     uv run --no-sync python experiments/z2/gpu_day.py status --watch      # the meter
     uv run --no-sync python experiments/z2/gpu_day.py run --only r2-B-cand128,r2-coverage
 """
 
-import subprocess
 import sys
 from pathlib import Path
 
@@ -138,25 +136,6 @@ def stages(_limit=None):
     return out
 
 
-def gpu_free():
-    """Z2's own runner prerequisites, plus: no Z2 local GPU stage still running (S12's workers)."""
-    problems = BASE_PREREQUISITES()
-    busy = subprocess.run(["pgrep", "-f", r"experiments/z2/(oracle|read_passes|replay)\.py .*--out logs/z2-run-"],
-                          capture_output=True, text=True).stdout.split()
-    if busy:
-        problems.append(f"Z2 still on the GPU ({len(busy)} process(es): S12 or a read/replay) — waiting")
-    # a Z2 runner driving a GPU stage relaunches it after a backoff, with no worker alive in between
-    # (S12, 2026-10-29: 44 ineligible questions kept the stage "unfinished")
-    runner = subprocess.run(["pgrep", "-f", r"experiments/z2/run_z2\.py run .*--only [^ ]*(s7-|s9-|s12)"],
-                            capture_output=True, text=True).stdout.split()
-    if runner and not busy:
-        problems.append("a Z2 runner still owns a GPU stage (between its retries) — stop it, or wait")
-    return problems
-
-
-BASE_PREREQUISITES = Z.prerequisites
-
 if __name__ == "__main__":
-    Z.prerequisites = gpu_free                         # Context() reads this name at start
     raise SystemExit(Z.main(stages, run_dir=lambda name: ROOT / "logs" / f"gpu-day-{name}", prog="gpu_day.py",
                             description=__doc__.split("\n\n")[0], runs="logs/gpu-day-<name>"))
