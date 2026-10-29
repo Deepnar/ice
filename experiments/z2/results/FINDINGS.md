@@ -412,6 +412,15 @@ ended at positions 77–156; reaching them needs ~1.8× the budget at the median
 +50% 2). A budget leeway would not help — the reranker scores these turns low (the vague-question problem
 again). Z2 as run had none in this stage only because its 64-candidate cap cut them first. Follow-up variants (wider legs, the summary settings at 256, C): `gpu_extra.py`.
 
+## B7 result (`b7_calibrated.py`) — no classifier variant beats the live one; closed, no change
+
+Judged like the live model (cap 5, threshold fitted on val, test macro-F1; 35 reworded pairs). Test mean
+macro-F1: live 0.609 (topic 0.651 / intent 0.522 / context 0.655); a fresh retrain of the shipped design
+reproduces it exactly (training is deterministic); standardize 0.613 (+0.007 topic, −0.002 intent, +0.008
+context) but more intent-set flips (0.46 vs 0.40); kaiming 0.607 (memory flip 0.06 vs 0.09 — one pair);
+layernorm 0.605. All within 0.01 — inside the noise B1 measured (≤0.017). None passes "better F1 and no
+more flips". The live classifier stays; input scaling and initialisation were not limiting it.
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |

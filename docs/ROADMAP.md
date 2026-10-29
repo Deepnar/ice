@@ -160,6 +160,8 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   assistant facts ~40-50%, advice ~37-42%; user facts too few to judge (6 / 3). Missed
   content stays in the raw turns (≈80% of prompt memory tokens), so **no fix** unless S11
   shows questions failing that the codex would have answered.
+- ✅ **B7 CLOSED (2026-10-29, no change):** judged like the live model, no variant beats it (test mean
+  macro-F1 live 0.609, standardize 0.613 but more style flips, kaiming 0.607, layernorm 0.605); retrain = live exactly.
 - ✅⏳ `dffb68f` **B7** classifier input-norm / init variants — train + compare later with
   `logs/fix-pass/b7_variants.py` (F1 + style flip rate on Z2's 35 base/messy pairs).
 - ✅ **Z3** decision sheet drafted: [specs/Z3_DECISIONS.md](specs/Z3_DECISIONS.md) — picks: sealed
