@@ -387,6 +387,9 @@ Reference (F20): pre_g60 33 / 44 / 87 / 10 (71 errors), g60 10 / 8 / 91 / 8 (56)
 many correct replacements as pre_g60 or more with a third to half of its wrong ones; on the ordinary
 pairs only 4 misses (6 for turn) are wrong replacements — the rest are same/both-true merges. No
 variant reaches the bar (≥38, ≤10, ≥89). Candidate: `fields`; `quote` is close at a seventh of the cost.
+**Decided 2026-10-29 (maintainer): `context` + `fields` is the default** — more correct replacements kept
+than pre_g60 (35 vs 33) and a third of its wrong ones (14 vs 44). Write-side: it shapes the stores FINAL's
+replays build; its effect on answers is not measured (that needs a replay), only on the judged pairs.
 
 ## G75 result (GPU day r8-g75) — the summary claim check flags faithful summaries too
 

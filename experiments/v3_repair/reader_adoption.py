@@ -68,8 +68,8 @@ TRANSITIONS = {
     },
     "scripts/z1/seed_v3.py": {
         "before": "053e893b754aceccb1989aac0aefe7a5feafc26875094d9239ff101e08fb5e53",
-        "after": "408ee25028b9f2b19e000ff37b4136a13d60bdf3220f32dc5a8b2f3049ac5daf",
-        "reason": "Exact research serialization of stored IDs, rendered versions and final block receipts; old captured writer/reader outcomes are retained. 2026-10-16 (CODEX_V4): fact tables, facts leg in the arms, fact metrics; legacy codex settings, tables and receipts removed.",
+        "after": "5a6a7bbec2fe286976ccf7a473b88b8645fc80ed7b54a952d9b24ef412ecaca5",
+        "reason": "Exact research serialization of stored IDs, rendered versions and final block receipts; old captured writer/reader outcomes are retained. 2026-10-16 (CODEX_V4): fact tables, facts leg in the arms, fact metrics; legacy codex settings, tables and receipts removed. 2026-10-29 (Z2 F20): the run record lists codex_fact_reconcile_design and codex_fact_reconcile_context.",
     },
     "experiments/v3_repair/tuning_plan.py": {
         "before": "c1480d90cfd749ebff1f690c5ce70bb85b7a5438dccccb1b4726b51602a9a070",

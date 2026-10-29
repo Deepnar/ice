@@ -656,12 +656,14 @@ class Settings(BaseSettings):
     # can-both-be-true (what Z2 measured). "g60": + same specific item — blocked 35 of 46 correct
     # replacements. "context": each fact's cited quote and date beside the sentences, the reason
     # written first, "contradicts" decides (Graphiti's explicit-evidence rule) — fewest errors on
-    # the S8 + qualification sets. Chosen after the production-path eval (RETESTS R8).
-    codex_fact_reconcile_design: Literal["pre_g60", "g60", "context"] = "pre_g60"
+    # the S8 + qualification sets. Default "context" since 2026-10-29 (maintainer, after the GPU-day
+    # eval: with "fields", 35/46 correct replacements kept vs pre_g60's 33, 14/53 wrong vs 44).
+    codex_fact_reconcile_design: Literal["pre_g60", "g60", "context"] = "context"
     # The "context" design's evidence per fact: quote (the cited sentence), window (~1,200 chars of
     # the source turn around it — what Z2 F20's 33/15 result used), turn (window + that turn's user
-    # message), fields (window + speaker / modality / subject / relation / object). RETESTS R8.
-    codex_fact_reconcile_context: Literal["quote", "window", "turn", "fields"] = "window"
+    # message), fields (window + speaker / modality / subject / relation / object). "fields" had the
+    # fewest errors on the GPU day (41 vs window 44, quote 46, turn 48; FINDINGS F20).
+    codex_fact_reconcile_context: Literal["quote", "window", "turn", "fields"] = "fields"
     # ── Z1 probe generation (tooling, not a runtime path) ───────────────────
     # An external model writes the typed probe set (G48). Declared here because
     # Settings forbids extra keys: leaving these as bare .env lines made EVERY

@@ -330,9 +330,11 @@ def test_deleted_source_is_never_history():
 def _ask(same=False, compatible=True, only=""):
     """Stub D6 model; answers about facts containing *only*, both_true otherwise
     (stub embeddings make every same-speaker fact a candidate)."""
-    def ask(earlier, newer):
+    def ask(earlier, newer, passages=None):        # answers every reconcile design's fields (Z2 F20)
         mine = only in earlier
-        return {"same_item": True, "same_information": same and mine, "both_can_be_true": compatible or not mine}
+        both = compatible or not mine
+        return {"same_item": True, "same_information": same and mine, "both_can_be_true": both,
+                "about": "", "contradicts": not both}
     return ask
 
 
@@ -377,9 +379,10 @@ def test_reconcile_guards():
         sugg = _turn(db)
         sugg.timestamp = WHEN.replace(month=12)
         seen = []
-        def spy(e, n):
+        def spy(e, n, *passages):
             seen.append(e)
-            return {"same_item": True, "same_information": False, "both_can_be_true": False}
+            return {"same_item": True, "same_information": False, "both_can_be_true": False,
+                    "about": "", "contradicts": True}
         facts.write_turn_facts(db, sugg, {"assertions": [
             _a(f"The user suggested they might switch to Go {tag}.", "I moved to Lisbon in March",
                modality="suggested")]}, embedder=ENC, ask=spy)
@@ -422,9 +425,10 @@ def test_batch_screens_candidates_and_single_pair_decides():
         def ask_many(earlier, newer):
             batches.append(list(earlier))
             return [{"same_item": True, "same_information": False, "both_can_be_true": e != flagged} for e in earlier]
-        def ask(earlier, newer):                    # single pair overrules the batch
+        def ask(earlier, newer, *passages):         # single pair overrules the batch
             asked_alone.append(earlier)
-            return {"same_item": True, "same_information": False, "both_can_be_true": True}
+            return {"same_item": True, "same_information": False, "both_can_be_true": True,
+                    "about": "", "contradicts": False}
         counts = facts.write_turn_facts(db, later, {"assertions": [
             _a(f"The user said they stopped {tag}.", "I moved to Lisbon in March")]},
             embedder=ENC, ask=ask, ask_many=ask_many)
@@ -435,7 +439,8 @@ def test_batch_screens_candidates_and_single_pair_decides():
         # the same flag confirmed alone as a change does supersede
         counts = facts.write_turn_facts(db, later, {"assertions": [
             _a(f"The user said they quit {tag}.", "I moved to Lisbon in March")]},
-            embedder=ENC, ask=lambda e, n: {"same_item": True, "same_information": False, "both_can_be_true": e != flagged},
+            embedder=ENC, ask=lambda e, n, *p: {"same_item": True, "same_information": False, "both_can_be_true": e != flagged,
+                                          "about": "", "contradicts": e == flagged},
             ask_many=ask_many)
         assert seeded[flagged].valid_until == later.timestamp and counts["superseded"] == 1
         db.rollback()
@@ -447,9 +452,10 @@ def test_failed_batch_asks_every_candidate_alone_and_warns(caplog):
         tag = uuid.uuid4().hex[:6]
         seeded = _seed(db, tag)
         asked = []
-        def ask(earlier, newer):
+        def ask(earlier, newer, *passages):
             asked.append(earlier)
-            return {"same_item": True, "same_information": False, "both_can_be_true": True}
+            return {"same_item": True, "same_information": False, "both_can_be_true": True,
+                    "about": "", "contradicts": False}
         def broken(earlier, newer):
             raise TimeoutError()
         with caplog.at_level(logging.WARNING):
@@ -508,7 +514,8 @@ def test_entity_merge_moves_fact_links_and_unmerge_restores_them():
 
 
 def test_batch_reply_cap_leaves_room_per_candidate(monkeypatch):
-    """60 + 45 per candidate: replies measured 28-31 tokens each, one cut needed ~38."""
+    """60 + 55 per candidate: replies measured 28-31 tokens each, one cut needed ~38; same_item
+    (G60) added ~8 tokens per candidate, and the cap with it (stale at 45 since then)."""
     from types import SimpleNamespace as NS
     from src.workers import bg_client_factory, fact_extractor
     seen = {}
@@ -520,4 +527,4 @@ def test_batch_reply_cap_leaves_room_per_candidate(monkeypatch):
     monkeypatch.setattr(bg_client_factory, "get_bg_client",
                         lambda: NS(chat=NS(completions=NS(create=create))))
     fact_extractor._ask_many(["a", "b", "c", "d", "e"], "new")
-    assert seen["max_tokens"] == 60 + 45 * 5
+    assert seen["max_tokens"] == 60 + 55 * 5

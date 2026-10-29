@@ -26,8 +26,12 @@ def test_g60_replaces_only_on_the_same_item(monkeypatch):
     assert verdict(same_information=False, both_can_be_true=False) == "both_true"   # missing -> keep both
 
 
-def test_pre_g60_ignores_same_item_and_is_the_default():
-    assert settings.codex_fact_reconcile_design == "pre_g60"
+def test_context_with_fields_is_the_default():
+    assert (settings.codex_fact_reconcile_design, settings.codex_fact_reconcile_context) == ("context", "fields")
+
+
+def test_pre_g60_ignores_same_item(monkeypatch):
+    monkeypatch.setattr(settings, "codex_fact_reconcile_design", "pre_g60")
     assert verdict(same_information=False, both_can_be_true=False, same_item=False) == "replaces"
     assert verdict(same_information=False, both_can_be_true=True) == "both_true"
 

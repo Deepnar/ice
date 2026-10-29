@@ -80,7 +80,7 @@ REPLAY_SETTINGS = [
     "summary_assertion_method", "summary_output_ratio", "summary_piece_tokens",
     "codex_fact_entity_max_words", "codex_fact_entity_max_chars", "codex_fact_candidate_limit",
     "codex_fact_strength_bonus", "codex_fact_candidate_cosine", "codex_fact_candidate_k",
-    "codex_fact_reconcile_model",
+    "codex_fact_reconcile_model", "codex_fact_reconcile_design", "codex_fact_reconcile_context",
 ]
 MEMORY_JOBS = (
     "cluster_assignment", "cluster_merge", "conversation_summary", "batch_summarize",
