@@ -407,7 +407,10 @@ truly absent from the prompt (not in the recent window) and belong to vague ques
 know about my saga", "what did you say about that side-plot thing") whose answer turn shares few words with
 the question. Per leg at 256 — share of prompt tokens / of cited turns delivered: facts 6% / **47%**, vector
 38% / 25%, BM25+vector 24% / 22%, BM25 alone 31% / 5%, procedural 0.2% / 0.7%. The same report runs on any
-read units, FINAL's included. Follow-up variants (wider legs, the summary settings at 256, C): `gpu_extra.py`.
+read units, FINAL's included. **The 10 over-budget turns are not near misses:** ranked 126–241 of 256 while the budget
+ended at positions 77–156; reaching them needs ~1.8× the budget at the median (+10% would admit 0 of 10,
++50% 2). A budget leeway would not help — the reranker scores these turns low (the vague-question problem
+again). Z2 as run had none in this stage only because its 64-candidate cap cut them first. Follow-up variants (wider legs, the summary settings at 256, C): `gpu_extra.py`.
 
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
