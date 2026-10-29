@@ -374,6 +374,26 @@ all four (pre_g60 and g60 are not re-run). Default stays
 `pre_g60` (what Z2 measured); the GPU day reruns the eval with the qualification misses broken down
 (harmless merges vs wrong replacements), then the maintainer picks.
 
+## F20 result (GPU day r8-reconcile) — the context design's evidence variants, production inputs
+
+Built by `facts.passages` from B's and C's stored facts (real speaker/modality labels, dates):
+| evidence | correct kept /46 | wrong kept /53 | ordinary right /99 | planted /12 | chars per call | errors |
+|---|---|---|---|---|---|---|
+| quote | 37 | 20 | 85 | 9 | ~320 | 46 |
+| window | 35 | 17 | 85 | 10 | ~2,262 | 44 |
+| turn (+ user message) | 33 | 16 | 83 | 9 | ~2,891 | 48 |
+| **fields** (+ speaker/modality/subject/relation/object) | 35 | **14** | **86** | 9 | ~2,444 | **41** |
+Reference (F20): pre_g60 33 / 44 / 87 / 10 (71 errors), g60 10 / 8 / 91 / 8 (56). Every variant keeps as
+many correct replacements as pre_g60 or more with a third to half of its wrong ones; on the ordinary
+pairs only 4 misses (6 for turn) are wrong replacements — the rest are same/both-true merges. No
+variant reaches the bar (≥38, ≤10, ≥89). Candidate: `fields`; `quote` is close at a seventh of the cost.
+
+## G75 result (GPU day r8-g75) — the summary claim check flags faithful summaries too
+
+On S8's 393 judged items: unfaithful flagged 38/46, **faithful flagged 245/347** (rule: ≤35/347).
+It would drop most faithful summaries; 7 calls still cut on 18–40-claim items. Stays off
+(`summary_claim_check_enabled=False`); not a FINAL candidate as built.
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |
