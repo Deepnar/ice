@@ -112,6 +112,38 @@ class Reads(Z.Stage):
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
+class Trial(Command):
+    """A FINAL-runner slice shown with its own progress (turns replayed + contexts read), not 0/1."""
+
+    TRIAL_KEYS = ("prep-locomo-export", "local-replay-LOCOMO", "local-read-LOCOMO")
+
+    def __init__(self, key, title, cmd, *, needs=()):
+        super().__init__(key, title, cmd, needs=needs, estimate=10.0)   # seconds per turn or read context
+        self.unit = "turns+reads"
+
+    def _inner(self):
+        from experiments.final import run_final as F
+        ctx = Z.Context("trial", directory=ROOT / "logs/final-run-trial")
+        ctx.state.setdefault("limit", 30)
+        return ctx, [s for s in F.final_stages(30) if s.key in self.TRIAL_KEYS]
+
+    def total(self, ctx):
+        try:
+            inner, stages = self._inner()
+            return sum(s.total(inner) or 0 for s in stages) or 1
+        except Exception:                                 # noqa: BLE001 — the meter must never break the run
+            return 1
+
+    def done(self, ctx):
+        if self.complete(ctx):
+            return self.total(ctx)
+        try:
+            inner, stages = self._inner()
+            return min(sum(s.done(inner) or 0 for s in stages), self.total(ctx) - 1)
+        except Exception:                                 # noqa: BLE001
+            return 0
+
+
 def stages(_limit=None):
     out = [
         Command("gate-source-db", "DB tests: source check never cancels, routes, summaries",
@@ -131,9 +163,9 @@ def stages(_limit=None):
         needs=[f"r2-B-{c.removeprefix('retest_')}" for c in SWEEP], estimate=300))
     out += [Reads("r34-B", "B", "retest_cand64,retest_conversation_order+retest_summaries"),
             Reads("r34-C", "C", "retest_cand64,retest_conversation_order+retest_summaries", estimate=16.0)]
-    out.append(Command("r9-locomo-slice", "LoCoMo replay+read slice (FINAL runner, run name 'trial')", PY + [
+    out.append(Trial("r9-locomo-slice", "LoCoMo replay+read slice (FINAL runner, run name 'trial')", PY + [
         "experiments/final/run_final.py", "run", "--name", "trial", "--limit", "30",
-        "--only", "prep-locomo-export,local-replay-LOCOMO,local-read-LOCOMO"], needs=GATES, estimate=5400))
+        "--only", "prep-locomo-export,local-replay-LOCOMO,local-read-LOCOMO"], needs=GATES))
     return out
 
 

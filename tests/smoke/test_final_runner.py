@@ -156,3 +156,21 @@ def test_final_scratch_databases_pass_the_write_guards(tmp_path):
     assert name.startswith(P.SCRATCH_PREFIXES) and name != "ice_db"
     with __import__("pytest").raises(ValueError):
         P.create_database("ice_db")
+
+
+def test_a_slice_reads_questions_at_its_last_checkpoint(tmp_path):
+    # LoCoMo asks every question at the end; a 30-turn slice must still exercise the read path (2026-10-30).
+    import json
+    from experiments.final import run_final as F
+    from experiments.z2 import run_z2 as Z
+    ctx = Z.Context("trial", directory=tmp_path)
+    read = next(s for s in F.final_stages(30) if s.key == "local-read-LOCOMO").members[0]
+    cps = read.replay.out(ctx) / "checkpoints"
+    cps.mkdir(parents=True)
+    for n in (9, 30):
+        (cps / f"cp-{n}.sql").write_text("")
+    assert read.asks_for(ctx) == read.asks                                  # no slice: the real asks
+    ctx.state["limit"] = 30
+    asks = json.loads(read.asks_for(ctx).read_text())
+    assert len(asks) == read.SLICE_ASKS and {a["checkpoint_turn"] for a in asks} == {30}
+    assert all(a["slice_trial"] for a in asks)

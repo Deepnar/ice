@@ -657,7 +657,8 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                                                                for c, sc in chosen],
                                                      selected_tokens=sum(tokens.count(c.render()) for c, _ in chosen))))
         print(json.dumps(dict(checkpoint=cp, asks=len(group), seconds=round(time.time() - started))), flush=True)
-    (out / "failures.json").write_text(json.dumps(failures, indent=1, default=str))
+    Path(out).mkdir(parents=True, exist_ok=True)       # a read with nothing to do writes an empty record
+    (Path(out) / "failures.json").write_text(json.dumps(failures, indent=1, default=str))
     # Spec §5 item 6 on every run: what each leave-one-out switch changed vs full.
     (out / "switch-report.json").write_text(json.dumps(switch_report(out, asks), indent=1))
     return failures

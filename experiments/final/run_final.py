@@ -105,11 +105,32 @@ class FinalRead(Z.Stage):
     def missing(self, ctx):
         return [] if self.asks.exists() else [str(Z._rel(self.asks))]
 
+    SLICE_ASKS = 10
+
+    def asks_for(self, ctx):
+        """The asks to read. In a --limit slice, questions are asked at the end of the history, past
+        the replayed turns, so none would be read (the GPU day's LoCoMo trial, 2026-10-30): the first
+        SLICE_ASKS questions are asked at the slice's last checkpoint instead, against a store holding
+        only turns up to it (a trial of the read path, not a result)."""
+        if not ctx.state.get("limit") or not self.asks.exists():
+            return self.asks
+        cps = sorted(int(p.stem.removeprefix("cp-")) for p in (self.replay.out(ctx) / "checkpoints").glob("cp-*.sql"))
+        if not cps:
+            return self.asks
+        path = self.out(ctx).with_name(self.out(ctx).name + "-slice-asks.json")
+        if not path.exists():
+            asks = [dict(a, checkpoint_turn=cps[-1], slice_trial=True)
+                    for a in json.loads(self.asks.read_text()) if a.get("kind", "question") == "question"][:self.SLICE_ASKS]
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(asks, indent=1) + "\n")
+        return path
+
     def _progress(self, ctx):
         from experiments.z2 import read_passes as R
-        if not self.asks.exists():
+        asks = self.asks_for(ctx)
+        if not asks.exists():
             return 0, 0
-        return R.progress(self.out(ctx), self.asks, R.select_conditions(self.preset))
+        return R.progress(self.out(ctx), asks, R.select_conditions(self.preset))
 
     def total(self, ctx):
         return self._progress(ctx)[1]
@@ -129,7 +150,7 @@ class FinalRead(Z.Stage):
         def attempt():
             cmd = [sys.executable, "experiments/z2/read_passes.py", "--history", self.history,
                    "--database", replay.database(ctx), "--replay", str(replay.out(ctx).relative_to(ROOT)),
-                   "--asks", str(Z._rel(self.asks)), "--out", str(self.out(ctx).relative_to(ROOT)),
+                   "--asks", str(Z._rel(self.asks_for(ctx))), "--out", str(self.out(ctx).relative_to(ROOT)),
                    "--conditions", self.preset]
             return ctx.run_child(cmd, log_path), Z._tail(log_path)
 
