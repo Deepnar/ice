@@ -4,7 +4,7 @@ runner (meter, lock, retries, clean stop, resume); state in logs/z3-judging-<nam
 
   r5-panel        the planted judge panel (qualify.py) under grade-2, reusing Z2's planted answers
   r5-judge-B/C    judge_check.py: grade-2 on grade-1 verdicts (B 230 + C ~50, invariance pairs)
-  r34-answers-*   the retest answers (Muse 1.2) for the order and summary settings the GPU day read
+  r34-answers-*   the retest answers (Muse 1.2) for the order and summary settings, all at 256 candidates
   r34-grade-*     grade-2 verdicts on those answers (--verdicts-only; claims can be added if a
                   decision hinges on them)
 R7 (the chosen settings together) is added once R2–R4 have chosen.
@@ -32,8 +32,8 @@ from experiments.z2.histories import HISTORIES  # noqa: E402
 RUN = ROOT / "logs/z2-run-main"
 GPU_DAY = ROOT / "logs/gpu-day-main/state.json"
 QUALIFIED = ROOT / "logs/z2-qualify-2026-10-19-r1"        # grade-1's panel: its planted answers are reused
-ANSWERED = ("retest_cand64", "retest_conversation_order", "retest_no_summaries", "retest_original_margin1",
-            "retest_original_margin2", "retest_policy_text", "retest_originals_first")
+ANSWERED = ("retest_cand256", "retest_c256_order", "retest_c256_originals_first", "retest_c256_policy",
+            "retest_c256_wide_originals", "retest_c256_no_summaries")     # all at 256 candidates (2026-10-30)
 ASKS = {"B": 174, "C": 75}                                 # questions per history (retests read questions only)
 SCALE = {"B": 1.0, "C": 0.22}
 
@@ -43,6 +43,14 @@ def gpu_day_done(key):
         return json.loads(GPU_DAY.read_text())["stages"][key]["status"] == "done"
     except (OSError, ValueError, KeyError):
         return False
+
+
+def reads_done(history):
+    """Every condition the answers compare has been read for every question of this history."""
+    from experiments.z2 import read_passes as R
+    asks = ROOT / f"logs/z2-questions-final/{history}/z2-asks.json"
+    done, total = R.progress(ROOT / f"logs/z2-retest-{history}", asks, R.select_conditions(",".join(ANSWERED)))
+    return bool(total) and done >= total
 
 
 def lines(path):
@@ -67,8 +75,8 @@ class Counted(Command):
         return self.planned if self.complete(ctx) else min(lines(self.calls), self.planned - 1)
 
     def missing(self, ctx):
-        return [str(m) for m in self.inputs if not (gpu_day_done(m) if isinstance(m, str) and m.startswith("r34-")
-                                                    else Path(m).exists())]
+        return [str(m) for m in self.inputs if not (reads_done(m.removeprefix("reads-")) if isinstance(m, str)
+                                                    and m.startswith("reads-") else Path(m).exists())]
 
 
 class Panel(Counted):
@@ -100,7 +108,7 @@ def stages(_limit=None):
             "experiments/z2/answers.py", "--units", f"logs/z2-retest-{h}", "--out", str(answers.relative_to(ROOT)),
             "--conditions", ",".join(ANSWERED), "--answerer", "muse12"],
             calls=answers / "answers.jsonl", planned=ASKS[h] * len(ANSWERED), unit="answers",
-            inputs=(f"r34-{h}",)))
+            inputs=(f"reads-{h}",)))
         hist = HISTORIES[h]
         out.append(Counted(f"r34-grade-{h}", f"R3/R4 retest grades {h} (grade-2 verdicts)", PY + [
             "experiments/z2/grade.py", "--history", h, "--units", f"logs/z2-retest-{h}",

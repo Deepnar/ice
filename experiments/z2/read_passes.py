@@ -247,6 +247,16 @@ RETEST_CONDITIONS.update({
     "retest_c256_wide_originals": dict(overlay="default", arm="full", subset="questions",
                                        settings={**_WIDE, **_ORIGINALS}),
 })
+# At the chosen 256 candidates (2026-10-30): the order and summary comparisons the answers decide.
+_C256 = {"retrieval_rerank_candidates": 256}
+RETEST_CONDITIONS.update({
+    "retest_c256_order": dict(overlay="default", arm="full", subset="questions",
+                              settings={**_C256, "retrieval_evidence_order": "conversation"}),
+    "retest_c256_no_summaries": dict(overlay="default", arm="full", subset="questions",
+                                     settings={**_C256, "turn_summaries_in_reads": False}),
+})
+PRESETS["retest_c256_answered"] = ["retest_cand256", "retest_c256_order", "retest_c256_originals_first",
+                                   "retest_c256_policy", "retest_c256_wide_originals", "retest_c256_no_summaries"]
 PRESETS["retest_candidates"] = [k for k in RETEST_CONDITIONS if k.startswith("retest_cand")]
 
 

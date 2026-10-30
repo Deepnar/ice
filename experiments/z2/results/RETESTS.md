@@ -69,7 +69,7 @@ re-read, never set from B alone.
 | | What | Needs | Status |
 |---|---|---|---|
 | R1 | F1 fix — database tests of the source check | GPU/DB | ✅ 93 + full rails |
-| R2 | F2 — how many candidates to rank, and keep the rest | GPU | ✅ measured (pick pending) |
+| R2 | F2 — how many candidates to rank, and keep the rest | GPU | ✅ 256 chosen (default since 2026-10-30) |
 | R3 | F10 — conversation order for "which came first" | GPU + CLOUD | ☐ |
 | R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ☐ |
 | R5 | F12 — judge the judge: 250 answers under both rubrics, planted panel, invariance | CLOUD (~$0.6) | ☐ |
@@ -126,6 +126,11 @@ middle ground); answers decide at R7.
 GPU day), and at 256+ candidates on B — wider legs (BM25/vector 300, facts 192, rank up to 512) for the
 never-found turns, originals first, the reranker keeping the policy's text, wider + originals — plus C at
 64 / 256 / wider; each with `funnel.py` (loss stage per cited turn, per-leg shares) and seconds per read.
+
+**Decided 2026-10-30 (maintainer): 256 candidates** (`retrieval_rerank_candidates` default). Keep-the-rest and
+wider legs stay off (no net coverage gain). Best combination measured: wider legs + originals first, B 92.9%.
+The order and summary answers (R3/R4, Z3 judging) are therefore read at 256: `gpu_extra.py` stages x2-*
+(B: order, no summaries; C: order, originals first, policy, wider + originals, no summaries).
 
 ## R3 — conversation order (GPU read + CLOUD answers/grade)
 

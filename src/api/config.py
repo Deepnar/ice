@@ -288,7 +288,9 @@ class Settings(BaseSettings):
     retrieval_rerank_model: str = "Qwen/Qwen3-Reranker-0.6B"
     retrieval_rerank_revision: str = "e61197ed45024b0ed8a2d74b80b4d909f1255473"
     retrieval_rerank_device: str = "auto"
-    retrieval_rerank_candidates: int = Field(default=64, ge=1, le=512)
+    # Z2 R2 (2026-10-30, maintainer): 256 — B's cited-turn coverage 81% at 64 -> 91% at 256 (plain vector
+    # search 87.5%), C's 58% -> 84% (plain 34%); 512 adds nothing (~250 candidates found); ~+8 s per read.
+    retrieval_rerank_candidates: int = Field(default=256, ge=1, le=512)
     # Z2 F2: fusion finds a median 250 candidates on B and the cap above dropped the rest
     # unseen. True keeps them behind the reranked set in fusion order, so the token budget
     # is the only bound. Off until the GPU re-read and re-grade decide (RETESTS.md R2).

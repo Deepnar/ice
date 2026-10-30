@@ -38,6 +38,11 @@ def stages(_limit=None):
                    PY + ["experiments/z2/b7_calibrated.py"], estimate=3600)]
     out += [Reads(f"x-B-{c.removeprefix('retest_')}", "B", c, needs=()) for c in B_VARIANTS]
     out += [Reads(f"x-C-{c.removeprefix('retest_')}", "C", c, needs=(), estimate=16.0) for c in C_VARIANTS]
+    # 2026-10-30: 256 chosen; the order/summary settings the Z3-judging answers compare, read at 256
+    out += [Reads(f"x2-B-{c.removeprefix('retest_')}", "B", c, needs=()) for c in ("retest_c256_order", "retest_c256_no_summaries")]
+    out += [Reads(f"x2-C-{c.removeprefix('retest_')}", "C", c, needs=(), estimate=16.0)
+            for c in ("retest_c256_order", "retest_c256_originals_first", "retest_c256_policy",
+                      "retest_c256_wide_originals", "retest_c256_no_summaries")]
     out.append(funnel("B", "ice_z2_main_b", ("retest_cand64", "retest_cand256") + B_VARIANTS,
                       [f"x-B-{c.removeprefix('retest_')}" for c in B_VARIANTS]))
     out.append(funnel("C", "ice_z2_main_c", C_VARIANTS, [f"x-C-{c.removeprefix('retest_')}" for c in C_VARIANTS]))
