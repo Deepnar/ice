@@ -153,8 +153,9 @@ def ask_of(inst):
 def wipe(engine):
     from sqlalchemy import text
     from src.memory.models import Base
-    if not engine.url.database.startswith("ice_z2_"):
-        raise RuntimeError("wipe refused outside an ice_z2_ scratch database")
+    from experiments.z2.profile_write_path import SCRATCH_PREFIXES
+    if not engine.url.database.startswith(SCRATCH_PREFIXES):
+        raise RuntimeError("wipe refused outside an ice_z2_/ice_final_ scratch database")
     with engine.begin() as conn:
         conn.execute(text("TRUNCATE " + ", ".join(f'"{t}"' for t in Base.metadata.tables) + " RESTART IDENTITY CASCADE"))
 

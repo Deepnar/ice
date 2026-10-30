@@ -211,14 +211,20 @@ def retime(conversations, slug, history):
     return times
 
 
+# Scratch databases experiments may create and wipe: Z2's and FINAL's (run_final names them
+# ice_final_<run>_<history>; the guard admitted only ice_z2_, so every FINAL replay refused — caught by
+# the GPU day's LoCoMo trial, 2026-10-30). Never the live store.
+SCRATCH_PREFIXES = ("ice_z2_", "ice_final_")
+
+
 def create_database(name):
     from sqlalchemy import create_engine, text
     from sqlalchemy.engine import make_url
     from src.api.config import settings
     from src.memory.models import Base
     source = make_url(settings.database_url)
-    if name == source.database or name == "ice_db" or not name.startswith("ice_z2_"):
-        raise ValueError("scratch database must be named ice_z2_* and differ from the live store")
+    if name == source.database or name == "ice_db" or not name.startswith(SCRATCH_PREFIXES):
+        raise ValueError("scratch database must be named ice_z2_* or ice_final_* and differ from the live store")
     admin = create_engine(source.set(database="postgres"), isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
         if conn.execute(text("SELECT 1 FROM pg_database WHERE datname = :n"), {"n": name}).scalar():

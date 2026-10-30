@@ -143,3 +143,16 @@ def test_clusters_are_not_in_the_parts_test_and_decay_has_both_arms():
     assert {"full_default", "full"} <= set(R.select_conditions("final_main+final_decay"))
     assert {"full_default", "full"} <= set(R.select_conditions("final_main+final_ablation+final_buildup"))
     assert "warm_vector" in R.select_conditions("final_buildup")                      # step 0 (F13)
+
+
+def test_final_scratch_databases_pass_the_write_guards(tmp_path):
+    # The GPU day's LoCoMo trial (2026-10-30): every ice_final_* replay was refused by an ice_z2_-only guard.
+    from experiments.final import run_final as F
+    from experiments.z2 import profile_write_path as P
+    from experiments.z2 import run_z2 as Z
+    ctx = Z.Context("trial", directory=tmp_path)
+    replay = next(s for s in F.final_stages(None) if s.key == "local-replay-S1")
+    name = replay.database(ctx)
+    assert name.startswith(P.SCRATCH_PREFIXES) and name != "ice_db"
+    with __import__("pytest").raises(ValueError):
+        P.create_database("ice_db")
