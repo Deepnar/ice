@@ -421,6 +421,26 @@ context) but more intent-set flips (0.46 vs 0.40); kaiming 0.607 (memory flip 0.
 layernorm 0.605. All within 0.01 — inside the noise B1 measured (≤0.017). None passes "better F1 and no
 more flips". The live classifier stays; input scaling and initialisation were not limiting it.
 
+## F22 — the 256-candidate follow-up on B and C (`gpu_extra.py`; coverage only, timings overlapped)
+
+Cited turns in the prompt — **C (75 questions, 137 cited turns): plain vector search 33.9%, Z2's ICE as run
+55.1%, fix-pass at 64 candidates 58.1%, at 256 candidates 84.0%**, wider legs 83.9% (C's questions sit
+over long pastes; ICE's budget is ~14k there). B (174 / 239): 64 → 81.1%, 256 → 90.4%, plain 87.5%.
+- **Wider legs** (each leg fetching 3×) find nearly every turn (B never-found 13 → 2, C 7 → 0) but the extra
+  finds push others over the budget: B 90.4% → 90.0%, C 78.8% → 81.0% of cited turns. Not worth the cost.
+- **Summary settings at 256** cost almost no coverage: originals first 90.0%, policy text 90.0% (vs 90.4%);
+  on C at 64 they span 54.2% (summaries off) to 58.1%. The summary decision rests on answers (R4).
+- **Per leg** (B at 256): facts carry 43–51% of the cited turns delivered with 5–12% of prompt tokens; on C
+  55–61% with 8–11%. BM25 alone delivers 2–12% of cited turns for 13–31% of tokens.
+- Losses at 256 are now two kinds only: never found (vague questions; wider legs fix it) and ranked low
+  (over the budget; C 16%, B 4%) — the reranker's ordering is the remaining limit.
+Timings in this run overlapped the GPU day's C reads and are not used; R2's clean timings stand
+(64 7.3 s, 128 10.7 s, 256 15.2 s per read).
+
+**R9 LoCoMo trial passed** (FINAL runner, run 'trial', 30-turn slice): 10 conversations replayed, 10
+questions read under all five FINAL LoCoMo conditions, no failures — after two fixes it surfaced (scratch
+database guard, empty-slice read).
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |

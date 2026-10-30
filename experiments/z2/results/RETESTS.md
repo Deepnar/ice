@@ -68,15 +68,15 @@ re-read, never set from B alone.
 
 | | What | Needs | Status |
 |---|---|---|---|
-| R1 | F1 fix — database tests of the source check | GPU/DB | ☐ |
+| R1 | F1 fix — database tests of the source check | GPU/DB | ✅ 93 + full rails |
 | R2 | F2 — how many candidates to rank, and keep the rest | GPU | ✅ measured (pick pending) |
 | R3 | F10 — conversation order for "which came first" | GPU + CLOUD | ☐ |
 | R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ☐ |
 | R5 | F12 — judge the judge: 250 answers under both rubrics, planted panel, invariance | CLOUD (~$0.6) | ☐ |
 | R6 | Z2's grade-1 grading finishes on `main` (B's remaining phases, C, S12) | CLOUD (~$11) | ☐ |
 | R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
-| R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ☐ |
-| R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | ☐ |
+| R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ✅ G60 replaced (F20), G75 off, B7 no change |
+| R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | LoCoMo ✅; LME-S full context, BEAM ☐ |
 | R10 | F4 — B2 "no memory" on a third of LongMemEval | after S12 graded | ☐ |
 | R11 | F18 — clusters dropped from FINAL's parts test (audit A12); decay tested on S4 + S9 | design | ✅ |
 
