@@ -119,7 +119,7 @@ re-read, never set from B alone.
 | R6 | Z2's grade-1 grading finishes on `main` (B's remaining phases, C, S12) | CLOUD (~$11) | ☐ |
 | R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
 | R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ✅ G60 replaced (F20), G75 off, B7 no change |
-| R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | LoCoMo ✅; LME-S full context, BEAM ☐ |
+| R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | LoCoMo ✅; LME-S ✅ (2026-10-31, `trial.py lme`); BEAM ☐ |
 | R10 | F4 — B2 "no memory" on a third of LongMemEval | after S12 graded | ☐ |
 | R11 | F18 — clusters dropped from FINAL's parts test (audit A12); decay tested on S4 + S9 | design | ✅ |
 
@@ -168,7 +168,10 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    cleanly; the same command resumes. LongMemEval-S's first attempt found 252 empty sessions in the
    slice that crashed the replay (fixed: left out and counted); its first question then ran clean
    (261 turns, 66 min, all five reads) — and showed F4 on LongMemEval-S (B2 "no memory", so full ICE's
-   prompt equalled recent-only's).
+   prompt equalled recent-only's). LongMemEval-S ✅ 2026-10-31: both questions done, no failures; the
+   second (247 turns, 72 min) retrieved and carried the answer as a fact and a summary; every control
+   (plain search, all evidence, full context) held the evidence turn and recent-only none. One of 46
+   source-proof calls exceeded the support model's 512 tokens (WARNING, "unknown") — count it in FINAL.
 6. ✅ **Memory systems: search now, wrap later** — `run_baseline.py search|wrap`; runner stages
    `local-baseline-search-<system>-LOCOMO` (no ICE input; last in the local order, in LoCoMo's lane) and
    `local-baseline-<system>-LOCOMO` (the wrap, needs ICE's LoCoMo read). Stop anywhere: a half-ingested
