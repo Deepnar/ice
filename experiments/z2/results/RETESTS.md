@@ -319,3 +319,5 @@ LongMemEval-S full-context read, short BEAM / LongMemEval-S / baseline trials.
 
 Of LongMemEval's questions where B2 said no memory (97 of 298), check whether the answer was
 already in the recent window (oracle histories are short) before calling any of it a miss.
+**Done 2026-10-31 (FINDINGS F4):** no window exists in these reads — 130 of 456 got no memory and
+plain search held the evidence on every one checked. R10 is now the fix, not the check.

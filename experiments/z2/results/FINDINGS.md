@@ -96,6 +96,20 @@ rescue path added memory on 14, withheld it on 32, and 51 kept "no memory". In t
 setting the whole evidence may already sit in the recent window, so some of these may be
 right — decided when S12 is graded.
 
+**Measured 2026-10-31 (S12 complete, 456 questions read) — the caveat does not hold.** B2 said
+no on **146 of 456 (32%)**; the rescue's first step (the source-need judge, which reads only the
+visible prompt) kept "no memory" on 67, its proof step withheld on 63, and it admitted memory on
+16 — so full ICE answered **130 (28.5%) with no memory at all**. Every S12 question is read from a
+fresh, empty conversation: on all 146 the prompt held only the system prompt and the question,
+so no evidence sat in any window. Plain vector search held the evidence turn on **122 of the 122**
+of those 130 that mark one. B2's posterior on them: median 0.30, 15% under 0.1 — not a thin band
+under τ = 0.5. Mechanism: in a fresh conversation the memory-pressure prior is neutral by design
+(one-sided), so the decision is the classifier's p_ltm read from the question's wording plus the
+0.4 bias. B and C never show it (B2 said retrieve on every B question; those are asked inside
+the history's own conversation); LongMemEval's shape — a new chat whose first message asks about
+the user's own past — is also the product's cross-conversation case. The FINAL LongMemEval-S trial
+(2026-10-31) hit it on 1 of 2 questions (p 0.048).
+
 ## F5 OPEN — where ICE still misses (questions it retrieved for)
 
 Of the 56 B questions plain search won: 25 had no piece from the cited turns (16 of them
