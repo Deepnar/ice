@@ -321,3 +321,20 @@ Of LongMemEval's questions where B2 said no memory (97 of 298), check whether th
 already in the recent window (oracle histories are short) before calling any of it a miss.
 **Done 2026-10-31 (FINDINGS F4):** no window exists in these reads — 130 of 456 got no memory and
 plain search held the evidence on every one checked. R10 is now the fix, not the check.
+
+**The fix (2026-11-01, off by default until Z3):** `memory_source_rescue_mode="reranker"` — on a
+negative, retrieve and admit when the best reranker score reaches the bar (0 = the reranker's even
+odds); no judge or proof call. The re-read (GPU, ~6.5 h on two workers, ~320 s a question; stops
+cleanly — the questions in flight are redone; the same command resumes):
+
+```bash
+cd ~/Programs/ice-worktrees/fix-pass
+uv run --no-sync python experiments/z2/oracle.py run --slice experiments/lme/r10_slice.json --rescue-read --workers 2 --database ice_z2_r10 --out logs/z2-run-main/s12-r10
+ls logs/z2-run-main/s12-r10/instances/*/done.json | wc -l          # progress, of 146
+uv run --no-sync python experiments/z2/r10_report.py --units logs/z2-run-main/s12-r10/units
+```
+
+Reads both rescues in the same run (`full`, `full_rescue_reranker`); the report gives, for the
+questions the gate refused, how many reach the answer under each, and at each bar how many are
+admitted (abstention questions apart). If it recovers most and the bar holds, the setting joins
+Z3 judging run 2's answered settings and R7.
