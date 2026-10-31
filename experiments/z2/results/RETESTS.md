@@ -101,6 +101,21 @@ Total **~$28** of the ~$30 Go allows until Nov 27; a $5 top-up (Extra Usage) cov
 bought only when FINAL starts** — its month then covers FINAL's cloud phase, run beside FINAL's local phase:
 each history's answers start as soon as its reads finish (a cloud lane that waits for reads).
 
+## To build before FINAL (maintainer, 2026-10-31) — in this order
+
+1. ✅ Reranker input switches (query context = the classifier's prior-turn prefix; topical instruction) and their
+   B/C reads in `gpu_extra.py` (x3-*) — d22ed60. Coverage decides whether they join the Z3-judging answers.
+2. ☐ Score-blend simulation on the saved reads (no GPU): rerank order blended with the search's own order.
+3. ☐ **FINAL's cloud runner waits for reads** — a cloud lane that stays alive, polls, and starts each history's
+   answers the moment its reads finish, then its grades the moment its answers finish (per history, step by
+   step), so the Go Plus month covers FINAL's local and cloud phases together. Built and tested on a small
+   fake run before FINAL.
+4. ☐ **ICE-2 in FINAL** (next segment of C's project chat; ~350 turns, ~1.04M tokens; untouched by tuning and
+   Z2): registered as a FINAL history, its question chain in cloud prep, a review packet for the maintainer,
+   and the pre-registration revision stating why it was added — a human-written, paste-heavy technical history
+   of a kind the synthetic set cannot reproduce, of C's type but not C — and when (after Z2's C results).
+5. ☐ Live trials by hand: LongMemEval-S full context, BEAM slice.
+
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 
 ```bash
