@@ -42,6 +42,8 @@ def main() -> int:
         if not full_path.exists():
             continue
         full = json.loads(full_path.read_text())["stage"]
+        others = {c: json.loads((args.units / c / path.name).read_text())["stage"]
+                  for c in ("recent_only", "bare_vector", "all_evidence") if (args.units / c / path.name).exists()}
         q = rescue["ask"]["id"]
         inst, gate = data[q], rescue["stage"].get("gate") or {}
         plan = O.layout(inst)
@@ -52,7 +54,8 @@ def main() -> int:
         rows.append(dict(q=q, type=inst["question_type"], abstention=q.endswith("_abs"),
                          refused=gate.get("b2_retrieve") is False,
                          score=gate.get("rescue_best_score"), shipped=reached(full, snippets, answer),
-                         rescue=reached(rescue["stage"], snippets, answer), marked=bool(snippets or answer)))
+                         rescue=reached(rescue["stage"], snippets, answer), marked=bool(snippets or answer),
+                         **{c: reached(s, snippets, answer) for c, s in others.items()}))
     refused = [r for r in rows if r["refused"] and not r["abstention"] and r["marked"]]
     abst = [r for r in rows if r["refused"] and r["abstention"]]
     print(f"{len(rows)} questions read; the gate refused {sum(r['refused'] for r in rows)} "
@@ -61,8 +64,12 @@ def main() -> int:
         return 0
     unscored = sum(r["score"] is None for r in refused)
     print(f"answer in the prompt, of {len(refused)} answerable refused questions:")
+    print(f"   no memory (B2 alone, recent_only)  {sum(r.get('recent_only', False) for r in refused):4}")
     print(f"   shipped rescue (proof)          {sum(r['shipped'] for r in refused):4}")
-    print(f"   reranker rescue, bar off        {sum(r['rescue'] for r in refused):4}   (best score missing on {unscored})")
+    print(f"   reranker rescue, bar off        {sum(r['rescue'] for r in refused):4}   = no gate at all (always fetch); "
+          f"best score missing on {unscored}")
+    print(f"   plain vector search (bare)      {sum(r.get('bare_vector', False) for r in refused):4}   same budget, not ICE")
+    print(f"   all answer sessions given       {sum(r.get('all_evidence', False) for r in refused):4}   perfect-retrieval bound")
     for bar in BARS:
         admitted = [r for r in refused if r["score"] is not None and r["score"] >= bar]
         ab = sum(r["score"] is not None and r["score"] >= bar for r in abst)

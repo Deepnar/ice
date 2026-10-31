@@ -336,5 +336,7 @@ uv run --no-sync python experiments/z2/r10_report.py --units logs/z2-run-main/s1
 
 Reads both rescues in the same run (`full`, `full_rescue_reranker`); the report gives, for the
 questions the gate refused, how many reach the answer under each, and at each bar how many are
-admitted (abstention questions apart). If it recovers most and the bar holds, the setting joins
-Z3 judging run 2's answered settings and R7.
+admitted (abstention questions apart), beside no memory, plain vector search and all answer
+sessions, and split by question type. If it recovers most and the bar holds, the setting joins
+Z3 judging run 2's answered settings and R7. FINAL's LongMemEval-S report gets the same
+question-type split (maintainer, 2026-11-01).
