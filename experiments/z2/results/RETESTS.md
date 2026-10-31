@@ -34,8 +34,9 @@ uv run --no-sync python experiments/final/run_final.py run --only prep-locomo-ex
 uv run --no-sync python experiments/final/run_final.py status --watch
 ```
 
-1. **Now → Oct 31 night (GPU):** x3 reranker-input reads (~3 h) → the two live trials (LongMemEval-S
-   2 questions, BEAM 30-turn slice). Cloud: nothing (weekly limit until Nov 2).
+1. **Now → Oct 31 night (GPU):** x3 reranker-input reads (~3 h; done — neither input joins the
+   answers) → the two live trials, `experiments/final/trial.py lme` (~2 h) then `trial.py beam`
+   (~40 min, Nov 1 if late). Cloud: nothing (weekly limit until Nov 2).
 2. **Nov 1 → ~Nov 8 (GPU free):** the memory systems' ingest + search, all three, all 10 LoCoMo
    conversations. **Beside it, cloud from Nov 2**, one phase after another: Z2's own cloud run (R6) →
    Z3 judging run 1 (judge check) → the maintainer approves → run 2 (answers + grade-2) → cloud prep
@@ -161,7 +162,13 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    exactly): `private_originals.py` writes it, registered in `histories.py`, in FINAL's roster, report suite
    and `private_chain.sh`/`cloud_prep.sh` (its chain runs with cloud prep: ~5M tokens like C's, ~$1), review
    packet as for A/SW/LAP. Pre-registration revision 4 states why and when (after Z2's C results).
-5. ☐ Live trials by hand: LongMemEval-S full context, BEAM slice.
+5. ☐ Live trials by hand: LongMemEval-S full context, BEAM slice — both `experiments/final/trial.py`
+   (`lme`: 2 questions of the pinned slice; `beam`: one 128K conversation's first 30 turns through the
+   FINAL runner's own stages — the `--limit 30` run would replay all 20, ~8 h). Ctrl-C stops either
+   cleanly; the same command resumes. LongMemEval-S's first attempt found 252 empty sessions in the
+   slice that crashed the replay (fixed: left out and counted); its first question then ran clean
+   (261 turns, 66 min, all five reads) — and showed F4 on LongMemEval-S (B2 "no memory", so full ICE's
+   prompt equalled recent-only's).
 6. ✅ **Memory systems: search now, wrap later** — `run_baseline.py search|wrap`; runner stages
    `local-baseline-search-<system>-LOCOMO` (no ICE input; last in the local order, in LoCoMo's lane) and
    `local-baseline-<system>-LOCOMO` (the wrap, needs ICE's LoCoMo read). Stop anywhere: a half-ingested
