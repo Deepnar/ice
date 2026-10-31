@@ -69,15 +69,19 @@ def prompt_sha(messages):
     return hashlib.sha256(json.dumps(messages, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
-def load_units(units_dir, conditions=None):
+def load_units(units_dir, conditions=None, checkpoints=None):
     """[(condition, ask_id, messages, cache session or None)] for every S9 unit. A unit may name
     a `cache_session` (FINAL's full-history prompts share one per conversation, so the provider
-    can reuse the cached transcript); otherwise each prompt has its own session."""
+    can reuse the cached transcript); otherwise each prompt has its own session. *checkpoints*
+    (FINAL's streaming cloud runner): only units of those checkpoints, whole checkpoints only, so a
+    cache session's prompts are always answered together."""
     out = []
     for path in sorted(Path(units_dir).glob("units/*/*.json")):
         if conditions and path.parent.name not in conditions:
             continue                              # read only as another condition's prompt frame
         unit = json.loads(path.read_text())
+        if checkpoints is not None and str(unit.get("checkpoint")) not in checkpoints:
+            continue
         out.append((unit["condition"], unit["ask"]["id"], unit["stage"]["prompt_messages"],
                     unit["stage"].get("cache_session")))
     return out
@@ -93,10 +97,10 @@ class Store:
     def __init__(self, path):
         self.path, self.rows, self.lock = path, {}, threading.Lock()
         if path.exists():
-            for line in path.read_text().splitlines():
-                if line.strip():
-                    row = json.loads(line)
-                    self.rows[row["prompt_sha256"]] = row
+            from experiments.z2.ledger_merge import complete_lines
+            for line in complete_lines(path):           # a last line cut by a stop is skipped, answered again
+                row = json.loads(line)
+                self.rows[row["prompt_sha256"]] = row
         self.errors_path = path.with_name("answer-errors.json")
         self.errors = json.loads(self.errors_path.read_text()) if self.errors_path.exists() else {}
 
@@ -113,7 +117,9 @@ class Store:
         with self.lock:
             entry = self.errors.setdefault(sha, dict(n=0))
             entry.update(n=entry["n"] + 1, last=f"{type(exc).__name__}: {exc}"[:500])
-            self.errors_path.write_text(json.dumps(self.errors, indent=1))
+            tmp = self.errors_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self.errors, indent=1))
+            tmp.replace(self.errors_path)
 
 
 class Pacer:
@@ -273,7 +279,7 @@ def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_e
 
 
 def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1, pace=False,
-        output_tokens=OUTPUT_TOKENS["local"], conditions=None):
+        output_tokens=OUTPUT_TOKENS["local"], conditions=None, checkpoints=None):
     from concurrent.futures import ThreadPoolExecutor
     out.mkdir(parents=True, exist_ok=True)
     store = Store(out / "answers.jsonl")
@@ -281,8 +287,10 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
     if saved - {meta.get("model")}:
         raise MixedAnswerers(f"{out / 'answers.jsonl'} holds answers from {sorted(map(str, saved))}; "
                              f"this run answers with {meta.get('model')} — move the old file aside first")
-    units = load_units(units_dir, conditions)
+    units = load_units(units_dir, conditions, checkpoints)
     index = {f"{c}|{a}": prompt_sha(m) for c, a, m, _ in units}
+    if checkpoints is not None and (out / "index.json").exists():   # a partial pass keeps earlier entries
+        index = {**json.loads((out / "index.json").read_text())["index"], **index}
     prompts = {prompt_sha(m): m for _, _, m, _ in units}
     sessions = {prompt_sha(m): s for _, _, m, s in units if s}
     todo = [s for s in prompts if not store.settled(s)]
@@ -361,6 +369,7 @@ def main() -> int:
     parser.add_argument("--units", type=Path, required=True, help="an S9 output directory")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--conditions", help="answer only these conditions (comma-separated); others are prompt frames")
+    parser.add_argument("--checkpoints", help="answer only these whole checkpoints (comma-separated; FINAL streaming)")
     parser.add_argument("--answerer", default="muse12",
                         help="muse12 (D6d, default) | local | luna | cloud:<role> (FINAL's cloud-answerer subset)")
     args = parser.parse_args()
@@ -373,7 +382,8 @@ def main() -> int:
         cap, workers = OUTPUT_TOKENS.get(role, OUTPUT_TOKENS["muse12"]), WORKERS.get(role, WORKERS["muse12"])
         status = run(args.units, args.out, generate=answerer.generate, meta=dict(metadata(role), output_tokens=cap),
                      reload_env=answerer.refresh, workers=workers, pace=role == "luna", output_tokens=cap,
-                     conditions=args.conditions.split(",") if args.conditions else None)
+                     conditions=args.conditions.split(",") if args.conditions else None,
+                     checkpoints=set(args.checkpoints.split(",")) if args.checkpoints else None)
     else:
         answerer = LocalAnswerer()
         try:

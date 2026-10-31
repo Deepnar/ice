@@ -295,6 +295,17 @@ def pending(asks, out, conditions=CONDITIONS):
     return dict(sorted(todo.items()))
 
 
+def complete_checkpoints(out, asks_path, conditions=CONDITIONS):
+    """Checkpoints whose every expected unit (each applicable condition × each ask) exists — the ones a
+    streaming cloud runner may answer (units are written atomically, a checkpoint at a time)."""
+    asks = json.loads(Path(asks_path).read_text())
+    guard, need = guard_sample(asks), {}
+    for a in asks:
+        paths = [unit_path(out, c, a["id"]) for c, spec in conditions.items() if applies(spec, a, guard)]
+        need.setdefault(str(a["checkpoint_turn"]), []).extend(paths)
+    return {cp for cp, paths in need.items() if paths and all(p.exists() for p in paths)}
+
+
 def checkpoint_times(events_path):
     """{checkpoint turn: the user's return time} from the replay's event log."""
     from datetime import datetime

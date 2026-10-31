@@ -106,10 +106,14 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
 1. ✅ Reranker input switches (query context = the classifier's prior-turn prefix; topical instruction) and their
    B/C reads in `gpu_extra.py` (x3-*) — d22ed60. Coverage decides whether they join the Z3-judging answers.
 2. ☐ Score-blend simulation on the saved reads (no GPU): rerank order blended with the search's own order.
-3. ☐ **FINAL's cloud runner waits for reads** — a cloud lane that stays alive, polls, and starts each history's
+3. ✅ (`experiments/final/stream_cloud.py`) **FINAL's cloud runner waits for reads** — a cloud lane that stays alive, polls, and starts each history's
    answers the moment its reads finish, then its grades the moment its answers finish (per history, step by
-   step), so the Go Plus month covers FINAL's local and cloud phases together. Built and tested on a small
-   fake run before FINAL.
+   step), so the Go Plus month covers FINAL's local and cloud phases together. Approved design (2026-10-31):
+   the local phase stays snapshot-then-read (LSREP's independent reconstruction); the cloud streams by
+   **whole checkpoint** (cache sessions kept together), grades partially (never marked finished, no
+   report) and finally once inputs are complete. Stops, plan limits and cut lines disrupt nothing: answers
+   and judge calls are durable per call; the judge waits out limits instead of counting them as failures;
+   a line cut mid-write is skipped and redone. Never run FINAL's own cloud phase while it streams.
 4. ☐ **ICE-2 in FINAL** (next segment of C's project chat; ~350 turns, ~1.04M tokens; untouched by tuning and
    Z2): registered as a FINAL history, its question chain in cloud prep, a review packet for the maintainer,
    and the pre-registration revision stating why it was added — a human-written, paste-heavy technical history

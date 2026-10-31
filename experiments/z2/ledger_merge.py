@@ -122,6 +122,24 @@ def _json(text, key):
     return rows
 
 
+def complete_lines(path):
+    """Lines of a JSONL file that parse; a last line cut by a stop mid-write is skipped with a warning."""
+    lines = Path(path).read_text().splitlines()
+    out = []
+    for n, line in enumerate(lines):
+        if not line.strip():
+            continue
+        try:
+            json.loads(line)
+        except ValueError:
+            if n == len(lines) - 1:
+                print(f"WARNING: {path}: last line cut mid-write, skipped (its call is made again)", flush=True)
+                continue
+            raise
+        out.append(line)
+    return out
+
+
 class Calls:
     """Durable, resumable model calls keyed by identity. Safe to share between
     threads: appends are serialised."""
@@ -132,7 +150,7 @@ class Calls:
         self.done = {}
         self._lock = threading.Lock()
         if path.exists():
-            for line in path.open():
+            for line in complete_lines(path):
                 row = json.loads(line)
                 self.done[row["identity"]] = row
 

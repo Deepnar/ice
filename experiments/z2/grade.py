@@ -32,6 +32,7 @@ import random
 import re
 import sys
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -138,10 +139,19 @@ class Errors:
     def failed(self, key, exc):
         entry = self.counts.setdefault(key, dict(n=0))
         entry.update(n=entry["n"] + 1, last=f"{type(exc).__name__}: {exc}"[:400])
-        self.path.write_text(json.dumps(self.counts, indent=1))
+        tmp = self.path.with_suffix(".tmp")                     # a stop mid-write never leaves a broken file
+        tmp.write_text(json.dumps(self.counts, indent=1))
+        tmp.replace(self.path)
 
     def given_up(self, key):
         return self.counts.get(key, {}).get("n", 0) >= MAX_ERRORS
+
+
+def jsonl_lines(path):
+    """The complete lines of a durable JSONL file: a last line cut by a stop mid-write is skipped (warned),
+    never fatal — the call it records is simply made again."""
+    from experiments.z2.ledger_merge import complete_lines
+    return complete_lines(path)
 
 
 def load(units_dir, answers_dir, questions_dir, history, occurrences=None):
@@ -150,7 +160,7 @@ def load(units_dir, answers_dir, questions_dir, history, occurrences=None):
     answers_dir = Path(answers_dir)
     index = json.loads((answers_dir / "index.json").read_text())["index"]
     rows = {}
-    for line in (answers_dir / "answers.jsonl").read_text().splitlines():
+    for line in jsonl_lines(answers_dir / "answers.jsonl"):
         if line.strip():
             r = json.loads(line)
             rows[r["prompt_sha256"]] = r
@@ -512,7 +522,7 @@ def write_meter(out, **update):
 
 
 def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None, occurrences=None, audit=None,
-        replay=None, ranking=True, verdicts_only=False):
+        replay=None, ranking=True, verdicts_only=False, partial=False):
     """Grade one history's answers. FINAL passes ranking=False (pre-registration r2 §4 drops the
     multi-answer ranking); the cross-family judge passes verdicts_only=True (the judge's verdict
     per answer, nothing else)."""
@@ -532,7 +542,8 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     if verdicts_only:
         (out / "grades.json").write_text(json.dumps(dict(policy=POLICY, history=history, graded=graded,
                                                          verdicts_only=True), ensure_ascii=False, indent=1) + "\n")
-        (out / "status.json").write_text(json.dumps(dict(pending_errors=p1, finished=not p1)) + "\n")
+        (out / "status.json").write_text(json.dumps(dict(pending_errors=p1, finished=not p1 and not partial,
+                                                          partial=partial)) + "\n")
         return p1
     ledger = bg_audit.load_ledger(ledger_path, changes)
     originals = load_history(history)
@@ -546,14 +557,40 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
                                                      claims=verdicts, ranks=ranks, controls=ctl,
                                                      semantic_credit=semantic),
                                                 ensure_ascii=False, indent=1) + "\n")
-    if not pending:
+    if not pending and not partial:              # a streaming pass grades what is answered; no report yet
         from experiments.z2 import report
         grades = json.loads((out / "grades.json").read_text())
         extras = report.scoring_inputs(history, questions, answers, audit=audit, replay=replay, occurrences=occurrences)
         (out / "report.json").write_text(json.dumps(report.build(history, report.unit_index(units), grades, extras),
                                                     indent=1, ensure_ascii=False) + "\n")
-    (out / "status.json").write_text(json.dumps(dict(pending_errors=pending, finished=not pending)) + "\n")
+    (out / "status.json").write_text(json.dumps(dict(pending_errors=pending, finished=not pending and not partial,
+                                                     partial=partial)) + "\n")
     return pending
+
+
+def waiting(generate, refresh=None, *, sleep=time.sleep, say=print):
+    """*generate* that waits through the plan's limits and a rejected key, as the answerer does, instead of
+    failing: an item's error count (MAX_ERRORS gives it up for good) must never be spent by a quota pause
+    (FINAL streaming, 2026-10-31 — partial passes every 30 min would give items up during a long pause)."""
+    from experiments.lme.cloud_provider import ProviderAccessError
+    from experiments.z2.answers import AUTH_WAIT, QUOTA_WAIT
+    from experiments.z2.profiles import transient
+    state = {"generate": generate}
+
+    def call(*args, **kwargs):
+        while True:
+            try:
+                return state["generate"](*args, **kwargs)
+            except ProviderAccessError as exc:
+                if exc.kind != "authentication" and transient(exc):
+                    raise                                 # provider load: the retry wrapper's job
+                wait = AUTH_WAIT if exc.kind == "authentication" else QUOTA_WAIT
+                say(f"WARNING: judge {exc.kind or 'quota'} ({exc.status_code}); waiting {wait} s, then retrying "
+                    "the same call (a key swapped into .env is picked up)")
+                sleep(wait)
+                if refresh:
+                    state["generate"] = refresh() or state["generate"]
+    return call
 
 
 def judge_caller(calls, generate, meta, history, role=JUDGE):
@@ -578,6 +615,8 @@ def main() -> int:
     parser.add_argument("--replay", type=Path, help="S7's progress.jsonl (write cost per turn)")
     parser.add_argument("--no-ranking", action="store_true", help="FINAL: no multi-answer ranking (r2 §4)")
     parser.add_argument("--verdicts-only", action="store_true", help="the cross-family judge: verdicts only")
+    parser.add_argument("--partial", action="store_true",
+                        help="FINAL streaming: grade what is answered so far; never marked finished, no report")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
@@ -589,12 +628,15 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     if not (args.questions or args.occurrences):
         parser.error("one of --questions / --occurrences is required")
-    ask = judge_caller(M.Calls(args.out / "grade-raw.jsonl"), generator(args.judge).generate, metadata(args.judge),
-                       args.history, role=args.judge)
+    def refresh():
+        load_selected_env()
+        return generator(args.judge).generate
+    ask = judge_caller(M.Calls(args.out / "grade-raw.jsonl"), waiting(generator(args.judge).generate, refresh),
+                       metadata(args.judge), args.history, role=args.judge)
     pending = run(args.history, args.units, args.answers, args.questions, args.ledger, args.out, ask=ask,
                   changes=args.changes, occurrences=args.occurrences,
                   audit=args.audit, replay=args.replay, ranking=not args.no_ranking,
-                  verdicts_only=args.verdicts_only)
+                  verdicts_only=args.verdicts_only, partial=args.partial)
     print(json.dumps(dict(pending_errors=pending)))
     return 3 if pending else 0
 
