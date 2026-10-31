@@ -2985,3 +2985,16 @@ decay never ran. The read passes restore checkpoints into that same database and
 neutral-decay overlay; the live replay had changed episodic scores 22,800 times (its
 `events.jsonl`). **Read a replay's live state from its event log or checkpoint, never from a
 database an analysis stage reuses.** (2026-10-29, Z2 F18.)
+
+### 154. A baseline harness tested only on fakes fails on the library actually installed
+
+FINAL's memory-system baselines (`experiments/final/baselines/run_baseline.py`) were built and
+fakes-tested on 2026-10-26 and never run live. The first live trial (2026-10-31, two LoCoMo sessions
+per system) found three failures, each fatal at FINAL time and invisible to every test: the runner
+passed a `--dataset` argument the script did not accept; Mem0 2.2.1 refuses `search(user_id=…)`
+(it wants `filters={"user_id": …}` and `top_k`); Graphiti 0.31 on Kuzu never creates its own
+full-text indexes, so its first keyword search raises. A fake implements the API as the harness
+author imagined it, so it agrees with the harness by construction. **Before a third-party system's
+numbers are trusted — or its long run is planned — run it live on a slice, through the same
+command the runner will use, against the versions pinned in its lock file.** (FINAL, RETESTS
+build item 6.)

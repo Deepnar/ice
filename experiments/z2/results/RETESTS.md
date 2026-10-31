@@ -21,9 +21,18 @@ ICE: each system's results are placed in **ICE's recent-turns prompt frame** (IC
 envelope for the same question), so that only the memory differs — and the freeze may change that
 frame. So `run_baseline.py` is split (build item 6): **search now** (stores and hits saved per
 question), **wrap later** (minutes, after FINAL's LoCoMo read writes ICE's envelopes). Rules: they
-use the GPU, so never beside ICE's FINAL lanes or R7's reads; the baseline harness commit is recorded
-when they run and not changed after; if the briefing's feedback changes how a system is run, that
-system is re-run. Ingest time is unmeasured — a one-conversation Mem0 trial measures it first.
+use the GPU, so they pause for R7's reads; the baseline harness commit is recorded when they run and
+not changed after; if the briefing's feedback changes how a system is run, that system is re-run.
+Started and stopped by hand (Ctrl-C, any time); whatever is unfinished when FINAL's local phase
+starts resumes inside it — in LoCoMo's lane, after ICE's own LoCoMo replay and read, beside the
+other lane's ICE histories and the cloud stream. Ingest time per conversation is unmeasured; the
+meter shows it after the first conversation.
+
+```bash
+cd ~/Programs/ice-worktrees/fix-pass
+uv run --no-sync python experiments/final/run_final.py run --only prep-locomo-export,prep-amem-vendor,local-baseline-search-amem-LOCOMO,local-baseline-search-graphiti-LOCOMO
+uv run --no-sync python experiments/final/run_final.py status --watch
+```
 
 1. **Now → Oct 31 night (GPU):** x3 reranker-input reads (~3 h) → the two live trials (LongMemEval-S
    2 questions, BEAM 30-turn slice). Cloud: nothing (weekly limit until Nov 2).
@@ -35,6 +44,8 @@ system is re-run. Ingest time is unmeasured — a one-conversation Mem0 trial me
 3. **~Nov 8–10:** R7 — the chosen settings together on B and C (GPU reads + cloud answers/grades);
    the memory systems pause for its reads if not done.
 4. **~Nov 10:** Z3 freeze — switch defaults, D9 simplification, merge fix-pass into `main`, the freeze commit.
+   Stop the memory systems' run first (Ctrl-C) if it is still going; at the merge, move fix-pass's other
+   `logs/final-*` folders (questions, ledger, synth) into `main`'s logs as final-run-main and final-locomo were.
 5. **~Nov 10–17:** research briefing (GPU free: the memory systems finish here if still running).
 6. **~Nov 17:** buy Go Plus; **FINAL local starts** (2 lanes, ~9–11 GPU days → ~Nov 28), **beside it**
    `stream_cloud.py` answering and grading each checkpoint as its reads finish; once ICE's LoCoMo read
@@ -151,9 +162,20 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    and `private_chain.sh`/`cloud_prep.sh` (its chain runs with cloud prep: ~5M tokens like C's, ~$1), review
    packet as for A/SW/LAP. Pre-registration revision 4 states why and when (after Z2's C results).
 5. ☐ Live trials by hand: LongMemEval-S full context, BEAM slice.
-6. ☐ **Memory systems: search now, wrap later** — split `experiments/final/baselines/run_baseline.py`
-   (and its runner stages) so ingest + search run before ICE's freeze and the envelope step runs after
-   FINAL's LoCoMo read (timetable above).
+6. ✅ **Memory systems: search now, wrap later** — `run_baseline.py search|wrap`; runner stages
+   `local-baseline-search-<system>-LOCOMO` (no ICE input; last in the local order, in LoCoMo's lane) and
+   `local-baseline-<system>-LOCOMO` (the wrap, needs ICE's LoCoMo read). Stop anywhere: a half-ingested
+   store is rebuilt from its first session; after ingest, Graphiti's and Mem0's on-disk stores and every
+   saved hit are kept (A-Mem's in-memory store is ingested again); each file is written whole or not at
+   all. `logs/final-run-main` and `logs/final-locomo` now live in `main`'s logs (fix-pass symlinks), so
+   what runs now is where FINAL, run from `main`, looks. Live stop/resume trial (2026-10-31, two LoCoMo
+   sessions, three questions per system) passed for all three after fixing three bugs no fake could
+   show (TRAPS 154): the runner's stray `--dataset` argument, Mem0 2.2.1's `search(filters=…, top_k=…)`,
+   and Graphiti 0.31's never-created Kuzu full-text indexes (now created from its own definitions).
+   **Mem0 waits for a decision:** open-source Mem0 cannot be told a session's date (`timestamp` is
+   platform-only and raises), so its extraction anchors "yesterday" to the run day — a 2023 LoCoMo event
+   was stored as "October 30, 2026". Graphiti (reference_time) and A-Mem (note time) get each session's
+   date. Until decided, the start command above leaves Mem0 out.
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 
