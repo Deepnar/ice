@@ -122,6 +122,11 @@ def layout(inst):
         sessions.append(dict(index=index, session_id=inst["haystack_session_ids"][index],
                              start=parse_date(inst["haystack_dates"][index]), pairs=pairs(messages)))
     sessions.sort(key=lambda s: (s["start"], s["index"]))
+    # LongMemEval-S ships sessions with no messages (252 across 90 of FINAL's 100 questions, none an
+    # answer session; the oracle file has none): nothing to replay, and an empty conversation crashed
+    # seed_v3. Left out and counted (2026-10-31, found by the FINAL trial).
+    empty = [s["session_id"] for s in sessions if not s["pairs"]]
+    sessions = [s for s in sessions if s["pairs"]]
     conversations, evidence, previous_end = {}, [], None
     for k, s in enumerate(sessions):
         slug = f"lme{k:02d}"
@@ -139,7 +144,7 @@ def layout(inst):
                 sessions=[dict(slug=f"lme{k:02d}", session_id=s["session_id"], start=s["start"].isoformat(),
                                evidence=s["session_id"] in answer_sessions)
                           for k, s in enumerate(sessions)],
-                eligible=previous_end is None or asked > previous_end)
+                empty_sessions=empty, eligible=previous_end is None or asked > previous_end)
 
 
 def ask_of(inst):
@@ -311,7 +316,8 @@ def run(out, *, limit=None, only=None, shard=None):
             continue
         done.write_text(json.dumps(dict(policy=POLICY, question_id=inst["question_id"],
                                         turns=sum(len(r) for r in plan["conversations"].values()),
-                                        sessions=len(plan["conversations"]), evidence_decay=decay,
+                                        sessions=len(plan["conversations"]),
+                                        empty_sessions=len(plan["empty_sessions"]), evidence_decay=decay,
                                         seconds=round(time.time() - started)), default=str) + "\n")
         print(json.dumps(dict(question=inst["question_id"], seconds=round(time.time() - started),
                               evidence_decay=decay), default=str), flush=True)

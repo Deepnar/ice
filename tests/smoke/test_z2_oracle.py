@@ -36,6 +36,17 @@ def test_layout_sorts_sessions_and_keeps_every_turn():
     assert plan["eligible"] and plan["question_time"] > late[-1]["timestamp"]
 
 
+def test_an_empty_session_is_left_out_and_counted():
+    # LongMemEval-S ships sessions with no messages; an empty conversation crashed the replay
+    inst = dict(question_id="q1", question="?", question_type="multi-session", answer="a",
+                question_date="2023/06/01 (Thu) 10:00", haystack_session_ids=["blank", "real"],
+                haystack_dates=["2023/05/01 (Mon) 09:00", "2023/05/02 (Tue) 09:00"],
+                haystack_sessions=[[], [dict(role="user", content="u1"), dict(role="assistant", content="a1")]])
+    plan = O.layout(inst)
+    assert list(plan["conversations"]) == ["lme00"] and plan["conversations"]["lme00"][0]["prompt"] == "u1"
+    assert [s["session_id"] for s in plan["sessions"]] == ["real"] and plan["empty_sessions"] == ["blank"]
+
+
 def test_upstream_verdict_parses_the_first_yes_or_no():
     assert O._yes("Yes.") is True and O._yes("no, it misses the date") is False
     assert O._yes("The response is correct: yes") is True and O._yes("unclear") is None
