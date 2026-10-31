@@ -21,7 +21,7 @@ def test_tools_derive_from_the_registry():
 
 def test_final_private_histories_are_registered_for_import_replay():
     assert "D" not in H.HISTORIES                                          # dropped from FINAL 2026-10-28
-    for key, pairs in (("A", 290), ("SW", 128), ("LAP", 101)):
+    for key, pairs in (("A", 290), ("SW", 128), ("LAP", 101), ("ICE2", 331)):
         h = H.HISTORIES[key]
         assert h.import_rows and h.turns == pairs and h.asks_per_family == 1.5
         assert R.EXTRA_HISTORIES[key] == (h.originals, pairs)

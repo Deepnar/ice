@@ -39,7 +39,7 @@ sys.path.insert(0, str(ROOT))
 from experiments.z2 import run_z2 as Z  # noqa: E402
 from experiments.z2.histories import BEAM, HISTORIES, LOCOMO, SYNTHETIC  # noqa: E402
 
-PRIVATE = ["B", "A", "SW", "LAP"]          # D dropped 2026-10-28: the v3 hyper-parameter tuning history
+PRIVATE = ["B", "A", "SW", "LAP", "ICE2"]  # D dropped 2026-10-28: the v3 hyper-parameter tuning history; ICE2 added 2026-10-31
 AUDITED = ("B", "S9")                       # fidelity audit (pre-registration r2 §4)
 SUBSET = ("S9", "B", "S5")                  # experiments/final/cloud_subset.py HISTORIES
 SUBSET_ANSWERER = "cloud:longcat"           # a non-Meta family; picked at the time (prereg §6)

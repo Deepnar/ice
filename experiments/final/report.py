@@ -91,8 +91,8 @@ def beam(run):
 # (maintainer, 2026-10-28).
 SUITES = {
     "LSREP synthetic — carries the claims (releasable)": ("S1", "S2", "S3", "S4", "S5", "S6", "S7", "S9"),
-    "LSREP private — real-world check, not releasable (A, SW, LAP held out; B tested in Z2, its questions sealed)":
-        ("A", "SW", "LAP", "B"),
+    "LSREP private — real-world check, not releasable (A, SW, LAP, ICE2 held out; B tested in Z2, its questions sealed)":
+        ("A", "SW", "LAP", "ICE2", "B"),
 }
 
 # The named measures (pre-registration §2, 2026-10-28): ACC accuracy · SCA supported current

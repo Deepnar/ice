@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # All of FINAL's cloud preparation in one go (maintainer, 2026-10-28): the nine synthetic
-# conversations (experiments/synth/generate_all.sh) and the private ground truth for A, SW and
-# LAP (experiments/final/private_chain.sh), side by side. Neither uses the GPU; both are
+# conversations (experiments/synth/generate_all.sh) and the private ground truth for A, SW, LAP
+# and ICE2 (experiments/final/private_chain.sh), side by side. Neither uses the GPU; both are
 # resumable — rerun the same command after a stop or a quota pause.
 #
 #   experiments/final/cloud_prep.sh
@@ -26,8 +26,8 @@ for sid in [f"S{i}" for i in range(1, 10)]:
     stop = json.loads((d / "stopped.json").read_text()) if (d / "stopped.json").exists() else None
     state = "FINISHED" if (d / "originals.json").exists() else (f"STOPPED at turn {stop['turn']}: {stop['problems'][0][:70]}" if stop else "in progress")
     print(f"  {sid}: {rows:5}/{total:<5} {state}")
-print("PRIVATE GROUND TRUTH (A, SW, LAP)")
-for h in ("A", "SW", "LAP"):
+print("PRIVATE GROUND TRUTH (A, SW, LAP, ICE2)")
+for h in ("A", "SW", "LAP", "ICE2"):
     q, log = Path(f"logs/final-questions/{h}"), Path(f"logs/final-questions/chain-{h}.log")
     steps = [l for l in log.read_text().splitlines() if re.match(r"\[\w+\] ", l)] if log.exists() else []
     if (q / "asks.json").exists():
@@ -44,7 +44,7 @@ fi
 experiments/synth/generate_all.sh >> logs/cloud-prep-synth.log 2>&1 &
 echo "synthetic conversations running — log: logs/cloud-prep-synth.log"
 experiments/final/private_chain.sh >> logs/cloud-prep-private.log 2>&1 &
-echo "private ground truth (A, SW, LAP) running — log: logs/cloud-prep-private.log"
+echo "private ground truth (A, SW, LAP, ICE2) running — log: logs/cloud-prep-private.log"
 wait
 echo "== synthetic"; tail -11 logs/cloud-prep-synth.log
 echo "== private"; tail -5 logs/cloud-prep-private.log

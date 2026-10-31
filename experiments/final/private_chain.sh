@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# FINAL's private ground truth for A, SW and LAP (Z3 D13: no Muse in the ground truth) — the Z2
+# FINAL's private ground truth for A, SW, LAP and ICE2 (Z3 D13: no Muse in the ground truth) — the Z2
 # S1-S5 chain, cloud only: DeepSeek V4.1 Flash and MiMo-V2.6-Flash write and check each other,
 # disputes are not changes (--tie-breaker none), the forward walk is verified by MiMo, and the
 # embeddings run on the GPU (maintainer, 2026-10-28: on the CPU they lagged the laptop). Resumable: every model
 # call is durable, so rerunning the same command continues where it stopped.
 #
-#   experiments/final/private_chain.sh            # A SW LAP, side by side
+#   experiments/final/private_chain.sh            # A SW LAP ICE2, side by side (a finished one is skipped)
 #   experiments/final/private_chain.sh SW         # one history
 #
 # Per history, in order: ledger (both writers, merge) -> logs/final-ledger/<h>/; detail pass over
@@ -43,7 +43,7 @@ chain() {
   echo "[$h] DONE $(date +%T) — review packet in logs/final-questions/$h/"
 }
 
-for h in "${@:-A SW LAP}"; do
+for h in "${@:-A SW LAP ICE2}"; do
   for one in $h; do
     chain "$one" >> "logs/final-questions/chain-$one.log" 2>&1 &   # appended: a restart keeps the earlier log
     echo "[$one] running — log: logs/final-questions/chain-$one.log"

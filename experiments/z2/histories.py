@@ -56,8 +56,10 @@ FINAL_PRIVATE = {
                  changes=f"logs/final-questions/{key}/changes.json",
                  asks=f"logs/final-questions/{key}/asks.json")
     # D (v2 Dataset D, 251 pairs) was dropped from FINAL 2026-10-28: v3's hyper-parameters were tuned on it.
+    # ICE2 (added 2026-10-31, pre-registration revision 4): the chat that continues C's project, from
+    # the later DeepSeek export — C's kind of history (technical, paste-heavy) without repeating C.
     for key, prefix, pairs in (("A", "633e26f8", 290), ("SW", "bd94e64b", 128),
-                               ("LAP", "942699a4", 101))
+                               ("LAP", "942699a4", 101), ("ICE2", "cb1ff23b", 331))
 }
 HISTORIES.update(FINAL_PRIVATE)
 
