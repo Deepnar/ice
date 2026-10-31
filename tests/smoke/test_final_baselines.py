@@ -150,3 +150,14 @@ def test_wrap_places_saved_hits_in_ices_envelope_and_waits_for_the_search(tmp_pa
     assert unit["condition"] == "fake" and unit["checkpoint"] == 9 and unit["stage"]["memories"] == ["hit for Q2?"]
     assert [m["role"] for m in unit["stage"]["prompt_messages"]] == ["system", "user", "assistant", "user"]
     assert (tmp_path / "out/instances/LOCOMO-x/done.json").exists()
+
+
+def test_the_session_clock_sets_a_modules_now_and_restores_it():
+    import types
+    from datetime import datetime, timezone
+    mod = types.SimpleNamespace(datetime=datetime)
+    when = datetime(2023, 5, 8, 13, 56, tzinfo=timezone.utc)
+    with B.session_clock(when, [mod]):
+        assert mod.datetime.now(timezone.utc).date().isoformat() == "2023-05-08"
+        assert mod.datetime.now().year == 2023 and mod.datetime.fromisoformat("2024-01-01").year == 2024
+    assert mod.datetime is datetime and datetime.now().year >= 2026

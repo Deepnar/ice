@@ -116,8 +116,40 @@ class GraphitiMemory:
                 for e in edges]
 
 
+class session_clock:
+    """The clock a library's modules read, set to one session's time while it is ingested — as if the
+    session were happening now. Only the modules' `datetime` name is swapped; their code is untouched."""
+
+    def __init__(self, when, modules):
+        self.when, self.modules, self.saved = when, modules, []
+
+    def __enter__(self):
+        when = self.when
+
+        class Fixed(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return when.astimezone(tz) if tz else when.replace(tzinfo=None)
+        self.saved = [(m, m.datetime) for m in self.modules]
+        for m in self.modules:
+            m.datetime = Fixed
+        return self
+
+    def __exit__(self, *exc):
+        for m, real in self.saved:
+            m.datetime = real
+        return False
+
+
 class Mem0Memory:
-    """Mem0's open-source SDK: Ollama LLM and embedder, Qdrant in local on-disk mode."""
+    """Mem0's open-source SDK: Ollama LLM and embedder, Qdrant in local on-disk mode.
+
+    Open-source Mem0 takes no session date (its `timestamp` is platform-only and raises), so its
+    extraction resolves "yesterday" against the machine's clock — on a replay years later, a 2023
+    event is stored under the run day. It assumes it ingests live; each session is ingested with
+    the clock its prompt and storage modules read set to that session's time (session_clock), as if
+    it ran that day — the Observation Date its own extraction prompt is written for. Mem0's code
+    and prompts are unchanged (maintainer, 2026-10-31)."""
 
     def __init__(self, store):
         from mem0 import Memory
@@ -134,8 +166,11 @@ class Mem0Memory:
     speakers = ()                                  # set by conversation(): (speaker_a, speaker_b)
 
     async def add(self, when, sid, msgs):
-        for speaker in self.speakers:
-            self.m.add(from_side(msgs, speaker), user_id=speaker, metadata=dict(session=sid, date=when.isoformat()))
+        import mem0.configs.prompts
+        import mem0.memory.main
+        with session_clock(when, (mem0.configs.prompts, mem0.memory.main)):
+            for speaker in self.speakers:
+                self.m.add(from_side(msgs, speaker), user_id=speaker, metadata=dict(session=sid, date=when.isoformat()))
 
     async def search(self, question):
         out = []
