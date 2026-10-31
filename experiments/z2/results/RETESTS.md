@@ -105,7 +105,7 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
 
 1. ✅ Reranker input switches (query context = the classifier's prior-turn prefix; topical instruction) and their
    B/C reads in `gpu_extra.py` (x3-*) — d22ed60. Coverage decides whether they join the Z3-judging answers.
-2. ☐ Score-blend simulation on the saved reads (no GPU): rerank order blended with the search's own order.
+2. ✅ Score-blend simulation (`blend_sim.py`): no blend helps (B level, C worse) — FINDINGS F23; nothing built.
 3. ✅ (`experiments/final/stream_cloud.py`) **FINAL's cloud runner waits for reads** — a cloud lane that stays alive, polls, and starts each history's
    answers the moment its reads finish, then its grades the moment its answers finish (per history, step by
    step), so the Go Plus month covers FINAL's local and cloud phases together. Approved design (2026-10-31):

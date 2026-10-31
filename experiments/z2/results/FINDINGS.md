@@ -441,6 +441,15 @@ Timings in this run overlapped the GPU day's C reads and are not used; R2's clea
 questions read under all five FINAL LoCoMo conditions, no failures — after two fixes it surfaced (scratch
 database guard, empty-slice read).
 
+## F23 — blending the reranker with the search's own order does not help (`blend_sim.py`, no GPU)
+
+At 256 candidates, each question's reranked list re-ordered by w × rerank position + (1 − w) × fusion
+position (RRF over the legs' saved lists), packed greedily into the same budget: **B** reranker alone 50.7%,
+70–90% reranker 51.0% (noise), 50% 49.9%, search order alone 45.0%; **C** reranker alone 81.5%, 90% 80.4%,
+70% 66.3%, search order alone 38.8%. The simulated packing skips dedup and degradation, so only the
+differences between weights count — and every blend is level or worse. No switch built; the reranker's
+remaining losses are its inputs (query context, instruction: x3 reads), not its weight against fusion.
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |
