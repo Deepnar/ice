@@ -186,7 +186,11 @@ headline (kept as a descriptive column).
   speaker's name; Mem0 keeps one memory per speaker, that speaker as its "user", and searches both
   (each memory labelled with whose it is). A-Mem is the memory layer its paper evaluated (pinned in
   `experiments/final/baselines/AMEM.json`) — its library package skips note construction; its
-  fallback rate (a failed model call becoming an empty note analysis) is reported.
+  fallback rate (a failed model call becoming an empty note analysis) is reported. Each system gets
+  every session's date: Graphiti and A-Mem through their own options; open-source Mem0 has none (its
+  date option is platform-only), so it ingests each session with its clock set to that session's
+  date, as if run live that day — its code and prompts unchanged; otherwise it would date a 2023
+  event to the run day (amended before any FINAL answer, 2026-10-31).
 - **LoCoMo** as a small, clearly labelled extra table (its known answer-key errors — ~6% — and
   lenient common judge stated; every conversation fits a 256K window, so it cannot show
   out-of-window behaviour), conditions and scoring as in §1 — Mem0's protocol (J, F1, BLEU-1) on

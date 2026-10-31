@@ -30,7 +30,7 @@ meter shows it after the first conversation.
 
 ```bash
 cd ~/Programs/ice-worktrees/fix-pass
-uv run --no-sync python experiments/final/run_final.py run --only prep-locomo-export,prep-amem-vendor,local-baseline-search-amem-LOCOMO,local-baseline-search-graphiti-LOCOMO
+uv run --no-sync python experiments/final/run_final.py run --only prep-locomo-export,prep-amem-vendor,local-baseline-search-mem0-LOCOMO,local-baseline-search-amem-LOCOMO,local-baseline-search-graphiti-LOCOMO
 uv run --no-sync python experiments/final/run_final.py status --watch
 ```
 
@@ -172,10 +172,12 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    sessions, three questions per system) passed for all three after fixing three bugs no fake could
    show (TRAPS 154): the runner's stray `--dataset` argument, Mem0 2.2.1's `search(filters=…, top_k=…)`,
    and Graphiti 0.31's never-created Kuzu full-text indexes (now created from its own definitions).
-   **Mem0 waits for a decision:** open-source Mem0 cannot be told a session's date (`timestamp` is
-   platform-only and raises), so its extraction anchors "yesterday" to the run day — a 2023 LoCoMo event
-   was stored as "October 30, 2026". Graphiti (reference_time) and A-Mem (note time) get each session's
-   date. Until decided, the start command above leaves Mem0 out.
+   **Mem0's session date (maintainer, 2026-10-31):** open-source Mem0 cannot be told a session's date
+   (`timestamp` is platform-only and raises), so its extraction anchored "yesterday" to the run day — a
+   2023 LoCoMo event was stored as "October 30, 2026". Graphiti (reference_time) and A-Mem (note time)
+   get each session's date. Mem0 now ingests each session with the clock its modules read set to that
+   session's time (`session_clock`; its code and prompts untouched) — as if run live that day; the
+   trial then stored "May 7, 2023", LoCoMo's own answer. Disclosed in the pre-registration's §4.
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 
