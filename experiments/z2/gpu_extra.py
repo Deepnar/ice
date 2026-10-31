@@ -43,6 +43,14 @@ def stages(_limit=None):
     out += [Reads(f"x2-C-{c.removeprefix('retest_')}", "C", c, needs=(), estimate=16.0)
             for c in ("retest_c256_order", "retest_c256_originals_first", "retest_c256_policy",
                       "retest_c256_wide_originals", "retest_c256_no_summaries")]
+    # 2026-10-31: the reranker's inputs (Z2 F22) on B and C, and their funnel
+    rq = ("retest_c256_rq_context", "retest_c256_rq_topical", "retest_c256_rq_both")
+    out += [Reads(f"x3-{h}-{c.removeprefix('retest_')}", h, c, needs=(), estimate=16.0 if h == "C" else 15.0)
+            for h in ("B", "C") for c in rq]
+    for h, db in (("B", "ice_z2_main_b"), ("C", "ice_z2_main_c")):
+        f = funnel(h, db, ("retest_cand256",) + rq, [f"x3-{h}-{c.removeprefix('retest_')}" for c in rq])
+        f.key, f.title = f"x3-funnel-{h}", f"reranker inputs: where evidence is lost ({h})"
+        out.append(f)
     out.append(funnel("B", "ice_z2_main_b", ("retest_cand64", "retest_cand256") + B_VARIANTS,
                       [f"x-B-{c.removeprefix('retest_')}" for c in B_VARIANTS]))
     out.append(funnel("C", "ice_z2_main_c", C_VARIANTS, [f"x-C-{c.removeprefix('retest_')}" for c in C_VARIANTS]))

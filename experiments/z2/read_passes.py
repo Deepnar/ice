@@ -257,6 +257,17 @@ RETEST_CONDITIONS.update({
 })
 PRESETS["retest_c256_answered"] = ["retest_cand256", "retest_c256_order", "retest_c256_originals_first",
                                    "retest_c256_policy", "retest_c256_wide_originals", "retest_c256_no_summaries"]
+# The reranker's inputs (Z2 F22, 2026-10-31), at the 256 default: the user's recent turns before the question,
+# the topical instruction, and both.
+RETEST_CONDITIONS.update({
+    "retest_c256_rq_context": dict(overlay="default", arm="full", subset="questions",
+                                   settings={**_C256, "retrieval_rerank_query_context": "recent"}),
+    "retest_c256_rq_topical": dict(overlay="default", arm="full", subset="questions",
+                                   settings={**_C256, "retrieval_rerank_instruction": "topical"}),
+    "retest_c256_rq_both": dict(overlay="default", arm="full", subset="questions",
+                                settings={**_C256, "retrieval_rerank_query_context": "recent",
+                                          "retrieval_rerank_instruction": "topical"}),
+})
 PRESETS["retest_candidates"] = [k for k in RETEST_CONDITIONS if k.startswith("retest_cand")]
 
 

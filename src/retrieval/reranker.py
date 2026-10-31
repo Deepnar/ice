@@ -17,6 +17,19 @@ INSTRUCTION = (
     "for answering it. Related topic alone is insufficient. Historical or "
     "negative facts can be relevant."
 )
+# Z2 F22 (2026-10-31): "related topic alone is insufficient" may push down the turns a broad question
+# ("list everything about my saga") asks to recall. One instruction for every question — the switch is
+# never chosen from a question's wording (CLAUDE.md: no decision may depend on how a thing is written).
+INSTRUCTIONS = {
+    "strict": INSTRUCTION,
+    "topical": ("Given a question or task, retrieve memories that provide evidence useful for answering "
+                "it, including memories about the people, things or topics it asks to recall, list or "
+                "summarise. Historical or negative facts can be relevant."),
+}
+
+
+def instruction():
+    return INSTRUCTIONS[settings.retrieval_rerank_instruction]
 _lock = threading.Lock()
 _model = None
 _model_key = None
@@ -35,6 +48,7 @@ def score_pairs(pairs):
         settings.retrieval_rerank_model,
         settings.retrieval_rerank_revision,
         settings.retrieval_rerank_device,
+        settings.retrieval_rerank_instruction,
     )
     with _lock:
         if _model_key != key:
@@ -57,7 +71,7 @@ def score_pairs(pairs):
                         if device.startswith("cuda")
                         else torch.float32
                     },
-                    prompts={"ice": INSTRUCTION},
+                    prompts={"ice": instruction()},
                     default_prompt_name="ice",
                 )
                 logger.info(
@@ -76,7 +90,7 @@ def score_pairs(pairs):
                 # The exact inference template must fit: tokenizing raw strings
                 # alone misses the instruction/chat wrapper.
                 features = _model.preprocess(
-                    [pair], prompt=INSTRUCTION, processing_kwargs=processing
+                    [pair], prompt=instruction(), processing_kwargs=processing
                 )
                 return features["input_ids"].shape[-1] <= settings.retrieval_rerank_max_tokens
 

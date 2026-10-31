@@ -234,6 +234,7 @@ def test_complete_template_limit_is_checked_before_inference(monkeypatch):
         settings.retrieval_rerank_model,
         settings.retrieval_rerank_revision,
         settings.retrieval_rerank_device,
+        settings.retrieval_rerank_instruction,
     )
     monkeypatch.setattr(module, "_model_key", key)
     fake = SimpleNamespace(
@@ -251,7 +252,7 @@ def test_overlength_pair_does_not_disable_other_model_scores(monkeypatch):
     from src.memory import embedder
     monkeypatch.setattr(embedder, 'resolve_device', lambda preference: 'cpu')
     monkeypatch.setattr(module, '_model_key', (settings.retrieval_rerank_model,
-        settings.retrieval_rerank_revision, settings.retrieval_rerank_device))
+        settings.retrieval_rerank_revision, settings.retrieval_rerank_device, settings.retrieval_rerank_instruction))
     calls=[]
     def predict(batch, **kwargs):
         calls.extend(batch)
@@ -273,7 +274,7 @@ def _length_model(monkeypatch, limit_chars):
     from src.memory import embedder
     monkeypatch.setattr(embedder, "resolve_device", lambda preference: "cpu")
     monkeypatch.setattr(module, "_model_key", (settings.retrieval_rerank_model,
-        settings.retrieval_rerank_revision, settings.retrieval_rerank_device))
+        settings.retrieval_rerank_revision, settings.retrieval_rerank_device, settings.retrieval_rerank_instruction))
     seen = []
 
     def predict(batch, **kwargs):
@@ -375,3 +376,30 @@ def test_policy_representation_keeps_the_picked_text_and_its_fallbacks(monkeypat
     assert ok and calls == [("query", picked)]                     # one pair, not three
     assert ranked[0].text == picked
     assert (ranked[0].degrade_text, ranked[0].abstract_text) == ("summary", "abstract")
+
+
+def test_rerank_query_context_matches_the_classifier_prefix(monkeypatch):
+    # Z2 F22: "recent" gives the reranker the user's last turns, built as the classifier's prefix.
+    from types import SimpleNamespace as NS
+    rows = [NS(raw_text=f"User: turn {i}\n\nAssistant: ok", summary_text=None, abstract_text=None,
+               summary_coverage=None, inject_raw=True, representation_verification=None, source_spans=None)
+            for i in (3, 2, 1)]
+    class Query:
+        def filter(self, *_a): return self
+        def order_by(self, *_a): return self
+        def limit(self, n): self.n = n; return self
+        def all(self): return rows[:self.n]
+    o = HybridRetrievalOrchestrator(NS(query=lambda *_a: Query()), None)
+    assert o._rerank_query("what did we pick?", "c1") == "what did we pick?"          # shipped: none
+    monkeypatch.setattr(settings, "retrieval_rerank_query_context", "recent")
+    q = o._rerank_query("what did we pick?", "c1")
+    assert q.startswith("Earlier in this conversation:") and q.endswith("Current message: what did we pick?")
+    assert q.index("turn 1") < q.index("turn 3")                                       # oldest first
+    assert o._rerank_query("what did we pick?", None) == "what did we pick?"
+
+
+def test_instruction_switch_selects_the_loaded_prompt(monkeypatch):
+    from src.retrieval import reranker as R
+    assert R.instruction() == R.INSTRUCTION and "insufficient" in R.instruction()
+    monkeypatch.setattr(settings, "retrieval_rerank_instruction", "topical")
+    assert "insufficient" not in R.instruction() and "recall, list" in R.instruction()

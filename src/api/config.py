@@ -295,6 +295,11 @@ class Settings(BaseSettings):
     # unseen. True keeps them behind the reranked set in fusion order, so the token budget
     # is the only bound. Off until the GPU re-read and re-grade decide (RETESTS.md R2).
     retrieval_rerank_keep_unranked: bool = False
+    # Z2 F22 (2026-10-31), RETESTS: what the reranker reads besides each piece. query_context "recent" puts
+    # the user's last classifier_context_turns turns (<= classifier_context_max_words, as the classifier
+    # gets them) before the question; instruction "topical" drops "related topic alone is insufficient".
+    retrieval_rerank_query_context: Literal["none", "recent"] = "none"
+    retrieval_rerank_instruction: Literal["strict", "topical"] = "strict"
     retrieval_rerank_batch_size: int = Field(default=4, ge=1, le=64)
     retrieval_rerank_max_tokens: int = Field(default=4096, ge=128, le=32768)
     retrieval_rerank_min_score: Optional[float] = Field(default=None, allow_inf_nan=False)

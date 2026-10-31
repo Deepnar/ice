@@ -651,7 +651,7 @@ class HybridRetrievalOrchestrator:
         # did not, and the two disagreed.
         fused = self._apply_bonuses(fused, classification, own_conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
-        fused, reranked = rerank(classification.prompt, fused)
+        fused, reranked = rerank(self._rerank_query(classification.prompt, own_conv_id), fused)
         if reranked:
             fused = self._fact_strength_bonus(fused)
         # G29: no max_per_conversation here — passing the literal 3 is what made
@@ -1570,6 +1570,30 @@ class HybridRetrievalOrchestrator:
         if current and earlier is not None:
             rendered += f" (earlier: {earlier.text} — until {earlier.valid_until:%Y-%m-%d})"
         return rendered
+
+    def _rerank_query(self, prompt, conversation_id):
+        """The reranker's query: the message, or (retrieval_rerank_query_context="recent") the user's last
+        turns before it, built exactly as the classifier's prior-turn prefix (Z2 F22)."""
+        if settings.retrieval_rerank_query_context != "recent" or not conversation_id or self.db is None:
+            return prompt
+        from src.classifier import templates
+        from src.memory.representation import choose_representation
+        try:
+            rows = (self.db.query(EpisodicMemory).filter(EpisodicMemory.conversation_id == conversation_id)
+                    .order_by(EpisodicMemory.timestamp.desc()).limit(settings.classifier_context_turns).all())
+        except Exception as err:                                  # noqa: BLE001
+            logger.warning("rerank_query_context_unavailable", reason=type(err).__name__)
+            return prompt
+        texts = []
+        for row in reversed(rows):
+            preferred, shorter, _ = choose_representation(row)
+            text = shorter or preferred or ""
+            if text == (row.raw_text or ""):
+                text = templates.cap_turn(text)
+            if text:
+                texts.append(text)
+        context = templates.truncate_context(texts, max_total_words=settings.classifier_context_max_words)
+        return f"Earlier in this conversation:\n{context}\n\nCurrent message: {prompt}" if context else prompt
 
     def _fact_strength_bonus(self, fragments):
         """D7: after the reranker (a prior before it only moves the candidate cut).
@@ -2794,7 +2818,7 @@ class HybridRetrievalOrchestrator:
                                                     alpha_map={"fallback": 1.0, "cold": 1.0}))
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
-        fused, reranked = rerank(classification.prompt, fused)
+        fused, reranked = rerank(self._rerank_query(classification.prompt, str(conversation_id) if conversation_id else None), fused)
         if reranked:
             fused = self._fact_strength_bonus(fused)   # D7, as on the main path
         # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
