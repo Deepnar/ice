@@ -530,7 +530,7 @@ class Baseline(Z.Stage):
 
         def attempt():
             cmd = ["uv", "run", "--no-sync", "--project", str(self.BASE), "python", str(self.BASE / "run_baseline.py"),
-                   "--system", self.system, *self.args(ctx), "--out", str(self.out(ctx))]
+                   self.phase, "--system", self.system, *self.args(ctx), "--out", str(self.out(ctx))]
             os.environ.setdefault("MEM0_TELEMETRY", "False")
             env_before = os.environ.get("UV_PROJECT_ENVIRONMENT")
             os.environ["UV_PROJECT_ENVIRONMENT"] = str(self.BASE / ".venv")
@@ -545,25 +545,49 @@ class Baseline(Z.Stage):
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
-class LoCoMoBaseline(Baseline):
-    """A memory system on one LoCoMo conversation: one store, every question searched."""
+class LoCoMoSearch(Baseline):
+    """A memory system on one LoCoMo conversation: one store, every question searched. Nothing of
+    ICE is read, so it runs before ICE's freeze (maintainer, 2026-10-31); a stop is safe anywhere
+    (experiments/final/baselines/run_baseline.py: a half-ingested store is rebuilt, saved hits kept)."""
+
+    phase = "search"
 
     def __init__(self, system, history):
-        Z.Stage.__init__(self, key=f"local-baseline-{system}-{history}", title=f"baseline {system} {history}",
-                         needs=(f"local-read-{history}",), unit="questions", estimate=60.0)
+        Z.Stage.__init__(self, key=f"local-baseline-search-{system}-{history}", title=f"baseline {system} {history} (search)",
+                         unit="questions", estimate=60.0)
         self.system, self.history = system, history
 
     def total(self, ctx):
         return HISTORIES[self.history].planned_asks
 
     def done(self, ctx):
-        return len(list((self.out(ctx) / "units" / self.system).glob("*.json")))
+        return len(list((self.out(ctx) / "instances" / self.history / "hits").glob("*.json")))
 
     def complete(self, ctx):
         return (self.out(ctx) / "instances" / self.history / "done.json").exists()
 
     def args(self, ctx):
-        return ["--dataset", "locomo", "--history", self.history, "--ice-units", str(ctx.dir / f"local-read-{self.history}")]
+        return ["--history", self.history]
+
+
+class LoCoMoBaseline(LoCoMoSearch):
+    """The search's saved hits placed in ICE's recent_only envelope for the same question — after
+    FINAL's LoCoMo read (the frame the freeze may still change). Minutes; its units are answered."""
+
+    phase = "wrap"
+
+    def __init__(self, system, history):
+        Z.Stage.__init__(self, key=f"local-baseline-{system}-{history}", title=f"baseline {system} {history} (wrap)",
+                         needs=(f"local-read-{history}", f"local-baseline-search-{system}-{history}"),
+                         unit="questions", estimate=1.0)
+        self.system, self.history = system, history
+
+    def done(self, ctx):
+        return len(list((self.out(ctx) / "units" / self.system).glob("*.json")))
+
+    def args(self, ctx):
+        return ["--history", self.history, "--search", str(ctx.dir / f"local-baseline-search-{self.system}-{self.history}"),
+                "--ice-units", str(ctx.dir / f"local-read-{self.history}")]
 
 
 def amem_target():
@@ -657,15 +681,23 @@ def final_stages(limit=None):
                        [answers(k, planned=HISTORIES[k].planned_asks * len(LOCOMO_ANSWERED), conditions=LOCOMO_ANSWERED)
                         for k in lk], "answers", needs=("local-read-LOCOMO",)))
     for system in MEMORY_SYSTEMS:
-        local.append(Group(f"local-baseline-{system}-LOCOMO", f"baseline {system} LoCoMo",
-                           [LoCoMoBaseline(system, k) for k in lk], "questions",
-                           needs=("local-read-LOCOMO",) + (("prep-amem-vendor",) if system == "amem" else ())))
         cloud.append(Group(f"cloud-answers-baseline-{system}-LOCOMO", f"answers baseline {system} LoCoMo",
                            [Z.Answers(f"baseline-{system}-{k}", key=f"cloud-answers-baseline-{system}-{k}",
                                       title=f"answers baseline {system} {k}", units_key=f"local-baseline-{system}-{k}",
                                       needs=(f"local-baseline-{system}-{k}",), planned=HISTORIES[k].planned_asks)
                             for k in lk], "answers", needs=(f"local-baseline-{system}-LOCOMO",)))
     local.append(LongMemEvalS())
+    # The memory systems' ingest + search: no ICE in it, so it may run early, by name, in the GPU-free
+    # weeks before the freeze (`run --only local-baseline-search-…`); last in the local order, so in
+    # FINAL's own run an unfinished one resumes after ICE's local stages (maintainer, 2026-10-31).
+    local += [Group(f"local-baseline-search-{system}-LOCOMO", f"baseline {system} LoCoMo (ingest + search)",
+                    [LoCoMoSearch(system, k) for k in lk], "questions",
+                    needs=("prep-locomo-export",) + (("prep-amem-vendor",) if system == "amem" else ()))
+              for system in MEMORY_SYSTEMS]
+    local += [Group(f"local-baseline-{system}-LOCOMO", f"baseline {system} LoCoMo (wrap in ICE's frame)",
+                    [LoCoMoBaseline(system, k) for k in lk], "questions",
+                    needs=("local-read-LOCOMO", f"local-baseline-search-{system}-LOCOMO"))
+              for system in MEMORY_SYSTEMS]
     cloud.append(Z.Answers("lmes", key="cloud-answers-lmes", title="answers LongMemEval-S", units_key="local-lmes",
                            needs=("local-lmes",), planned=100 * len(LMES_ANSWERED), conditions=LMES_ANSWERED))
 

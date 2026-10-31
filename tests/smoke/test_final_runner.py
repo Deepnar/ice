@@ -44,6 +44,16 @@ def test_memory_systems_run_on_locomo_only():
         assert f"local-baseline-{system}" not in stages and f"grade-baseline-{system}" not in stages
         assert stages[f"local-baseline-{system}-LOCOMO"].needs[0] == "local-read-LOCOMO"
         assert f"grade-baseline-{system}-LOCOMO" in stages
+    # ingest + search read nothing of ICE (they may run before the freeze); only the wrap waits for
+    # ICE's LoCoMo read, and every search comes before its wrap in the local order
+    keys = list(stages)
+    for system in F.MEMORY_SYSTEMS:
+        search, wrap = stages[f"local-baseline-search-{system}-LOCOMO"], stages[f"local-baseline-{system}-LOCOMO"]
+        assert not any("read" in n or "replay" in n for n in search.needs)
+        assert all(not m.needs for m in search.members) and search.members[0].phase == "search"
+        assert set(wrap.needs) == {"local-read-LOCOMO", search.key} and wrap.members[0].phase == "wrap"
+        assert keys.index(search.key) < keys.index(wrap.key)
+        assert "--ice-units" not in search.members[0].args(None)
 
 
 def test_each_kind_of_data_answers_only_its_own_conditions():
@@ -102,7 +112,7 @@ def test_locomo_and_amem_are_wired_local_then_cloud():
     keys = list(stages)
     assert len(stages["local-read-LOCOMO"].members) == 10
     assert stages["local-read-LOCOMO"].members[0].preset == "final_locomo"
-    assert "prep-amem-vendor" in stages["local-baseline-amem-LOCOMO"].needs
+    assert "prep-amem-vendor" in stages["local-baseline-search-amem-LOCOMO"].needs
     for k in ("local-baseline-amem-LOCOMO", "local-replay-LOCOMO"):
         assert keys.index(k) < keys.index("cloud-answers-LOCOMO") < keys.index("grade-LOCOMO")
     member = stages["grade-baseline-mem0-LOCOMO"].members[0]

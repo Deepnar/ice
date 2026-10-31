@@ -13,12 +13,25 @@ about its user), and each question searches both. Per question the system's own 
 its top MEMORIES results (Mem0: per speaker, each labelled with whose memory it is), placed in
 exactly the evidence position of ICE's bare-vector condition (ICE's recent_only envelope for
 the same question) and written as a read unit that experiments/z2/answers.py and grade.py take
-unchanged (answered by FINAL's answerer). Durable per conversation (done.json): a store left
-half-ingested by a crash is wiped and rebuilt, never ingested twice.
+unchanged (answered by FINAL's answerer).
+
+Two phases (maintainer, 2026-10-31), so the slow part runs before ICE is frozen:
+- **search** — ingest + every question searched; nothing of ICE is read. Each question's hits
+  are saved on their own (hits/<ask>.json) as soon as they are found.
+- **wrap** — minutes, after FINAL's LoCoMo read: the saved hits placed in ICE's recent_only
+  envelope for the same question (the frame the freeze may still change).
+
+Stopping is safe at any moment. A store is written only while it ingests: a conversation stopped
+mid-ingest is wiped and ingested again from its first session, never twice into one store. Once
+ingested (ingested.json), a stop during search keeps the store and the hits found so far for the
+systems whose store lives on disk (Graphiti, Mem0); A-Mem's store lives in memory, so its
+conversation is ingested again. A finished conversation (done.json) is never touched again.
 
     cd experiments/final/baselines
-    UV_PROJECT_ENVIRONMENT=$PWD/.venv uv run --no-sync python run_baseline.py --system mem0 \
-        --history LOCOMO-conv-26 --ice-units <its local-read folder> --out <dir>
+    UV_PROJECT_ENVIRONMENT=$PWD/.venv uv run --no-sync python run_baseline.py search --system mem0 \
+        --history LOCOMO-conv-26 --out <search dir>
+    UV_PROJECT_ENVIRONMENT=$PWD/.venv uv run --no-sync python run_baseline.py wrap --system mem0 \
+        --history LOCOMO-conv-26 --search <search dir> --ice-units <its local-read folder> --out <dir>
 """
 
 import argparse
@@ -79,7 +92,17 @@ class GraphitiMemory:
                           cross_encoder=OpenAIRerankerClient(client=llm, config=cfg))
 
     async def setup(self):
+        """Graphiti 0.31 on Kuzu never creates its own full-text indexes (build_indices_and_constraints
+        is a no-op there and setup_schema skips them), so the first keyword search fails; create the
+        ones its get_fulltext_indices(KUZU) defines and the store lacks (they persist on disk)."""
+        from graphiti_core.driver.driver import GraphProvider
+        from graphiti_core.graph_queries import get_fulltext_indices
         await self.g.build_indices_and_constraints()
+        rows, _, _ = await self.g.driver.execute_query("CALL SHOW_INDEXES() RETURN *")
+        have = {r["index_name"] for r in rows}
+        for query in get_fulltext_indices(GraphProvider.KUZU):
+            if query.split("'")[3] not in have:
+                await self.g.driver.execute_query(query)
 
     async def add(self, when, sid, msgs):
         from graphiti_core.nodes import EpisodeType
@@ -117,7 +140,7 @@ class Mem0Memory:
     async def search(self, question):
         out = []
         for speaker in self.speakers:
-            found = self.m.search(question, user_id=speaker, limit=MEMORIES)
+            found = self.m.search(question, filters=dict(user_id=speaker), top_k=MEMORIES)   # Mem0 2.x
             items = found.get("results", found) if isinstance(found, dict) else found
             out += [f"{speaker}: " + i.get("memory", "")
                     + (f" (from {i['metadata']['date'][:10]})" if i.get("metadata", {}).get("date") else "")
@@ -170,6 +193,7 @@ class AMemMemory:
 
 
 SYSTEMS = {"graphiti": GraphitiMemory, "mem0": Mem0Memory, "amem": AMemMemory}
+ON_DISK = {"graphiti", "mem0"}                     # stores that survive the process (A-Mem's lives in memory)
 
 
 def stats(memory):
@@ -177,11 +201,20 @@ def stats(memory):
     return memory.stats() if hasattr(memory, "stats") else None
 
 
-def fresh_store(d):
-    """A store a crash left half-ingested is rebuilt from nothing, never ingested twice."""
-    if d.exists() and not (d / "done.json").exists():
+def fresh_store(d, keep_ingested=False):
+    """A store a crash left half-ingested is rebuilt from nothing, never ingested twice. With
+    keep_ingested, a fully ingested on-disk store (ingested.json) is kept with its saved hits."""
+    if d.exists() and not (d / "done.json").exists() and not (keep_ingested and (d / "ingested.json").exists()):
         shutil.rmtree(d)
     d.mkdir(parents=True, exist_ok=True)
+
+
+def write_json(path, value):
+    """Whole or not at all: a stop mid-write leaves no half file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(value, ensure_ascii=False, indent=1) + "\n")
+    tmp.replace(path)
 
 
 def originals_sessions(originals, gap=timedelta(hours=6)):
@@ -207,46 +240,80 @@ def speakers(originals):
             name(next(r["response"] for r in originals if r["response"])))
 
 
-async def conversation(system, history, originals, asks, ice_units, out):
+def questions(asks):
+    return [a for a in asks if a.get("kind") == "question"]
+
+
+async def search(system, history, originals, asks, out):
     """One LoCoMo conversation: one store, every session ingested, then each question searched."""
     d = out / "instances" / history
     if (d / "done.json").exists():
         return
-    fresh_store(d)
+    resume = system in ON_DISK and (d / "ingested.json").exists()
+    fresh_store(d, keep_ingested=system in ON_DISK)
     started = time.time()
     memory = SYSTEMS[system](d)
     memory.speakers = speakers(originals)
     await memory.setup()
     groups = originals_sessions(originals)
-    for when, sid, msgs in groups:
-        await memory.add(when, sid, msgs)
-    ingest = time.time() - started
-    for ask in (a for a in asks if a.get("kind") == "question"):
+    if resume:
+        ingest = json.loads((d / "ingested.json").read_text())["ingest_seconds"]
+        print(json.dumps(dict(history=history, resumed="search", hits=len(list((d / "hits").glob("*.json"))))), flush=True)
+    else:
+        for when, sid, msgs in groups:
+            await memory.add(when, sid, msgs)
+        ingest = time.time() - started
+        write_json(d / "ingested.json", dict(policy=POLICY, system=system, ingest_seconds=round(ingest, 1)))
+    for ask in questions(asks):
+        path = d / "hits" / f"{ask['id']}.json"
+        if path.exists():
+            continue
+        write_json(path, dict(policy=POLICY, history=history, system=system, ask_id=ask["id"],
+                              question=ask["question"], memories=await memory.search(ask["question"])))
+    write_json(d / "done.json", dict(policy=POLICY, system=system, history=history, ingest_seconds=round(ingest, 1),
+                                     sessions=len(groups), questions=len(asks), stats=stats(memory)))
+
+
+def wrap(system, history, asks, search_out, ice_units, out):
+    """The saved hits in ICE's recent_only envelope for the same question, as read units."""
+    d = search_out / "instances" / history
+    if not (d / "done.json").exists():
+        raise SystemExit(f"{system} {history}: search not finished ({d}/done.json missing)")
+    for ask in questions(asks):
+        hit = json.loads((d / "hits" / f"{ask['id']}.json").read_text())
         recent = json.loads((ice_units / "units" / "recent_only" / f"{ask['id']}.json").read_text())
-        memories = await memory.search(ask["question"])
-        unit = dict(policy=POLICY, history=history, condition=system, ask=recent["ask"], checkpoint=recent.get("checkpoint"),
-                    question_time=recent.get("question_time"),
-                    stage=dict(prompt_messages=envelope(recent, memories, ask["question"]), memories=memories,
-                               selected_tokens=sum(len(m) for m in memories) // 4))
-        path = out / "units" / system / f"{ask['id']}.json"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(unit, ensure_ascii=False, indent=1) + "\n")
-    (d / "done.json").write_text(json.dumps(dict(policy=POLICY, system=system, history=history,
-                                                 ingest_seconds=round(ingest, 1), sessions=len(groups),
-                                                 questions=len(asks), stats=stats(memory))) + "\n")
+        memories = hit["memories"]
+        write_json(out / "units" / system / f"{ask['id']}.json",
+                   dict(policy=POLICY, history=history, condition=system, ask=recent["ask"],
+                        checkpoint=recent.get("checkpoint"), question_time=recent.get("question_time"),
+                        stage=dict(prompt_messages=envelope(recent, memories, ask["question"]), memories=memories,
+                                   selected_tokens=sum(len(m) for m in memories) // 4)))
+    write_json(out / "instances" / history / "done.json", json.loads((d / "done.json").read_text()))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--system", choices=sorted(SYSTEMS), required=True)
-    parser.add_argument("--history", required=True, help="the LoCoMo history key, e.g. LOCOMO-conv-26")
-    parser.add_argument("--ice-units", type=Path, required=True, help="ICE's read folder (recent_only envelopes)")
-    parser.add_argument("--out", type=Path, required=True)
+    sub = parser.add_subparsers(dest="phase", required=True)
+    for name in ("search", "wrap"):
+        p = sub.add_parser(name)
+        p.add_argument("--system", choices=sorted(SYSTEMS), required=True)
+        p.add_argument("--history", required=True, help="the LoCoMo history key, e.g. LOCOMO-conv-26")
+        p.add_argument("--out", type=Path, required=True)
+        if name == "wrap":
+            p.add_argument("--search", type=Path, required=True, help="the search phase's --out")
+            p.add_argument("--ice-units", type=Path, required=True, help="ICE's read folder (recent_only envelopes)")
     args = parser.parse_args()
     base = ROOT / "logs/final-locomo" / args.history.removeprefix("LOCOMO-")
-    asyncio.run(conversation(args.system, args.history, json.loads((base / "originals.json").read_text()),
-                             json.loads((base / "asks.json").read_text()), args.ice_units, args.out))
-    print(json.dumps(dict(history=args.history, done=True)), flush=True)
+    asks = json.loads((base / "asks.json").read_text())
+    if args.phase == "search":
+        try:
+            asyncio.run(search(args.system, args.history, json.loads((base / "originals.json").read_text()), asks, args.out))
+        except KeyboardInterrupt:
+            print(json.dumps(dict(history=args.history, stopped=True)), flush=True)
+            return 130
+    else:
+        wrap(args.system, args.history, asks, args.search, args.ice_units, args.out)
+    print(json.dumps(dict(history=args.history, phase=args.phase, done=True)), flush=True)
     return 0
 
 
