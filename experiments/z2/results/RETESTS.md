@@ -96,8 +96,8 @@ Per call: an answer $0.0026 on B (~21k input tokens; ~$0.0045 at 256-candidate p
    The maintainer reads the report and blind sheet; `touch logs/z3-judging/judge-approved` to continue.
 3. **Z3 judging, run 2 — answers + grade-2**: six 256-candidate settings × (174 B + 75 C) = 1,494 answers
    (~$4.7 B + ~$0.9 C) and 1,494 grades (~$1.5): **~$7.1**.
-4. **Cloud prep** (synthetic conversations, A's chain): **~$9**.
-Total **~$28** of the ~$30 Go allows until Nov 27; a $5 top-up (Extra Usage) covers any overrun. **Go Plus is
+4. **Cloud prep** (synthetic conversations, A's and ICE2's chains): **~$10**.
+Total **~$29** of the ~$30 Go allows until Nov 27; a $5 top-up (Extra Usage) covers any overrun. **Go Plus is
 bought only when FINAL starts** — its month then covers FINAL's cloud phase, run beside FINAL's local phase:
 each history's answers start as soon as its reads finish (a cloud lane that waits for reads).
 
@@ -114,10 +114,11 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    report) and finally once inputs are complete. Stops, plan limits and cut lines disrupt nothing: answers
    and judge calls are durable per call; the judge waits out limits instead of counting them as failures;
    a line cut mid-write is skipped and redone. Never run FINAL's own cloud phase while it streams.
-4. ☐ **ICE-2 in FINAL** (next segment of C's project chat; ~350 turns, ~1.04M tokens; untouched by tuning and
-   Z2): registered as a FINAL history, its question chain in cloud prep, a review packet for the maintainer,
-   and the pre-registration revision stating why it was added — a human-written, paste-heavy technical history
-   of a kind the synthetic set cannot reproduce, of C's type but not C — and when (after Z2's C results).
+4. ✅ **ICE-2 in FINAL** (history `ICE2`: the chat after C in the same project; 331 pairs, ~1.09M tokens —
+   C is 1.13M — from the later DeepSeek export through paper 1's own extractor, which rebuilds C's 325 pairs
+   exactly): `private_originals.py` writes it, registered in `histories.py`, in FINAL's roster, report suite
+   and `private_chain.sh`/`cloud_prep.sh` (its chain runs with cloud prep: ~5M tokens like C's, ~$1), review
+   packet as for A/SW/LAP. Pre-registration revision 4 states why and when (after Z2's C results).
 5. ☐ Live trials by hand: LongMemEval-S full context, BEAM slice.
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)

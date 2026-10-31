@@ -21,9 +21,24 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
   and records the defaults of the switches built from Z2's findings (`retrieval_rerank_candidates`
   / `retrieval_rerank_keep_unranked`, `retrieval_evidence_order`, `retrieval_rerank_original_margin`).
 
+**Revision 4 — APPROVED by the maintainer 2026-10-31, before any FINAL answer:** **ICE2 joins
+LSREP private** — the 331-pair chat that continues C's project (the next chat after C hit its
+context limit; ~1.09M tokens, the same shape as C's 1.13M — long pasted specifications and code,
+15 user turns over 2,000 words), replayed alone into its own store like every private history.
+Why: it is a human-written, paste-heavy technical history, a kind the synthetic set cannot
+reproduce, and of C's type without being C — C itself stays out (Z2 measured and fixed against
+it). No conversation is repeated: every ICE2 question is asked of ICE2's own store, and none of
+its turns appears in C. Disclosed plainly: **it was added after Z2's results on C were seen**;
+it was never used for tuning, Z2 or any fix; its first 17 pairs were in paper 1's corpus file
+(the earlier export held only those) but in none of paper 1's evaluated histories. It partly
+reverses the 2026-10-26 drop of the *stitched* ICE chat: one chat, not the stitched series, at
+~$1 of ground-truth work rather than ~4.8M tokens of ledger. Its ground truth goes through the
+same chain and the maintainer's review as A, SW and LAP. The private suite's detectable
+difference moves from 6.4 to ≈5.4 points (§3 table).
+
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
-- Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP (held out)
+- Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP, ICE2 (held out; ICE2 added in revision 4)
   and B — stated plainly: Z2 used B to test the system and find bugs, and those findings shaped
   fix-pass changes, but no hyper-parameter sweep ran on it, and its FINAL questions are sealed
   families never shown or used; D, the v3 hyper-parameter tuning history, is dropped from FINAL
@@ -42,7 +57,7 @@ Roster and machinery: [FINAL_experiments.md](FINAL_experiments.md) §2.1, [Z3_DE
 
   | data | conditions answered | scored by |
   |---|---|---|
-  | **our data** — synthetic S1–S9, private B, A, SW, LAP | ICE frozen as it runs (`full_default`, every part on, decay live); plain vector search (`bare_vector`, ICE's own token budget); long context (`long_context`, the newest **256K** tokens — a window many providers offer, a quarter of the answerer's 1M — read **in time order**: older history, then the recent turns, then the question; every question at a checkpoint starts at the same turn, so the provider serves that start from its cache (2026-10-28)); recent turns only (the no-memory floor) | the judge's verdict (§2) |
+  | **our data** — synthetic S1–S9, private B, A, SW, LAP, ICE2 | ICE frozen as it runs (`full_default`, every part on, decay live); plain vector search (`bare_vector`, ICE's own token budget); long context (`long_context`, the newest **256K** tokens — a window many providers offer, a quarter of the answerer's 1M — read **in time order**: older history, then the recent turns, then the question; every question at a checkpoint starts at the same turn, so the provider serves that start from its cache (2026-10-28)); recent turns only (the no-memory floor) | the judge's verdict (§2) |
   | **S9 only** — the parts test | ICE with decay neutral (`full`), each part switched off one at a time, parts added one at a time | the judge's verdict, on the questions built for each part |
   | **BEAM** — 128K tier (20) + 500K tier (5) | ICE, plain vector search, long context (256K); full history on the 500K tier (§4) | BEAM's own nugget score |
   | **LongMemEval-S** — 100 instances | ICE, plain vector search, full context (every haystack session, ~115K tokens), LongMemEval's own oracle setting (only the answer sessions) | LongMemEval's own judge (its prompts, yes/no) — nothing else |
@@ -120,7 +135,7 @@ headline (kept as a descriptive column).
 - **Per suite, pooled (revised 2026-10-28):** the headline is each suite — **LSREP synthetic
   carries the claims** (S1–S9; S8, S1's style twin, counted once through S1; plans, questions,
   answer keys and conversations released, so anyone can inspect them); **LSREP private is the
-  real-world check** (A, SW, LAP and B, with B's role disclosed as above; not releasable — it
+  real-world check** (A, SW, LAP, ICE2 and B, with B's role disclosed as above; not releasable — it
   supports the claims, never carries one alone) — with its histories' questions pooled
   (`scoring.pool`; families resampled within their history). Each question is a paired yes/no
   outcome across conditions: McNemar's exact test and a bootstrap interval over question families
@@ -135,12 +150,13 @@ headline (kept as a descriptive column).
 
   | suite (the verdicts) | questions | all (P2) | Holm-worst (4 tests) | out-of-window, if 60% (P1) |
   |---|---|---|---|---|
-  | **LSREP private (A, SW, LAP, B)** | ≈381 | 6.4 | 7.6 | 8.2 |
+  | **LSREP private (A, SW, LAP, ICE2, B)** | ≈530 (≈381 before ICE2, revision 4) | 5.4 | 6.5 | 7.0 |
   | **LSREP synthetic (S1–S9, S8 once)** | 1,044 | 3.9 | 4.6 | 5.0 |
   | *per conversation (deep dives; no verdict)* | | | | |
   | B (sealed: 64 families; seal not opened, ≈2.3 asks each) | ≈147 | 10.2 | 12.2 | 13.2 |
   | A (planned) | ≈131 | 10.8 | 12.9 | 14.0 |
   | SW / LAP (planned) | ≈58 / ≈45 | 16.1 / 18.2 | 19.1 / >20 | >20 / >20 |
+  | ICE2 (planned) | ≈149 | 10.2 | 12.1 | 13.1 |
   | synthetic S1–S9 (S8 is S1's twin, not counted) | 1,044 | 3.9 | 4.6 | 5.0 |
   | BEAM (128K 400 · 500K 100; own scoring) | 500 | 5.6 | 6.7 | 7.2 |
   | LongMemEval-S | 100 | 12.4 | 14.7 | 15.9 |
