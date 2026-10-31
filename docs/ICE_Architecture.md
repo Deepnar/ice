@@ -586,6 +586,21 @@ admission. Direct search callers keep their prior behaviour, and reading never
 adds graph corroboration. The Laya source-need prototypes remain unpromoted;
 the complete G28 sweep and final answer-per-token comparisons remain open.
 
+**Reranker rescue (R10, 2026-11-01; off until Z3).** The rescue above judges the *visible* prompt
+first; in a new conversation that is only the question, and on Z2's complete LongMemEval oracle run
+B2 refused 146 of 456 questions, the rescue admitted memory on 16, and **130 were read with no memory**
+although plain search held the evidence on every one checked (FINDINGS F4) — a decision made from the
+question's wording. `memory_source_rescue_mode="reranker"` reconsiders a negative by what memory holds:
+it retrieves through the normal path and admits that retrieval, exactly as a positive's, when the best
+raw reranker score of any scored representation (`orchestrator._rerank` → `last_rerank_top`; log-odds
+of "relevant", 0 = even odds) reaches `memory_source_rescue_min_score` (default 0.0). No judge, no proof,
+no model call beyond the reranker the retrieval already runs. Below the bar or with nothing retrieved the
+prompt keeps no memory (INFO); an unscored retrieval cannot meet a bar and warns. The best score is kept
+admitted or not (`PreparedMemory.rescue_score`, the read gate record), so one read with the bar off
+replays every bar (`experiments/z2/r10_report.py`). Positives are untouched. Rewording the question
+(the deleted HyDE path — see the note in `orchestrator.py` where `_hyde_rewrite` was) is not part of
+it: search already finds the evidence, and a generated rewrite would invent private specifics.
+
 ### **2.5 Training pipeline (v2, B1 — `scripts/classifier/pipeline/`)**
 
 Eight standalone stages, each resumable by row id, writing into data/labeled/v2/. Each rewrites its v1 predecessor, now frozen under scripts/classifier/legacy/ for provenance.
