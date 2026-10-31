@@ -65,10 +65,16 @@ ARMS = {"full": "full", "warm_vector": "vector_only", "recent_only": "recent_onl
 # FINAL does not answer it.
 CONDITIONS_S = ("full", "recent_only", "bare_vector", "all_evidence", "full_context")
 ARMS_S = {"full": "full", "recent_only": "recent_only"}
+# R10 (Z2 F4, 2026-11-01), --rescue-read: full ICE with the reranker rescue and its bar off, beside
+# "full" in the same run; every rescue's best score is recorded, so any bar is replayed from one read.
+RESCUE_CONDITION = ("full_rescue_reranker", {"memory_source_rescue_mode": "reranker",
+                                             "memory_source_rescue_min_score": -1000.0})
+RESCUE_READ = False
 
 
 def conditions_now():
-    return CONDITIONS_S if DATASET == "s" else CONDITIONS
+    base = CONDITIONS_S if DATASET == "s" else CONDITIONS
+    return base + ((RESCUE_CONDITION[0],) if RESCUE_READ else ())
 
 
 # ── the dataset ─────────────────────────────────────────────────────────────
@@ -244,6 +250,9 @@ def read(inst, plan, out, reader):
     for name, arm in (ARMS_S if DATASET == "s" else ARMS).items():
         with SessionLocal() as db:
             stages[name] = reader.read(db, qid, ask, arm, now)
+    if RESCUE_READ:
+        with SessionLocal() as db:
+            stages[RESCUE_CONDITION[0]] = reader.read(db, qid, ask, "full", now, overrides=RESCUE_CONDITION[1])
     with SessionLocal() as db:
         decay = evidence_state(db, plan)
     # bare vector: every original message of every session, numbered across sessions
@@ -447,6 +456,8 @@ def main() -> int:
     r.add_argument("--only", nargs="*")
     r.add_argument("--dataset", choices=sorted(DATASETS), default="oracle")
     r.add_argument("--slice", type=Path, help="a pinned slice (experiments/lme/final_slice.json): its question_ids")
+    r.add_argument("--rescue-read", action="store_true",
+                   help="also read full ICE with the reranker rescue, bar off (R10)")
     r.add_argument("--workers", type=int, default=1,
                    help="questions side by side, each worker its own database <database>_<i> (2026-10-28: "
                         "one at a time, S12's background calls never overlapped and the GPU sat idle)")
@@ -460,6 +471,8 @@ def main() -> int:
     g.add_argument("--upstream-only", action="store_true", help="LongMemEval's own judge only (FINAL)")
     args = parser.parse_args()
     select_dataset(args.dataset)
+    global RESCUE_READ
+    RESCUE_READ = getattr(args, "rescue_read", False)
     if getattr(args, "slice", None):
         args.only = json.loads(args.slice.read_text())["question_ids"]
     out = args.out.resolve()

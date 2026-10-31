@@ -213,6 +213,8 @@ def provenance_fields(pre: Preamble, memory=None) -> dict:
         "source_refinement_applied": memory is not None and memory.source_checked,
         "source_refinement_enabled": settings.memory_source_gate_enabled,
         "source_rescue_enabled": settings.memory_source_rescue_enabled,
+        "source_rescue_mode": settings.memory_source_rescue_mode,
+        "rescue_best_score": None if memory is None else getattr(memory, "rescue_score", None),
         "final_retrieve": None if memory is None else memory.retrieve,
         "source_action": None if memory is None else memory.action,
         "scope_keys": sorted(pre.scope.keys()),

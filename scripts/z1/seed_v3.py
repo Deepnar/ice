@@ -58,6 +58,7 @@ REPLAY_SETTINGS = [
     "recent_window_max_turns", "classifier_model_path", "label_schema_path",
     "embedding_model_name", "background_model_mode", "background_model_name", "background_ner_model",
     "memory_source_gate_enabled", "memory_source_rescue_enabled",
+    "memory_source_rescue_mode", "memory_source_rescue_min_score",
     "context_use_serving_window", "context_budget_min", "context_budget_max",
     "context_budget_floor", "context_generation_reserve",
     "retrieval_rrf_k", "retrieval_leg_base_weights", "retrieval_leg_profiles",
