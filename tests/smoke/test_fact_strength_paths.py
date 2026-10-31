@@ -11,7 +11,7 @@ from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 
 def test_every_rerank_is_followed_by_the_strength_bonus():
     src = inspect.getsource(HybridRetrievalOrchestrator)
-    reranks = [m.end() for m in re.finditer(r"fused, reranked = rerank\(", src)]
+    reranks = [m.end() for m in re.finditer(r"fused, reranked = self\._rerank\(", src)]   # R10: via _rerank
     assert len(reranks) == 2                       # retrieve() and _wide_net_fallback()
     for end in reranks:
         following = src[end:end + 300]

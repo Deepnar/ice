@@ -403,3 +403,19 @@ def test_instruction_switch_selects_the_loaded_prompt(monkeypatch):
     assert R.instruction() == R.INSTRUCTION and "insufficient" in R.instruction()
     monkeypatch.setattr(settings, "retrieval_rerank_instruction", "topical")
     assert "insufficient" not in R.instruction() and "recall, list" in R.instruction()
+
+
+def test_retrieval_keeps_the_best_raw_reranker_score(monkeypatch):
+    # R10: the reranker rescue's bar reads the best score any representation got; None if unscored
+    import src.retrieval.reranker as module
+    from types import SimpleNamespace as NS
+    o = HybridRetrievalOrchestrator(NS(query=lambda *_a: None), None)
+    candidates = [ContextFragment(f"memory {i}", "episodic", 1.0 - i / 10, i) for i in range(3)]
+    monkeypatch.setattr(module, "score_pairs", lambda pairs: [-3.0, 1.5, None][:len(pairs)])
+    ranked, ok = o._rerank("query", None, candidates)
+    assert ok and o.last_rerank_top == 1.5 and ranked[0].text == "memory 1"
+    def fail(_pairs):
+        raise RuntimeError("model unavailable")
+    monkeypatch.setattr(module, "score_pairs", fail)
+    ranked, ok = o._rerank("query", None, candidates)
+    assert not ok and o.last_rerank_top is None and ranked == candidates

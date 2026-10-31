@@ -26,6 +26,14 @@ class Settings(BaseSettings):
     # The model's enum is never substituted for a calibrated classifier prior.
     memory_source_gate_enabled: bool = True  # source-need judge for a negative prior; unknown retains B2
     memory_source_rescue_enabled: bool = True  # admit only a proven, budget-fitting original
+    # R10 / Z2 F4 (2026-11-01): how a negative is reconsidered. "proof" (shipped): the source-need judge
+    # reads the visible prompt, then one original turn must be proven; in a new chat that prompt is only
+    # the question, and full ICE read 130 of 456 LongMemEval questions with no memory. "reranker":
+    # retrieve, and admit the retrieval when its best reranker score (log-odds of "relevant"; 0 = the
+    # reranker's own even odds) reaches the bar — decided by what memory holds, not by how the question
+    # is worded, with no model call. Z3 decides the default.
+    memory_source_rescue_mode: Literal["proof", "reranker"] = "proof"
+    memory_source_rescue_min_score: float = Field(default=0.0, allow_inf_nan=False)
     memory_source_gate_model: str = "gemma4:e4b"
     memory_source_gate_input_tokens: int = Field(default=8192, gt=0)
     memory_source_gate_context_tokens: int = Field(default=32768, gt=0)

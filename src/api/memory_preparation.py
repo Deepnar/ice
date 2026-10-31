@@ -24,6 +24,7 @@ class PreparedMemory:
     retrieve: bool
     action: str
     source_checked: bool = False
+    rescue_score: float = None    # the reranker rescue's best score, admitted or not (R10)
 
 
 def _source_rows(fragment):
@@ -133,13 +134,20 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
         return PreparedMemory(base_prompt, [], False, "required_overflow")
     action = "keep"
     source_checked = False
+    by_reranker = settings.memory_source_rescue_mode == "reranker"
     if (not base_retrieve and settings.memory_source_gate_enabled
             and settings.memory_source_rescue_enabled):
-        # Only a negative is reconsidered, against ALL of the answerer's visible
-        # context; a positive is never cancelled (source_need's docstring, Z2 F1).
-        verdict = judge_source_need(base_prompt.messages)
-        source_checked = True
-        action = source_action(verdict)
+        if by_reranker:
+            # R10 (Z2 F4): retrieve and let what memory holds decide. The judge below reads only the
+            # visible prompt — in a new chat, the question alone — and kept "no memory" on 67 of
+            # S12's 146 negatives, every one with the evidence in memory.
+            action = "rescue"
+        else:
+            # Only a negative is reconsidered, against ALL of the answerer's visible
+            # context; a positive is never cancelled (source_need's docstring, Z2 F1).
+            verdict = judge_source_need(base_prompt.messages)
+            source_checked = True
+            action = source_action(verdict)
     retrieve = base_retrieve or action == "rescue"
     if not retrieve:
         logger.info("memory_source_refinement", action=action,
@@ -162,7 +170,23 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
         fragments = conversation_order(db, fragments)
     prepared = assemble(fragments, final_recent)
     selected = evidence_after_eviction(prepared.visible_fragments, prepared.removed)
-    if action == "rescue":
+    rescue_score = None
+    if action == "rescue" and by_reranker:
+        # Admitted as a positive decision's retrieval would be, when the best piece the reranker
+        # scored reaches the bar; its score is kept either way, so a bar can be re-chosen from a run.
+        rescue_score = getattr(orchestrator, "last_rerank_top", None)
+        bar = settings.memory_source_rescue_min_score
+        if rescue_score is None or rescue_score < bar:
+            classification.context_reliance = original_context
+            if rescue_score is None and fragments:
+                # nothing scored what was retrieved: the bar cannot be applied (reranker off or failed)
+                logger.warning("memory_source_rescue_withheld", candidates=len(fragments),
+                               reason="reranker_did_not_score")
+            else:
+                logger.info("memory_source_rescue_withheld", candidates=len(fragments), bar=bar,
+                            best_score=rescue_score, reason="below_bar" if fragments else "nothing_retrieved")
+            return PreparedMemory(base_prompt, [], False, "rescue_withheld", source_checked, rescue_score)
+    elif action == "rescue":
         supported = False
         framed = None
         if selected and prepared.ledger.fits():
@@ -191,5 +215,5 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
         orchestrator.record_exposure(selected)
     logger.info("memory_source_refinement", action=action,
                 base_retrieve=base_retrieve, retrieve=True,
-                candidates=len(fragments), admitted=len(selected))
-    return PreparedMemory(prepared, selected, True, action, source_checked)
+                candidates=len(fragments), admitted=len(selected), rescue_score=rescue_score)
+    return PreparedMemory(prepared, selected, True, action, source_checked, rescue_score)

@@ -248,3 +248,59 @@ def test_relevance_order_is_the_shipped_default(harness, monkeypatch):
     args["base_retrieve"] = True
     assert settings.retrieval_evidence_order == "relevance"
     assert mp.prepare_memory_context(**args).retrieve
+
+
+# R10 (Z2 F4): the reranker rescue — retrieve on a negative, admit by the best reranker score.
+
+@pytest.fixture
+def by_reranker(harness, monkeypatch):
+    monkeypatch.setattr(settings, "memory_source_rescue_mode", "reranker")
+    monkeypatch.setattr(settings, "memory_source_rescue_min_score", 0.0)
+    def top(score):
+        monkeypatch.setattr(mp.HybridRetrievalOrchestrator, "last_rerank_top", score, raising=False)
+    return harness, top
+
+
+def test_reranker_rescue_admits_on_the_bar_without_a_model_call(by_reranker):
+    (args, captures, _), top = by_reranker
+    top(2.5)
+    result = mp.prepare_memory_context(**args)
+    assert result.retrieve and result.action == "rescue" and result.rescue_score == 2.5
+    assert not captures["judged"] and not captures["proved"] and not result.source_checked
+    assert captures["exposed"] == result.fragments == captures["fragments"]
+    assert args["classification"].context_reliance == "Long_Term_Memory"
+
+
+@pytest.mark.parametrize("score", [-0.01, -7.0])
+def test_reranker_rescue_below_the_bar_keeps_no_memory_and_its_score(by_reranker, score):
+    (args, captures, _), top = by_reranker
+    top(score)
+    result = mp.prepare_memory_context(**args)
+    assert not result.retrieve and result.action == "rescue_withheld" and result.rescue_score == score
+    assert not result.fragments and not captures["exposed"] and captures["retrieved"]
+    assert args["classification"].context_reliance == "Zero_Shot"
+
+
+def test_reranker_rescue_that_scored_nothing_says_so_at_warning(by_reranker):
+    from structlog.testing import capture_logs
+    (args, captures, _), top = by_reranker
+    top(None)
+    with capture_logs() as logs:
+        result = mp.prepare_memory_context(**args)
+    assert not result.retrieve and result.rescue_score is None
+    assert [e["reason"] for e in logs if e["event"] == "memory_source_rescue_withheld"
+            and e["log_level"] == "warning"] == ["reranker_did_not_score"]
+    captures["fragments"] = []
+    with capture_logs() as logs:
+        mp.prepare_memory_context(**args)
+    assert [(e["log_level"], e["reason"]) for e in logs if e["event"] == "memory_source_rescue_withheld"] == [
+        ("info", "nothing_retrieved")]
+
+
+def test_reranker_rescue_never_touches_a_positive(by_reranker):
+    (args, captures, _), top = by_reranker
+    top(-9.0)
+    args.update(base_retrieve=True)
+    result = mp.prepare_memory_context(**args)
+    assert result.retrieve and result.action == "keep" and result.rescue_score is None
+    assert captures["exposed"] == captures["fragments"]

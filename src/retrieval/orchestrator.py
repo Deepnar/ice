@@ -181,6 +181,7 @@ class HybridRetrievalOrchestrator:
         # A4: entity resolution mode (ablation `fuzzy_match` flag maps here).
         self.use_fuzzy_match = True
         self._last_matched_entities = []         # per-call: for grounded expansion
+        self.last_rerank_top = None              # best raw reranker score of the last retrieval (R10)
 
         # T2/T3: the request's TimeScope (set from scope["timescope"] at the
         # top of retrieve()/_wide_net_fallback(); one orchestrator instance
@@ -651,7 +652,7 @@ class HybridRetrievalOrchestrator:
         # did not, and the two disagreed.
         fused = self._apply_bonuses(fused, classification, own_conv_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
-        fused, reranked = rerank(self._rerank_query(classification.prompt, own_conv_id), fused)
+        fused, reranked = self._rerank(classification.prompt, own_conv_id, fused)
         if reranked:
             fused = self._fact_strength_bonus(fused)
         # G29: no max_per_conversation here — passing the literal 3 is what made
@@ -1570,6 +1571,22 @@ class HybridRetrievalOrchestrator:
         if current and earlier is not None:
             rendered += f" (earlier: {earlier.text} — until {earlier.valid_until:%Y-%m-%d})"
         return rendered
+
+    def _rerank(self, prompt, conversation_id, fused):
+        """rerank(), keeping the best raw score it gave any representation (log-odds of "relevant") in
+        last_rerank_top — the reranker rescue's bar (memory_source_rescue_mode, R10); None when the
+        reranker scored nothing (off, failed, or no candidates)."""
+        from src.retrieval import reranker
+        scored = []
+
+        def scorer(pairs):
+            scores = list(reranker.score_pairs(pairs))
+            scored.extend(float(s) for s in scores if s is not None)
+            return scores
+
+        fused, reranked = rerank(self._rerank_query(prompt, conversation_id), fused, scorer=scorer)
+        self.last_rerank_top = max(scored) if reranked and scored else None
+        return fused, reranked
 
     def _rerank_query(self, prompt, conversation_id):
         """The reranker's query: the message, or (retrieval_rerank_query_context="recent") the user's last
@@ -2818,7 +2835,7 @@ class HybridRetrievalOrchestrator:
                                                     alpha_map={"fallback": 1.0, "cold": 1.0}))
         fused = self._apply_bonuses(fused, classification, conversation_id, prompt_keywords)
         fused.sort(key=lambda x: x.score, reverse=True)
-        fused, reranked = rerank(self._rerank_query(classification.prompt, str(conversation_id) if conversation_id else None), fused)
+        fused, reranked = self._rerank(classification.prompt, str(conversation_id) if conversation_id else None, fused)
         if reranked:
             fused = self._fact_strength_bonus(fused)   # D7, as on the main path
         # C15: dynamic ceiling — a fraction of the (model-aware, C16) retrieval
