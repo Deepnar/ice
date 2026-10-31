@@ -319,6 +319,9 @@ Already done, not re-run: synthetic plans and questions (Claude Haiku 5.5 agents
 
 **Run order — all local, then all cloud.** Replay checkpoints at every session end, not at
 question points, so only reads need the questions.
+*Amended 2026-10-31 (maintainer):* the memory systems' ingest + search (no ICE in it) run early, in
+the GPU-free weeks before the freeze; only their placement in ICE's prompt frame waits for FINAL's
+LoCoMo read (RETESTS timetable).
 1. *Cloud, inside Z2's cloud block (same plan period):* the private ground truth for A, SW,
    LAP (ledger, questions), then the maintainer's review (D dropped 2026-10-28).
 2. *Local:* fix-pass GPU tests → freeze → synthetic generation → every replay (private,

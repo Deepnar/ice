@@ -11,6 +11,37 @@ measured on a 250-answer sample graded under both rubrics (R5). Corrected Z2 com
 per-point rescoring of grade-1's own verdicts — if R5 shows that rescoring agrees with grade-2.
 Retests that compare settings (R3, R4, R7) grade both sides with grade-2. FINAL uses grade-2 only.
 
+## Timetable from 2026-10-31 (supersedes the dates below)
+
+**Non-ICE local work starts early (maintainer, 2026-10-31).** The three memory systems on LoCoMo
+(Graphiti, Mem0, A-Mem) do not depend on ICE's freeze: their slow part — ingesting LoCoMo's 2,951
+pairs through each system's own write path on gemma4:e4b, then searching all 1,540 questions — runs
+in the GPU-free windows before FINAL (the cloud week, the briefing week). One thing ties them to
+ICE: each system's results are placed in **ICE's recent-turns prompt frame** (ICE's `recent_only`
+envelope for the same question), so that only the memory differs — and the freeze may change that
+frame. So `run_baseline.py` is split (build item 6): **search now** (stores and hits saved per
+question), **wrap later** (minutes, after FINAL's LoCoMo read writes ICE's envelopes). Rules: they
+use the GPU, so never beside ICE's FINAL lanes or R7's reads; the baseline harness commit is recorded
+when they run and not changed after; if the briefing's feedback changes how a system is run, that
+system is re-run. Ingest time is unmeasured — a one-conversation Mem0 trial measures it first.
+
+1. **Now → Oct 31 night (GPU):** x3 reranker-input reads (~3 h) → the two live trials (LongMemEval-S
+   2 questions, BEAM 30-turn slice). Cloud: nothing (weekly limit until Nov 2).
+2. **Nov 1 → ~Nov 8 (GPU free):** the memory systems' ingest + search, all three, all 10 LoCoMo
+   conversations. **Beside it, cloud from Nov 2**, one phase after another: Z2's own cloud run (R6) →
+   Z3 judging run 1 (judge check) → the maintainer approves → run 2 (answers + grade-2) → cloud prep
+   (synthetic conversations, A's and ICE2's ground truth) → the maintainer reviews A's and ICE2's packets.
+   R10 (F4) once S12 is graded.
+3. **~Nov 8–10:** R7 — the chosen settings together on B and C (GPU reads + cloud answers/grades);
+   the memory systems pause for its reads if not done.
+4. **~Nov 10:** Z3 freeze — switch defaults, D9 simplification, merge fix-pass into `main`, the freeze commit.
+5. **~Nov 10–17:** research briefing (GPU free: the memory systems finish here if still running).
+6. **~Nov 17:** buy Go Plus; **FINAL local starts** (2 lanes, ~9–11 GPU days → ~Nov 28), **beside it**
+   `stream_cloud.py` answering and grading each checkpoint as its reads finish; once ICE's LoCoMo read
+   is done, the memory systems' results are wrapped in its frame and answered in the same stream.
+7. **~Nov 28 → early December:** the cloud tail (Go Plus weekly cap ~$60; ~$92 plus ICE2's share),
+   then the report.
+
 ## What happens, in order (written 2026-10-29)
 
 **Why no Z2 re-run is needed.** Every fix and switch so far acts at read time (what reaches the
@@ -120,6 +151,9 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    and `private_chain.sh`/`cloud_prep.sh` (its chain runs with cloud prep: ~5M tokens like C's, ~$1), review
    packet as for A/SW/LAP. Pre-registration revision 4 states why and when (after Z2's C results).
 5. ☐ Live trials by hand: LongMemEval-S full context, BEAM slice.
+6. ☐ **Memory systems: search now, wrap later** — split `experiments/final/baselines/run_baseline.py`
+   (and its runner stages) so ingest + search run before ICE's freeze and the envelope step runs after
+   FINAL's LoCoMo read (timetable above).
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 
