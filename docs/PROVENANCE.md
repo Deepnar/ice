@@ -9659,3 +9659,28 @@ on CPU. Background generation remains on the compatible SDK. Per-model locks
 and maintenance lanes are not a global GPU manager: foreground, encoder and
 reranker overlap and the declared whole-stack budget remain existingG4 work.
 The fullG4/G32 boxes stay open. No final campaign, answer-quality claim or push.
+
+## 2026-11-01 — correction to the G36 entry: Experiment 1's HyDE arm did exercise the rewriter
+
+**Not an artifact-producing session.** The G36 entry (2026-08-09) states that
+Experiment 1's `full_ice_no_hyde` and `full_ice` "were the same configuration".
+That holds for the runner as it stands at `v2-paper-eval`, not for the run that
+produced Experiment 1's numbers. `experiments/unmature/results_phase2/paper_summary.md`
+is dated 2026-06-25; at that date `src/retrieval/orchestrator.py` (commit before
+`217d807`, lines 181–184) still called `_hyde_rewrite` for every Long_Term_Memory
+retrieval, and `phase2_run_evaluation_matrix.py` (`RUN_HYDE_ABLATION = True`)
+switched it off by replacing that method with one returning `None`. So the arm
+was live: **with the rewriter 4.03 (sd 1.19), without 4.20 (sd 1.11), Δ −0.17,
+80 pairs** (`metrics_complete_report.json`, `ablation_analysis.hyde_ablation`,
+flaw conversation, no interval computed). What it measured was question
+*reformulation* by the background model, not hypothetical-document HyDE.
+
+The call was commented out in `217d807` (2026-07-02, "fixed a lot of issues
+before experiment"; no reason recorded) and stayed off for the mature paper run.
+The buildup ablation (`experiments/flaw_ablation/buildup`, results dated
+2026-06-30) ran while the call was live but its `hyde` flag reached no code, so
+the rewriter was on in **every** step and `add_hyde` (+0.03 [−0.13, +0.21]; same
+14,870 prompt tokens as the step before) isolates nothing — as the paper's
+fidelity audit (`experiments/paper/notes/FIDELITY_AUDIT.md`) states: "active but
+constant across nominal ablation steps". The G36 deletion and P0.1's reasons for
+not shipping real HyDE stand.

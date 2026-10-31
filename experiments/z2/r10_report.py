@@ -49,7 +49,8 @@ def main() -> int:
         snippets = [s[:80] for r in turns for s in (r["prompt"], r["response"]) if len(s) > 30]
         answer = None if q.endswith("_abs") else str(inst["answer"]).strip()
         answer = answer if answer and len(answer) >= 3 else None
-        rows.append(dict(q=q, abstention=q.endswith("_abs"), refused=gate.get("b2_retrieve") is False,
+        rows.append(dict(q=q, type=inst["question_type"], abstention=q.endswith("_abs"),
+                         refused=gate.get("b2_retrieve") is False,
                          score=gate.get("rescue_best_score"), shipped=reached(full, snippets, answer),
                          rescue=reached(rescue["stage"], snippets, answer), marked=bool(snippets or answer)))
     refused = [r for r in rows if r["refused"] and not r["abstention"] and r["marked"]]
@@ -67,6 +68,11 @@ def main() -> int:
         ab = sum(r["score"] is not None and r["score"] >= bar for r in abst)
         print(f"   reranker rescue, bar {bar:+.0f}        {sum(r['rescue'] for r in admitted):4}   "
               f"admitted {len(admitted):3}/{len(refused)}   abstention admitted {ab}/{len(abst)}")
+    print("by question type, at bar +0 (answer in the prompt: shipped / reranker, of refused):")
+    for kind in sorted({r["type"] for r in refused}):
+        group = [r for r in refused if r["type"] == kind]
+        new = sum(r["rescue"] and r["score"] is not None and r["score"] >= 0.0 for r in group)
+        print(f"   {kind:28} {sum(r['shipped'] for r in group):3} / {new:3}   of {len(group)}")
     return 0
 
 
