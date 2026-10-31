@@ -12,7 +12,9 @@ R7 (the chosen settings together) is added once R2–R4 have chosen.
 It waits while any Z2 runner is active (Z2's cloud run first), and a stage waits ("needs input")
 until its inputs exist: Z2's grade-1 grades for the judge check, the GPU day's reads for answers.
 
-    uv run --no-sync python experiments/z2/z3_judging.py run
+    uv run --no-sync python experiments/z2/z3_judging.py run --only r5-panel,r5-judge-B,r5-judge-C   # run 1
+    (read logs/z3-judging/judge-check-*/report.txt and blind-sheet.md; approve: touch logs/z3-judging/judge-approved)
+    uv run --no-sync python experiments/z2/z3_judging.py run                                        # run 2
     uv run --no-sync python experiments/z2/z3_judging.py status --watch
 """
 
@@ -34,6 +36,9 @@ GPU_DAY = ROOT / "logs/gpu-day-main/state.json"
 QUALIFIED = ROOT / "logs/z2-qualify-2026-10-19-r1"        # grade-1's panel: its planted answers are reused
 ANSWERED = ("retest_cand256", "retest_c256_order", "retest_c256_originals_first", "retest_c256_policy",
             "retest_c256_wide_originals", "retest_c256_no_summaries")     # all at 256 candidates (2026-10-30)
+# Two runs (maintainer, 2026-10-31): the judge check first; the retest answers start only after the
+# maintainer has read its report and blind sheet and this file exists (touch it to approve).
+APPROVED = ROOT / "logs/z3-judging/judge-approved"
 ASKS = {"B": 174, "C": 75}                                 # questions per history (retests read questions only)
 SCALE = {"B": 1.0, "C": 0.22}
 
@@ -108,7 +113,7 @@ def stages(_limit=None):
             "experiments/z2/answers.py", "--units", f"logs/z2-retest-{h}", "--out", str(answers.relative_to(ROOT)),
             "--conditions", ",".join(ANSWERED), "--answerer", "muse12"],
             calls=answers / "answers.jsonl", planned=ASKS[h] * len(ANSWERED), unit="answers",
-            inputs=(f"reads-{h}",)))
+            inputs=(f"reads-{h}", APPROVED)))
         hist = HISTORIES[h]
         out.append(Counted(f"r34-grade-{h}", f"R3/R4 retest grades {h} (grade-2 verdicts)", PY + [
             "experiments/z2/grade.py", "--history", h, "--units", f"logs/z2-retest-{h}",

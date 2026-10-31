@@ -86,6 +86,21 @@ prep ~$9; R5 ~$0.6; retest answers + grade-2 grades (6 settings × 174) ~$5.7 �
 slack. Order: R6 (Z2's cloud run) → Z3 judging (R5, retest answers and grades) → cloud prep. FINAL's own cloud
 (~$92) and any private-question top-up need Go Plus.
 
+## Cloud plan from the Go reset (recosted 2026-10-31 at measured prices; answers included)
+
+Per call: an answer $0.0026 on B (~21k input tokens; ~$0.0045 at 256-candidate prompts, ~36k), $0.0015 on C
+($0.0020 at 256); a grading call $0.0010. Phases, never mixed:
+1. **Z2's own cloud run** — B's remaining ~4,000 grading calls ($4.0), C's grading ~4,060 ($4.1), S12's 1,982
+   answers and ~2,500 grades (~$2.8): **~$10.9**.
+2. **Z3 judging, run 1 — the judge check**: planted panel (932 calls) + B/C judge checks (~320): **~$1.2**.
+   The maintainer reads the report and blind sheet; `touch logs/z3-judging/judge-approved` to continue.
+3. **Z3 judging, run 2 — answers + grade-2**: six 256-candidate settings × (174 B + 75 C) = 1,494 answers
+   (~$4.7 B + ~$0.9 C) and 1,494 grades (~$1.5): **~$7.1**.
+4. **Cloud prep** (synthetic conversations, A's chain): **~$9**.
+Total **~$28** of the ~$30 Go allows until Nov 27; a $5 top-up (Extra Usage) covers any overrun. **Go Plus is
+bought only when FINAL starts** — its month then covers FINAL's cloud phase, run beside FINAL's local phase:
+each history's answers start as soon as its reads finish (a cloud lane that waits for reads).
+
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 
 ```bash
