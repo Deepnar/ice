@@ -26,6 +26,52 @@ each entry carrying a verified `file:line`. **~433 features.**
 > [ICE_Architecture.md](ICE_Architecture.md) owns how things work,
 > [ROADMAP.md](ROADMAP.md) owns what is left to do.
 
+## ⚑ Z3 FREEZE — what FINAL runs with (v3, fix-pass; filled in at the freeze)
+
+**Rule (maintainer, 2026-11-01): nothing is deleted before FINAL.** A part Z3 rejects is switched
+**OFF** — its default changes, its code stays — and is deleted only **after** FINAL, each deletion in
+its own commit and logged in [CLEANUP.md](CLEANUP.md). Deleting before the experiment risks bugs nobody
+measures. So every row below ends as **ON**, **OFF (code kept)**, or **unchanged** — never "removed".
+The `Z3 decision` column is the freeze record; a row still ☐ at the freeze blocks it.
+
+**Decided already (measured; the default is what FINAL runs):**
+
+| Part | Switch | Default now | Decided by | Z3 decision |
+|---|---|---|---|---|
+| Reranker candidates | `retrieval_rerank_candidates` | `256` | R2 (B cited-turn coverage 90.8% at 256 vs 81.1% at 64; 512 the same) | ✅ ON at 256 |
+| Keep unranked candidates behind the ranked ones | `retrieval_rerank_keep_unranked` | `False` | R2 / F2 (+1 point at 64; not adopted) | ✅ OFF (code kept) |
+| Reranker sees the recent turns | `retrieval_rerank_query_context` | `none` | x3 (C loses 26 cited turns) | ✅ OFF (code kept) |
+| Reranker's topical instruction | `retrieval_rerank_instruction` | `strict` | x3 (level: +1 / −1) | ✅ OFF (code kept) |
+| Reranker / search-order blend | — (not built) | — | F23 (every blend level or worse) | ✅ not built |
+| Fact replacement design | `codex_fact_reconcile_design` | `context` | R8 / F20 | ✅ ON (`context`) |
+| Summary claim second reading (G75) | `summary_claim_check_enabled` | `False` | R8 (5–15% unfaithful; second reading not adopted) | ✅ OFF (code kept) |
+| Classifier init/input variants (B7) | `classifier_model_path` | live checkpoint | R8 (no change) | ✅ unchanged |
+| Memory gate's terms inside running chats (F24) | `ltm_*` | as shipped | maintainer (B/C in-sample) | ✅ unchanged — FINAL measures it (MDM/MDF/NMH) |
+| Automatic cluster scoping | `retrieval_auto_cluster_scope` | `False` | A12 (cut 19/108 gold turns) | ✅ OFF (code kept); not in the parts test |
+
+**Decided at Z3 (Z3 judging run 2 + R7 on B and C; grade-2, paired):**
+
+| Part | Switch | Default now | Candidate | Decided by | Z3 decision |
+|---|---|---|---|---|---|
+| Evidence in conversation order (F10) | `retrieval_evidence_order` | `relevance` | `conversation` | R3 (`retest_c256_order`) | ☐ |
+| Originals before summaries (F14) | `retrieval_rerank_representation`, `representation_summary_first_intents` | `best_score`, `True` | `policy`, `False` | R4 (`retest_c256_originals_first`, `retest_c256_policy`) | ☐ |
+| Wider search legs | `retrieval_rerank_candidates` + `retrieval_bm25/vector_candidate_limit`, `codex_fact_candidate_limit` | 256 + 100/100/64 | 512 + 300/300/192 | R4 (`retest_c256_wide_originals`) | ☐ |
+| Turn summaries in reads (F13) | `turn_summaries_in_reads` | `True` | `False` | R4 (`retest_c256_no_summaries`) | ☐ |
+| Reranker rescue of a "no memory" decision (F4) | `memory_source_rescue_mode`, `memory_source_rescue_min_score` | `proof`, `0.0` | `reranker`, bar `0` | R10 graded (`r10-answers`/`r10-grade`, phase 2) + `nomem_cost` | ☐ |
+
+**Decided at Z3 by D9's simplification pass** (Z2's leave-one-out grades, S8 quality, reach into
+prompts; [Z3_DECISIONS](specs/Z3_DECISIONS.md) D9). A part that goes is switched OFF — a default-only
+setting is added where none exists — never deleted before FINAL:
+
+| Part | What controls it now | Known now | Z3 decision |
+|---|---|---|---|
+| Batch summaries (cross-conversation notes) | job `batch_summarize`; leg `retrieval_conversation_summary_limit` (`2`) | never ran in Z2 (G79), fixed, untested — D9 rule 2 | ☐ |
+| Session summaries (reflection) | job `reflection` | faithful B 8/44, C 3/12; only reader MCP `ice://session-start` | ☐ |
+| Procedural memory | `retrieval_procedural_limit` (`5`), `procedural_min_conf` | B 26% unfaithful; ~0.7 fragments a prompt | ☐ |
+| Conversation fold (notes) | `conversation_note_prompt_tokens` (`650`) | in every prompt; ~⅓ stale; `loo_notes` | ☐ |
+| Entity mention links | — | ~20% wrong; no structural fix | ☐ |
+| Temporal retrieval, maintenance merges | `timescope_enabled` (`True`); maintenance agent | inert on B (F3); S9 tests them in FINAL | ☐ |
+
 ---
 
 ## Request path — api, retrieval, classifier, model_registry

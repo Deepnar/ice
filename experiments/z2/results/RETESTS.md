@@ -37,17 +37,23 @@ uv run --no-sync python experiments/final/run_final.py run --only prep-locomo-ex
 uv run --no-sync python experiments/final/run_final.py status --watch
 ```
 
-1. **Now → Oct 31 night (GPU):** x3 reranker-input reads (~3 h; done — neither input joins the
-   answers) → the two live trials, `experiments/final/trial.py lme` (~2 h) then `trial.py beam`
-   (~40 min, Nov 1 if late). Cloud: nothing (weekly limit until Nov 2).
-2. **Nov 1 → ~Nov 8 (GPU free):** the memory systems' ingest + search, all three, all 10 LoCoMo
-   conversations. **Beside it, cloud from Nov 2**, one phase after another: Z2's own cloud run (R6) →
-   Z3 judging run 1 (judge check) → the maintainer approves → run 2 (answers + grade-2) → cloud prep
-   (synthetic conversations, A's and ICE2's ground truth) → the maintainer reviews A's and ICE2's packets.
-   R10 (F4) once S12 is graded.
+1. ✅ **Oct 31 → Nov 1 (GPU):** x3 reranker-input reads (neither input joins) → the LME-S and BEAM live
+   trials → R10's reranker-rescue re-read and its no-memory side (bar 0 chosen).
+2. **Nov 2 → ~Nov 8:** two runs side by side —
+   - **GPU:** the memory systems on LoCoMo, starting with `prep-locomo-controls` (cloud, minutes), then
+     ingest + search, all three, all 10 conversations.
+   - **Cloud, one phase after another:** **phase 1** Z2's own run on `main` (B and C grade-1 grading,
+     S12 answers + grades; ~15 h) → **phase 2** Z3 judging run 1 (judge check) → the maintainer
+     approves → run 2 (R3/R4 retest answers + grade-2, R10 answers + LongMemEval grades) → **phase 3**
+     cloud prep (the synthetic conversations, each followed by its no-memory controls; A's, SW's, LAP's
+     and ICE2's ground truth, controls included) → the maintainer reviews the private packets.
+   Phase 1's command (from `main`'s checkout; grading embeds on the CPU so the GPU stays the memory systems'):
+   ```bash
+   cd ~/Programs/ice && Z2_EMBED_DEVICE=cpu uv run --no-sync python experiments/z2/run_z2.py run --lane cloud --only s11-B,s11-C,s12-answers,s12-grade
+   ```
 3. **~Nov 8–10:** R7 — the chosen settings together on B and C (GPU reads + cloud answers/grades);
    the memory systems pause for its reads if not done.
-4. **~Nov 10:** Z3 freeze — switch defaults, D9 simplification, merge fix-pass into `main`, the freeze commit.
+4. **~Nov 10:** Z3 freeze — switch defaults, D9 simplification (**switch OFF, code kept; deletion only after FINAL** — maintainer, 2026-11-01; the record is FEATURE_INVENTORY's "Z3 FREEZE" section), merge fix-pass into `main`, the freeze commit.
    Stop the memory systems' run first (Ctrl-C) if it is still going; at the merge, move fix-pass's other
    `logs/final-*` folders (questions, ledger, synth) into `main`'s logs as final-run-main and final-locomo were.
 5. **~Nov 10–17:** research briefing (GPU free: the memory systems finish here if still running).

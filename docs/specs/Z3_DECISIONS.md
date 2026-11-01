@@ -183,6 +183,12 @@ intends to **remove** parts that do not earn their place — named so far: batch
 session summaries, "and things alike". Done **before FINAL freezes the system**, so FINAL
 measures the simpler system.
 
+**⚑ Amended by the maintainer, 2026-11-01: switch off before FINAL, delete after.** A part that does
+not earn its place is switched OFF at the freeze — its default changes, its code stays — and is
+deleted only after FINAL, so a deletion cannot introduce bugs the experiment never measures. FINAL
+measures the simpler system either way (the part is off). The freeze record is FEATURE_INVENTORY's
+"Z3 FREEZE" section; rule 3's removal commit and CLEANUP entry happen after FINAL.
+
 **Rules for each removal:**
 1. **Evidence per part, not a hunch:** its ablation effect in Z2 (does switching it off change
    answers beyond noise?), its S8 quality, and how often it reaches a prompt. A part that
