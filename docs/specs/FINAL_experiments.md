@@ -3,7 +3,10 @@
 **⚑ Current contract, 2026-10-27:** §2.1, [FINAL_PREREGISTRATION.md](FINAL_PREREGISTRATION.md)
 (r2) and [Z3_DECISIONS.md](Z3_DECISIONS.md) D10–D13. Where any older text in this file
 disagrees — answerer, judges and their families, providers, budgets, local answering — those
-win; the older text is kept as the record.
+win; the older text is kept as the record. **Revision 5 (2026-11-01):** the memory decision is
+measured (MDM, MDF, NMH, POS — no-memory controls on S1–S8 and LoCoMo, gate breakdown and read
+seconds on every read) and LoCoMo is never dropped — the pre-registration's top and §5; the drop
+order further down this file is superseded.
 
 **Correction, maintainer 2026-10-15:** the 2026-10-09 paragraph below conflates
 Z2 with FINAL. **Z2** (semi-LSREP on B and C, read-time ablations, background-

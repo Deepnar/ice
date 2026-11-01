@@ -36,6 +36,33 @@ reverses the 2026-10-26 drop of the *stitched* ICE chat: one chat, not the stitc
 same chain and the maintainer's review as A, SW and LAP. The private suite's detectable
 difference moves from 6.4 to ≈5.4 points (§3 table).
 
+**Revision 5 — APPROVED by the maintainer 2026-11-01, before any FINAL answer:** **the memory
+decision is measured, and LoCoMo is never dropped.** Why: ICE's gate exists to skip memory when a
+message needs none, and FINAL measured neither side of that choice. Z2 (v3) found both sides failing:
+the gate withheld memory from about a third of LongMemEval's questions (FINDINGS F4; R10's reranker
+rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-memory controls (median
+~17K memory tokens) and on 1,118 of 1,119 of B's replayed turns. Added:
+- **Four named measures** (§2 table): **MDM** misses, **MDF** false alarms, **NMH** no-memory harm,
+  **POS** the position contrast (paper 1's token-crossover table, extended).
+- **No-memory questions everywhere ICE's own data allows:** the private histories keep their
+  controls (`questions.py` control prompts — one per checkpoint, four kinds: general knowledge, a
+  self-contained task, small talk, a follow-up answerable from the recent turns; written in the
+  history's style, checked by the other writer family); **S1–S8 get the same controls** (S9 keeps
+  its gate questions); the synthetic plans' quiet turns (~10%, `no_memory_turns`) give MDF on turns
+  from the replay's per-turn gate record. Sized from measured calls before generating (TRAPS 148).
+- **Public suites** (LongMemEval-S, BEAM, LoCoMo): every question needs memory (an abstention
+  question too — knowing a thing was never said takes memory), so they report MDM only, split by
+  each benchmark's own question types, in a table of its own; their own scores are untouched.
+- **The memory systems on no-memory messages:** ~10 controls per LoCoMo conversation (~100), made
+  by the same machine; ICE (full and 2K), Graphiti, Mem0 and A-Mem each answer them; reported: the
+  memory tokens each hands the model, MDF for ICE (the others always search) and NMH for all. A
+  separate table; Mem0's-protocol LoCoMo scores are unchanged.
+- **Metadata on every read:** the gate's breakdown (each term — classifier prior, bias, length
+  pressure, word list, creative, low confidence, timescope, coding) and the memory read's wall
+  seconds, beside the prompt and memory tokens already recorded.
+- **LoCoMo leaves the drop order (§5):** it is the benchmark the other memory systems are compared
+  on, and the one most memory papers report.
+
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP, ICE2 (held out; ICE2 added in revision 4)
@@ -118,6 +145,10 @@ filling the window; M3 shows the price. *Misses:* quality — it is read beside 
 | **SPF** — supporting-fragment precision | share of prompt fragments that carry a needed fact | paper 1's SPF, made length-free |
 | **SFR** — stale-fragment rate | share of prompt fragments that carry a wrong or outdated one | new |
 | **ER** — evidence recall | share of questions whose cited evidence reached the prompt | new |
+| **MDM** — memory-decision misses | share of questions needing memory whose prompt got none (the final decision, after any rescue); per suite and per each benchmark's question type (revision 5) | new |
+| **MDF** — memory-decision false alarms | share of no-memory controls (and synthetic quiet turns) where ICE fetched memory, with the memory tokens added and the read's seconds (revision 5) | new |
+| **NMH** — no-memory harm | on no-memory controls, share of answers judged worse than the recent-only answer, blind, both orders (revision 5) | new |
+| **POS** — position contrast | per question, prompt tokens ICE − `bare_vector` and ICE − `long_context` in the first vs last quarter of each history (paired, bootstrapped 95% interval, share where ICE is cheaper), with SCA, MDM and MDF per quarter; synthetic and private only (benchmark questions all come at the end); observational — query mix and state vary with position (revision 5) | paper 1's token-crossover table |
 | **ICR · NSR · OVR · AER** — the hallucination profile | invented-claim rate · never-said answer rate (confident answers about things never said) · outdated-value rate · attribution-error rate (who said what) | paper 1's Hallucination %, split in four |
 | **MFA** — mechanism fidelity audit | per part: did it run, is its output faithful, does it reach a prompt, does switching it off lower SCA (S9) | paper 1's fidelity audit |
 
@@ -222,6 +253,12 @@ headline (kept as a descriptive column).
   by question, and a preference ranking is where a same-family judge is most exposed;
   recency Δ (the distance curve replaces it); ordinal net superiority (McNemar replaces it).
   Human grades never enter an aggregate (paper 1 merged 72 of them); they are agreement only.
+- **The memory decision (revision 5):** MDM, MDF and NMH per suite, beside the tokens and seconds a
+  skipped read saves. On LSREP: from the controls, the synthetic quiet turns and every question's
+  gate record. On the benchmarks: MDM by their own question types. On LoCoMo's controls: the same
+  no-memory messages through ICE and the three memory systems. POS on the synthetic and private
+  histories. Reported as measured, whichever way it falls: a gate that fetches on almost everything
+  saves nothing, and a gate that withholds from needed questions costs answers.
 - **Retention (S4)** by distance; **style invariance** S1 vs S8; **the parts test** — on S9 only
   (B's run dropped 2026-10-28): each part switched off one at a time, parts added one at a time (a
   group earns its place when switching it off lowers M2 on the
@@ -239,9 +276,9 @@ headline (kept as a descriptive column).
   condition, and a condition with >5% ungraded is flagged.
 - Questions a history's review dropped stay dropped. Controls (no-memory questions) are reported
   apart.
-- If time runs short, the drop order is fixed in advance: LoCoMo; A-Mem; LongMemEval-S 100 → 50; the S9 build-up. Never dropped: the
+- If time runs short, the drop order is fixed in advance: A-Mem; LongMemEval-S 100 → 50; the S9 build-up. Never dropped: the
   primary tests, the hallucination measures, the full-history upper bound, the private and
-  synthetic main runs.
+  synthetic main runs, LoCoMo (the memory systems' comparison; revision 5).
 
 ## 6. Left open by design (approved as such)
 - The cross-family judge: a fresh non-Meta model picked at the time — a local model or a cheap
