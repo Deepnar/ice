@@ -32,7 +32,10 @@ each entry carrying a verified `file:line`. **~433 features.**
 **OFF** — its default changes, its code stays — and is deleted only **after** FINAL, each deletion in
 its own commit and logged in [CLEANUP.md](CLEANUP.md). Deleting before the experiment risks bugs nobody
 measures. So every row below ends as **ON**, **OFF (code kept)**, or **unchanged** — never "removed".
-The `Z3 decision` column is the freeze record; a row still ☐ at the freeze blocks it.
+The `Z3 decision` column is the freeze record; a row still ☐ at the freeze blocks it. **OFF must be
+off everywhere:** each part switched off is checked by query at the freeze — no rows written, no job
+run, no fragment in a prompt — since a switch that stops the read but not the writer still costs
+FINAL time (TRAPS: "check where a signal lands").
 
 **Decided already (measured; the default is what FINAL runs):**
 

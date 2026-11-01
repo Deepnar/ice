@@ -47,13 +47,14 @@ uv run --no-sync python experiments/final/run_final.py status --watch
      approves → run 2 (R3/R4 retest answers + grade-2, R10 answers + LongMemEval grades) → **phase 3**
      cloud prep (the synthetic conversations, each followed by its no-memory controls; A's, SW's, LAP's
      and ICE2's ground truth, controls included) → the maintainer reviews the private packets.
-   Phase 1's command (from `main`'s checkout; grading embeds on the CPU so the GPU stays the memory systems'):
+   Phase 1's command (from `main`'s checkout; its grading embeds with the 0.6B encoder on the GPU — it fits
+   beside the memory systems' gemma4:e4b):
    ```bash
-   cd ~/Programs/ice && Z2_EMBED_DEVICE=cpu uv run --no-sync python experiments/z2/run_z2.py run --lane cloud --only s11-B,s11-C,s12-answers,s12-grade
+   cd ~/Programs/ice && uv run --no-sync python experiments/z2/run_z2.py run --lane cloud --only s11-B,s11-C,s12-answers,s12-grade
    ```
 3. **~Nov 8–10:** R7 — the chosen settings together on B and C (GPU reads + cloud answers/grades);
    the memory systems pause for its reads if not done.
-4. **~Nov 10:** Z3 freeze — switch defaults, D9 simplification (**switch OFF, code kept; deletion only after FINAL** — maintainer, 2026-11-01; the record is FEATURE_INVENTORY's "Z3 FREEZE" section), merge fix-pass into `main`, the freeze commit.
+4. **~Nov 10:** Z3 freeze — switch defaults, D9 simplification (**switch OFF, code kept; deletion only after FINAL** — maintainer, 2026-11-01; the record is FEATURE_INVENTORY's "Z3 FREEZE" section; each OFF part checked by query on R7's stores and a short live replay — no rows written, no job run, no fragment in a prompt), merge fix-pass into `main`, the freeze commit.
    Stop the memory systems' run first (Ctrl-C) if it is still going; at the merge, move fix-pass's other
    `logs/final-*` folders (questions, ledger, synth) into `main`'s logs as final-run-main and final-locomo were.
 5. **~Nov 10–17:** research briefing (GPU free: the memory systems finish here if still running).
