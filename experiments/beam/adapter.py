@@ -69,8 +69,16 @@ def source_turns(question, id_to_turn):
     if not raw:
         return []
     value = ast.literal_eval(raw) if isinstance(raw, str) else raw
-    ids = [i for v in value.values() for i in v] if isinstance(value, dict) else list(value)
+    ids = flat(list(value.values()) if isinstance(value, dict) else value)
     return sorted({id_to_turn[int(i)] for i in ids if int(i) in id_to_turn})
+
+
+def flat(value):
+    """Message ids at any depth: an event_ordering question groups one event's messages in a nested
+    list ([[24, 26, 28], [146], ...] — 5 of the chosen conversations' questions, 2026-11-01)."""
+    if isinstance(value, (list, tuple)):
+        return [i for v in value for i in flat(v)]
+    return [value]
 
 
 def to_asks(row, id_to_turn, last_turn):

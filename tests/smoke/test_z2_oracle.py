@@ -120,3 +120,21 @@ def test_a_stop_reaches_every_worker(tmp_path):
         except ProcessLookupError:
             pass
     assert not alive
+
+
+def test_outputs_under_a_linked_logs_folder_are_accepted_and_others_refused(tmp_path, monkeypatch):
+    # a worktree's logs/z2-run-main links into the main checkout's logs; ".." out of logs/ is still refused
+    import sys
+    target = tmp_path / "elsewhere"
+    target.mkdir()
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "linked").symlink_to(target)
+    monkeypatch.setattr(O, "ROOT", tmp_path)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(O, "run", lambda *a, **k: [])
+    monkeypatch.setenv("ICE_TEST_DATABASE", "ice_z2_x")
+    monkeypatch.setattr(sys, "argv", ["oracle.py", "run", "--database", "ice_z2_x", "--out", "logs/linked/run"])
+    assert O.main() == 0
+    monkeypatch.setattr(sys, "argv", ["oracle.py", "run", "--database", "ice_z2_x", "--out", "logs/../src"])
+    with pytest.raises(ValueError, match="private"):
+        O.main()

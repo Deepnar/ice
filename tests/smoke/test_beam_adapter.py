@@ -59,3 +59,11 @@ def test_beam_grading_scores_resumes_and_leaves_incomplete_ungraded(tmp_path):
     before = len(calls)
     G.run(units, ans, tmp_path / "asks.json", tmp_path / "out", judge)
     assert len(calls) == before                                          # resumed
+
+
+def test_grouped_source_ids_are_flattened():
+    # event_ordering groups one event's messages: [[24, 26], [146], 7] (5 questions in the chosen set)
+    from experiments.beam.adapter import source_turns
+    id_to_turn = {7: 1, 24: 2, 26: 2, 146: 5}
+    assert source_turns(dict(source_chat_ids="[[24, 26], [146], 7]"), id_to_turn) == [1, 2, 5]
+    assert source_turns(dict(source_chat_ids={"a": [7, [24]]}), id_to_turn) == [1, 2]

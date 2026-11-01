@@ -119,7 +119,7 @@ re-read, never set from B alone.
 | R6 | Z2's grade-1 grading finishes on `main` (B's remaining phases, C, S12) | CLOUD (~$11) | ☐ |
 | R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
 | R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ✅ G60 replaced (F20), G75 off, B7 no change |
-| R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | LoCoMo ✅; LME-S ✅ (2026-10-31, `trial.py lme`); BEAM ☐ |
+| R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | LoCoMo ✅; LME-S ✅ (2026-10-31, `trial.py lme`); BEAM ✅ (2026-11-01, `trial.py beam`) |
 | R10 | F4 — B2 "no memory" on a third of LongMemEval | after S12 graded | ☐ |
 | R11 | F18 — clusters dropped from FINAL's parts test (audit A12); decay tested on S4 + S9 | design | ✅ |
 
@@ -162,7 +162,7 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    exactly): `private_originals.py` writes it, registered in `histories.py`, in FINAL's roster, report suite
    and `private_chain.sh`/`cloud_prep.sh` (its chain runs with cloud prep: ~5M tokens like C's, ~$1), review
    packet as for A/SW/LAP. Pre-registration revision 4 states why and when (after Z2's C results).
-5. ☐ Live trials by hand: LongMemEval-S full context, BEAM slice — both `experiments/final/trial.py`
+5. ✅ Live trials by hand: LongMemEval-S full context, BEAM slice — both `experiments/final/trial.py`
    (`lme`: 2 questions of the pinned slice; `beam`: one 128K conversation's first 30 turns through the
    FINAL runner's own stages — the `--limit 30` run would replay all 20, ~8 h). Ctrl-C stops either
    cleanly; the same command resumes. LongMemEval-S's first attempt found 252 empty sessions in the
@@ -171,7 +171,11 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    prompt equalled recent-only's). LongMemEval-S ✅ 2026-10-31: both questions done, no failures; the
    second (247 turns, 72 min) retrieved and carried the answer as a fact and a summary; every control
    (plain search, all evidence, full context) held the evidence turn and recent-only none. One of 46
-   source-proof calls exceeded the support model's 512 tokens (WARNING, "unknown") — count it in FINAL.
+   source-proof calls exceeded the support model's 512 tokens (WARNING, "unknown") — count it in FINAL. BEAM ✅
+   2026-11-01: BEAM-100K-1's 30-turn replay (23 min) and its 10 questions under all four conditions, no
+   errors; B2 refused memory on 2 of 10 (F4). Its export step had crashed first on 5 event_ordering
+   questions whose source ids group one event's messages in nested lists (fixed: flattened); the trial
+   ran on conversation 1, exported whole before the crash, so its result stands.
 6. ✅ **Memory systems: search now, wrap later** — `run_baseline.py search|wrap`; runner stages
    `local-baseline-search-<system>-LOCOMO` (no ICE input; last in the local order, in LoCoMo's lane) and
    `local-baseline-<system>-LOCOMO` (the wrap, needs ICE's LoCoMo read). Stop anywhere: a half-ingested
