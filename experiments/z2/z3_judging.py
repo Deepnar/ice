@@ -7,6 +7,9 @@ runner (meter, lock, retries, clean stop, resume); state in logs/z3-judging-<nam
   r34-answers-*   the retest answers (Muse 1.2) for the order and summary settings, all at 256 candidates
   r34-grade-*     grade-2 verdicts on those answers (--verdicts-only; claims can be added if a
                   decision hinges on them)
+  r10-answers     R10's own replay answered (Muse 1.2): shipped, no memory, reranker rescue (bar off) —
+                  308 distinct prompts; every bar is replayed offline from them (r10_report.py --grades)
+  r10-grade       LongMemEval's own yes/no judge on those answers (--upstream-only)
 R7 (the chosen settings together) is added once R2–R4 have chosen.
 
 It waits while any Z2 runner is active (Z2's cloud run first), and a stage waits ("needs input")
@@ -39,6 +42,7 @@ ANSWERED = ("retest_cand256", "retest_c256_order", "retest_c256_originals_first"
 # Two runs (maintainer, 2026-10-31): the judge check first; the retest answers start only after the
 # maintainer has read its report and blind sheet and this file exists (touch it to approve).
 APPROVED = ROOT / "logs/z3-judging/judge-approved"
+R10_ANSWERED = ("full", "recent_only", "full_rescue_reranker")   # a refused question's prompt is recent_only's
 ASKS = {"B": 174, "C": 75}                                 # questions per history (retests read questions only)
 SCALE = {"B": 1.0, "C": 0.22}
 
@@ -122,6 +126,17 @@ def stages(_limit=None):
             "--out", f"logs/z2-retest-{h}-grades", "--verdicts-only"],
             calls=ROOT / f"logs/z2-retest-{h}-grades/grade-raw.jsonl", planned=ASKS[h] * len(ANSWERED),
             needs=(f"r34-answers-{h}",)))
+    # R10 (Z2 F4, 2026-11-01): the reranker rescue graded — LongMemEval's judge needs no judge check
+    r10, r10_answers = RUN / "s12-r10", ROOT / "logs/z3-judging/r10-answers"
+    out.append(Counted("r10-answers", "R10 answers: shipped, no memory, reranker rescue (Muse 1.2)", PY + [
+        "experiments/z2/answers.py", "--units", str(r10.relative_to(ROOT)), "--out", str(r10_answers.relative_to(ROOT)),
+        "--conditions", ",".join(R10_ANSWERED), "--answerer", "muse12"],
+        calls=r10_answers / "answers.jsonl", planned=308, unit="answers", inputs=(r10 / "units/full_rescue_reranker",)))
+    out.append(Counted("r10-grade", "R10 grades (LongMemEval's own judge)", PY + [
+        "experiments/z2/oracle.py", "grade", "--units", str(r10.relative_to(ROOT)),
+        "--answers", str(r10_answers.relative_to(ROOT)), "--out", "logs/z3-judging/r10-grade", "--upstream-only"],
+        calls=ROOT / "logs/z3-judging/r10-grade/oracle-grade-raw.jsonl", planned=438, unit="grades",
+        needs=("r10-answers",)))
     return out
 
 

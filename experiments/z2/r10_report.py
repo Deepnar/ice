@@ -9,6 +9,10 @@ answer as a fact or a summary, not the original words). Abstention questions are
 "answer" is that the thing was never said.
 
     uv run --no-sync python experiments/z2/r10_report.py --units logs/z2-run-main/s12-r10/units
+
+With --grades (logs/z3-judging/r10-grade/oracle-grades.json, LongMemEval's own judge): correct answers
+per setup and per bar — a question below the bar is answered from the no-memory prompt (a withheld
+rescue's prompt is recent_only's), above it from the rescue's.
 """
 
 import argparse
@@ -31,6 +35,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--units", type=Path, required=True)
     parser.add_argument("--dataset", default="oracle")
+    parser.add_argument("--grades", type=Path, help="oracle-grades.json of the R10 answers")
     args = parser.parse_args()
     from experiments.z2 import oracle as O
     O.select_dataset(args.dataset)
@@ -80,7 +85,27 @@ def main() -> int:
         group = [r for r in refused if r["type"] == kind]
         new = sum(r["rescue"] and r["score"] is not None and r["score"] >= 0.0 for r in group)
         print(f"   {kind:28} {sum(r['shipped'] for r in group):3} / {new:3}   of {len(group)}")
+    if args.grades:
+        graded(json.loads(args.grades.read_text()), [r for r in rows if r["refused"]])
     return 0
+
+
+def graded(grades, refused):
+    """Correct answers (LongMemEval's judge) on the refused questions, per setup and per bar."""
+    def ok(cond, q):
+        g = grades.get(f"{cond}|{q}") or {}
+        return g.get("upstream") if g.get("status") == "graded" else None
+    rows = [dict(r, none=ok("recent_only", r["q"]), ship=ok("full", r["q"]), resc=ok("full_rescue_reranker", r["q"]))
+            for r in refused]
+    rows = [r for r in rows if None not in (r["none"], r["ship"], r["resc"])]
+    print(f"graded (LongMemEval's own judge), {len(rows)} refused questions with all three answers graded "
+          f"({sum(r['abstention'] for r in rows)} abstention):")
+    print(f"   no memory                    {sum(r['none'] for r in rows):4}")
+    print(f"   shipped rescue (proof)       {sum(r['ship'] for r in rows):4}")
+    print(f"   reranker rescue, bar off     {sum(r['resc'] for r in rows):4}   = no gate")
+    for bar in BARS:
+        right = sum(r["resc"] if r["score"] is not None and r["score"] >= bar else r["none"] for r in rows)
+        print(f"   reranker rescue, bar {bar:+.0f}     {right:4}")
 
 
 if __name__ == "__main__":

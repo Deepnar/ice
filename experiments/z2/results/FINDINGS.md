@@ -480,8 +480,15 @@ memory tokens) and **10 of 11** (C). A fresh chat differs: 67 of 146 labeled no-
   creative +0.7. Sum +3.3 to +4.0 in a running chat, so the gate fetches whenever p_ltm > 2–4%; in a
   fresh chat +0.4 to +1.6. These turn the classifier's 23 of 34 into 33 of 34.
 
-Consequence: as v3 stands, skipping memory saves almost nothing in long chats. The fix to test first
-is the gate's terms (settings; no retrain): an offline sweep on recorded reads — needed questions
+**In-sample, so not the gate's real behaviour (2026-11-01).** 1,016 of B's turns are in the
+classifier's v2 training/validation data (950 train, 66 val) and 243 of C's 325; their labels say
+needs-memory on 95% (B) and 91% (C) — the classifier reproduces its own training labels. B and C
+measure the gate on chats it was fitted to; a fresh chat (LongMemEval, `nomem_cost`) is out of sample
+and behaves differently. **Decision (maintainer): no gate change** — FINAL's histories are all unseen
+(BEAM, LongMemEval-S, LoCoMo, A/SW/LAP/ICE2, synthetic) and measure it there (revision 5).
+
+Consequence, on B and C only: skipping memory saves almost nothing there. A fix, if one is ever wanted, would start
+with the gate's terms (settings; no retrain): an offline sweep on recorded reads — needed questions
 (Z2 B/C reads, S12, R10) vs no-memory ones (controls, `nomem_cost` messages) — then a GPU check. The
 word-list term is a writing-convention rule (CLAUDE.md invariance) and a candidate for removal. The
 training labels are the slower fix (relabel/retrain). Z3 decides; FINAL measures it either way
