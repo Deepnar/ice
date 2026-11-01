@@ -77,6 +77,7 @@ class Preamble:
     retrieve: bool          # what the B2 gate decided
     p_need_mem: float
     input_prompt_cap: Optional[int] = None  # Explicit research cap; ordinary callers unchanged.
+    b2_breakdown: Optional[dict] = None     # every input of the B2 decision (FINAL revision 5: MDM/MDF)
 
 
 def capped_window(window, prompt_cap=None):
@@ -168,7 +169,7 @@ def build(db, question: str, conversation_id, classifier, embedder,
         total_budget=total_budget, model_name=model_name,
         timescope_mode=tscope.mode,
         retrieve=decision.retrieve, p_need_mem=decision.p_need_mem,
-        input_prompt_cap=prompt_cap)
+        input_prompt_cap=prompt_cap, b2_breakdown=dict(decision.breakdown))
 
 
 def retrieve(orchestrator, pre: Preamble):
@@ -231,4 +232,8 @@ def provenance_fields(pre: Preamble, memory=None) -> dict:
         "b2_p_need_mem": pre.p_need_mem,
         "classifier_p_ltm": getattr(pre.classification, "p_ltm", None),
         "classifier_p_temporal": getattr(pre.classification, "p_temporal", None),
+        # FINAL revision 5: each term of the decision, and what preparing memory cost in time
+        # (retrieval + rerank + assembly when it fetches; assembly alone when it does not)
+        "b2_breakdown": getattr(pre, "b2_breakdown", None),
+        "read_seconds": None if memory is None else getattr(memory, "read_seconds", None),
     }

@@ -546,12 +546,14 @@ def prepare_with_trace(db, pre, classifier, *, arm="full", source_time=None,
         bookmarks = (bookmarked_turn_texts(db, pre.conversation_id,
                      artifact_receipts=bookmark_receipts)
                      if arm in {"full", "no_codex"} else [])
+        started = time.perf_counter()
         memory = pp.prepare(
             db, pre, classifier,
             memory_slots=(db.query(MemorySlot).filter_by(is_active=True).all()
                           if arm in {"full", "no_codex"} else []),
             bookmarked_texts=bookmarks, bookmarked_artifacts=bookmark_receipts,
             serving_window=window)
+        memory.read_seconds = round(time.perf_counter() - started, 3)
         if graph_exposure:
             from src.memory.usage import record_graph_access
             record_graph_access(db, memory.fragments, stage="prompt_prepared")
