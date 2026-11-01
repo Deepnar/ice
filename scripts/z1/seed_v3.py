@@ -391,9 +391,9 @@ def load_plan(*, probe_timing="delayed", include_native=True,
 
 
 def private_output(path: str) -> Path:
-    out = Path(path).resolve()
-    root = (Path(__file__).resolve().parents[2] / "logs").resolve()
-    if not out.is_relative_to(root):
+    from scripts.z1.private_logs import under_logs
+    out = Path(os.path.abspath(path))
+    if not under_logs(out):
         raise ValueError("replay traces contain private conversation text; output must be under logs/")
     out.parent.mkdir(parents=True, exist_ok=True)
     return out

@@ -143,8 +143,9 @@ def main() -> int:
     parser.add_argument("--name", default="families")
     parser.add_argument("--verifier", default=VERIFIER, help="FINAL: mimo (Muse writes no ground truth, Z3 D13)")
     args = parser.parse_args()
+    from scripts.z1.private_logs import under_logs
     for path in (args.ledger, args.out):
-        if not path.resolve().is_relative_to(ROOT / "logs"):
+        if not under_logs(path):
             raise ValueError("ledger data is private: keep it under logs/")
     from experiments.lme.cloud_provider import load_selected_env
     from experiments.z2.profiles import generator, metadata

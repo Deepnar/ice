@@ -255,7 +255,8 @@ def main() -> int:
         if os.environ.get("ICE_TEST_DATABASE") != args.database:
             raise RuntimeError("child started without its scratch database")
         return run_profile(args)
-    if not args.out.resolve().is_relative_to(ROOT / "logs"):
+    from scripts.z1.private_logs import under_logs
+    if not under_logs(args.out):
         raise ValueError("profile output is private: put it under logs/")
     if args.create_db == args.resume:
         raise ValueError("pass exactly one of --create-db (new run) or --resume")

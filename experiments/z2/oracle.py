@@ -475,10 +475,9 @@ def main() -> int:
     RESCUE_READ = getattr(args, "rescue_read", False)
     if getattr(args, "slice", None):
         args.only = json.loads(args.slice.read_text())["question_ids"]
-    # absolute with ".." collapsed but symlinks kept: a worktree's logs/<run> may link into the main
-    # checkout's logs (z2-run-main), which is just as private (2026-11-01)
+    from scripts.z1.private_logs import under_logs
     out = Path(os.path.abspath(args.out))
-    if not out.is_relative_to(ROOT / "logs"):
+    if not under_logs(out):
         raise ValueError("oracle outputs are private: keep them under logs/")
     if args.command == "grade":
         from experiments.lme.cloud_provider import load_selected_env

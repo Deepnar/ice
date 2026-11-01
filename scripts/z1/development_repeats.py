@@ -15,8 +15,8 @@ POLICY = "reviewed_unchanged_fact_recent_to_old_v1"
 
 
 def packet_hash(path: Path) -> str:
-    path = path.resolve()
-    if not path.is_relative_to(Path(__file__).resolve().parents[2] / "logs"):
+    from scripts.z1.private_logs import under_logs
+    if not under_logs(path):
         raise ValueError("development repeat review contains private data; keep it under logs/")
     return hashlib.sha256(path.read_bytes()).hexdigest()
 

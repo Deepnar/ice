@@ -382,8 +382,9 @@ def main() -> int:
     parser.add_argument("--offline", action="store_true",
                         help="re-merge from saved calls only; any call that is not saved fails")
     args = parser.parse_args()
+    from scripts.z1.private_logs import under_logs
     for path in (args.raw, args.out):
-        if not path.resolve().is_relative_to(ROOT / "logs"):
+        if not under_logs(path):
             raise ValueError("ledger data is private: keep it under logs/")
     tie_breaker = None if args.tie_breaker == "none" else args.tie_breaker
     roles = {"deepseek", "mimo"} | ({tie_breaker} if tie_breaker else set())

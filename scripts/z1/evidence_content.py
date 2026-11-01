@@ -133,8 +133,8 @@ def main():
     parser.add_argument("--arm", default="full", choices=["full", "no_codex", "vector_only", "recent_only"])
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
-    logs = (Path(__file__).resolve().parents[2] / "logs").resolve()
-    if any(not p.resolve().is_relative_to(logs) for p in (args.trace, args.review, args.out)):
+    from scripts.z1.private_logs import under_logs
+    if any(not under_logs(p) for p in (args.trace, args.review, args.out)):
         raise ValueError("content audit artifacts must remain under logs/")
     if args.out.exists():
         raise ValueError("content audit output exists; use a new derived path")

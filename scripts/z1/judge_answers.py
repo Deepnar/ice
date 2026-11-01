@@ -611,8 +611,8 @@ def _main() -> int:
     STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     path = args.out or OUT / f"{STAMP}_{args.tag}.json"
     if args.out:
-        logs = (Path(__file__).resolve().parents[2] / "logs").resolve()
-        if not path.resolve().is_relative_to(logs):
+        from scripts.z1.private_logs import under_logs
+        if not under_logs(path):
             raise ValueError("manual judge outputs contain private source/question text; keep them under logs/")
     path.parent.mkdir(parents=True, exist_ok=True)
     global _RUN_LOCK

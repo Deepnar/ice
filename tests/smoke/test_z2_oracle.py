@@ -129,7 +129,8 @@ def test_outputs_under_a_linked_logs_folder_are_accepted_and_others_refused(tmp_
     target.mkdir()
     (tmp_path / "logs").mkdir()
     (tmp_path / "logs" / "linked").symlink_to(target)
-    monkeypatch.setattr(O, "ROOT", tmp_path)
+    from scripts.z1 import private_logs
+    monkeypatch.setattr(private_logs, "LOGS", tmp_path / "logs")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(O, "run", lambda *a, **k: [])
     monkeypatch.setenv("ICE_TEST_DATABASE", "ice_z2_x")
