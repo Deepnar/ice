@@ -26,11 +26,14 @@ not changed after; if the briefing's feedback changes how a system is run, that 
 Started and stopped by hand (Ctrl-C, any time); whatever is unfinished when FINAL's local phase
 starts resumes inside it — in LoCoMo's lane, after ICE's own LoCoMo replay and read, beside the
 other lane's ICE histories and the cloud stream. Ingest time per conversation is unmeasured; the
-meter shows it after the first conversation.
+meter shows it after the first conversation. **`prep-locomo-controls` first** (revision 5, 2026-11-01):
+~10 no-memory controls per conversation, ~200 cloud calls (minutes, ~$0.2) — so it needs the cloud plan
+(from Nov 2); every search waits for it, because A-Mem's store lives in memory and a control added
+after its search would re-ingest that conversation.
 
 ```bash
 cd ~/Programs/ice-worktrees/fix-pass
-uv run --no-sync python experiments/final/run_final.py run --only prep-locomo-export,prep-amem-vendor,local-baseline-search-mem0-LOCOMO,local-baseline-search-amem-LOCOMO,local-baseline-search-graphiti-LOCOMO
+uv run --no-sync python experiments/final/run_final.py run --only prep-locomo-export,prep-locomo-controls,prep-amem-vendor,local-baseline-search-mem0-LOCOMO,local-baseline-search-amem-LOCOMO,local-baseline-search-graphiti-LOCOMO
 uv run --no-sync python experiments/final/run_final.py status --watch
 ```
 
@@ -74,7 +77,8 @@ built.
      remaining phases, C, and S12's answers and grades. Run to the end.
    - **Phase 2 — Z3 judging** (`experiments/z2/z3_judging.py`, its own runner; it waits while any Z2
      run is active): R5 judge panel and judge checks on B and C, the R3/R4 retest answers and their
-     grade-2 verdicts, and anything Z2 or the GPU reads turn up (R7 is added once R2–R4 choose).
+     grade-2 verdicts, R10's answers and LongMemEval grades (`r10-answers`, `r10-grade`: 308 answers +
+     438 grades, ~$1.1; then `r10_report.py --grades` gives correct answers per bar), and anything Z2 or the GPU reads turn up (R7 is added once R2–R4 choose).
    - **Phase 3 — cloud prep** (`experiments/final/cloud_prep.sh`): the synthetic conversations and
      A's private ground truth, then A's review.
    Budget at measured prices: phase 1 ~$11.5, phase 2 ~$9–10 (answers ~$6.3, verdicts ~$1.5,
@@ -192,7 +196,7 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    get each session's date. Mem0 now ingests each session with the clock its modules read set to that
    session's time (`session_clock`; its code and prompts untouched) — as if run live that day; the
    trial then stored "May 7, 2023", LoCoMo's own answer. Disclosed in the pre-registration's §4.
-7. ☐ **The memory decision in FINAL** (pre-registration revision 5, maintainer 2026-11-01) — MDM misses,
+7. ✅ (d017a0f … fb1f701) **The memory decision in FINAL** (pre-registration revision 5, maintainer 2026-11-01) — MDM misses,
    MDF false alarms, NMH no-memory harm, POS position contrast:
    - every read records the gate's breakdown (each term) and the memory read's wall seconds
      (`production_parity` / `seed_v3` stage record — harness, not `src/`);
@@ -201,8 +205,8 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
      systems' search, answered and compared blind with recent-only;
    - the report: MDM by suite and by each benchmark's question types, MDF/NMH, synthetic quiet turns
      from the replay's per-turn gate record, and POS (paper 1's token-crossover table, extended).
-8. ☐ **The gate inside running chats (FINDINGS F24)** — measure, then fix: the gate fetches on almost
-   every turn of a long chat. Offline sweep of its terms on recorded reads, then a GPU check; Z3 decides.
+8. — **The gate inside running chats (FINDINGS F24): no change** (maintainer, 2026-11-01). B and C are in
+   the classifier's training data (in-sample); FINAL's unseen histories measure the gate (MDM/MDF/NMH).
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 

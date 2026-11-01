@@ -9684,3 +9684,20 @@ the rewriter was on in **every** step and `add_hyde` (+0.03 [−0.13, +0.21]; sa
 fidelity audit (`experiments/paper/notes/FIDELITY_AUDIT.md`) states: "active but
 constant across nominal ablation steps". The G36 deletion and P0.1's reasons for
 not shipping real HyDE stand.
+
+## 2026-11-01 — Z2 R10 reranker rescue re-read, and its no-memory side (v3, fix-pass)
+
+**R10 (artifact: `logs/z2-run-main/s12-r10/`).** `gpu_extra.py run --only r10,r10-report` at fix-pass
+`26435ba` (+ `under_logs` fix): the 146 LongMemEval-oracle questions S12's B2 refused
+(`experiments/lme/r10_slice.json`), each replayed alone into `ice_z2_r10_{0,1}` (two workers) and read
+under S12's five conditions plus `full_rescue_reranker` (`memory_source_rescue_mode=reranker`,
+`memory_source_rescue_min_score=-1000`: bar off, best score recorded). Background `gemma4:e4b`; reranker,
+classifier, encoder as `main`'s settings. 146/146, 0 failures, 0 skipped; report
+`logs/gpu-extra-main/r10-report.log` (RETESTS R10). Code check only — nothing answered.
+
+**No-memory side (artifact: `logs/z2-run-main/nomem-cost/`).** `gpu_extra.py run --only nomem,nomem-report`
+at `e47b40e`: 146 `personal` / Zero_Shot messages from `data/labeled/labeled_prompts.jsonl` (seed 0; 17
+candidates left out as stored word for word in B), each read in a fresh chat on `ice_z2_nomem_b`, a
+`CREATE DATABASE … TEMPLATE ice_z2_main_b` copy (the source was not written: still 1 conversation), with
+the rescue's bar off. 146/146, 0 failures; report `logs/gpu-extra-main/nomem-report.log`. Bar 0 chosen
+(RETESTS R10). Neither run touched `main` or any FINAL store.
