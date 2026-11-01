@@ -727,6 +727,8 @@ assistant, for a test of whether the assistant over-uses long-term memory. KIND 
 message; it must need NO memory of anything earlier in the conversation (a recent follow-up may use
 only the RECENT turns shown). Write it the way this user writes (STYLE).
 Return only JSON: {"prompt": "..."}"""
+CONTROL_AVOID = """
+ALREADY_WRITTEN lists messages written for this same moment: write a different one, not a variant."""
 CONTROL_CHECK_SYSTEM = """A message is meant to need no long-term memory: it is answerable from general
 knowledge, from the message itself, or (if RECENT turns are shown) from those turns alone.
 Report whether that holds.
@@ -735,20 +737,29 @@ Return only JSON: {"needs_no_memory": true|false, "reason": "..."}"""
 
 def control_prompts(history, originals, out, *, models):
     """One control prompt per checkpoint, kinds cycled; the other writer family checks it."""
+    return controls_at(history, originals, out, checkpoints(history), models=models)
+
+
+def controls_at(history, originals, out, points, *, models, avoid=False):
+    """No-memory control prompts at *points*, kinds cycled; the other writer family checks each.
+    A point may repeat (LoCoMo asks ten after its last turn, FINAL revision 5): with *avoid* the
+    writer is shown the controls already kept, so repeats at one checkpoint differ."""
     import uuid
     (out / history).mkdir(parents=True, exist_ok=True)
     calls = M.Calls(out / history / "questions-raw.jsonl")
     session = lambda role: str(uuid.uuid5(uuid.NAMESPACE_URL, f"{CONTROL_POLICY}|{history}|{role}"))
     kept, rejected = [], []
-    for i, cp in enumerate(checkpoints(history)):
+    for i, cp in enumerate(points):
         kind = CONTROL_KINDS[i % len(CONTROL_KINDS)]
         writer = WRITERS_CYCLE[i % 2]
         checker = "mimo" if writer == "deepseek" else "deepseek"
         recent = ([dict(turn=t, user=originals[t - 1]["prompt"][:800], assistant=originals[t - 1]["response"][:800])
                    for t in range(max(1, cp - 2), cp + 1)] if kind == "recent_follow_up" else None)
         body = dict(KIND=CONTROL_TASKS[kind], STYLE=style_examples(originals, cp),
-                    **({"RECENT": recent} if recent else {}))
-        reply = ask_object(calls, writer, models[writer][1], models[writer][0], CONTROL_SYSTEM,
+                    **({"RECENT": recent} if recent else {}),
+                    **({"ALREADY_WRITTEN": [r["prompt"] for r in kept]} if avoid and kept else {}))
+        system = CONTROL_SYSTEM + (CONTROL_AVOID if "ALREADY_WRITTEN" in body else "")
+        reply = ask_object(calls, writer, models[writer][1], models[writer][0], system,
                            json.dumps(body, ensure_ascii=False), session(writer)) or {}
         prompt = reply.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip():
@@ -761,6 +772,12 @@ def control_prompts(history, originals, out, *, models):
                    prompt=prompt.strip(), writer=writer, verifier=checker, verdict=v)
         (kept if v.get("needs_no_memory") is True else rejected).append(row)
     return kept, rejected
+
+
+def control_asks(kept):
+    """Kept controls as read-pass asks (the shape build_asks gives Z2's controls)."""
+    return [dict(id=c["id"], checkpoint_turn=c["checkpoint_turn"], question=c["prompt"], kind="control",
+                 type=c.get("kind")) for c in kept]
 
 
 # ── S4: occurrences and computed ground truth (no model calls) ───────────

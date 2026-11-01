@@ -295,6 +295,16 @@ class Once(Z.Stage):
         return "done" if self.complete(ctx) else "stuck"
 
 
+class SynthControls(Once):
+    """A synthetic conversation's no-memory controls, once it is generated (FINAL revision 5; cloud)."""
+
+    def __init__(self, sid, action):
+        h = HISTORIES[sid]
+        super().__init__(f"prep-controls-{sid}", f"no-memory controls {sid} (one per checkpoint; cloud)",
+                         [h.path("asks")], lambda: action(sid), inputs=[h.path("originals")])
+        self.needs = (f"prep-generate-{sid}",)
+
+
 class WaitFor(Z.Stage):
     """Inputs produced outside this runner (the private question chain + maintainer review)."""
 
@@ -623,6 +633,14 @@ def final_stages(limit=None):
         from experiments.locomo.adapter import export
         export(ROOT / "logs/final-locomo")
 
+    def locomo_controls():
+        from experiments.final.no_memory_controls import locomo
+        locomo(ROOT / "logs/final-locomo")
+
+    def synth_controls(sid):
+        from experiments.final.no_memory_controls import synth
+        synth(sid, ROOT / "logs/final-synth")
+
     def derive_synth():
         import subprocess
         subprocess.run([sys.executable, "experiments/synth/derive.py"], check=True, cwd=ROOT)
@@ -636,8 +654,14 @@ def final_stages(limit=None):
                 [HISTORIES[k].path("asks") for k in BEAM], export_beam),
            Once("prep-locomo-export", "LoCoMo export (10 conversations)",
                 [HISTORIES[k].path("asks") for k in LOCOMO], export_locomo),
+           # FINAL revision 5: ~10 no-memory controls per conversation (cloud, minutes) — before the memory
+           # systems' search (A-Mem's store lives in memory: a later control would re-ingest it)
+           Once("prep-locomo-controls", "LoCoMo no-memory controls (10 per conversation; cloud)",
+                [HISTORIES[k].path("asks").with_name("controls.json") for k in LOCOMO], locomo_controls,
+                inputs=[HISTORIES[k].path("asks") for k in LOCOMO]),
            Once("prep-amem-vendor", "A-Mem's pinned memory layer (AMEM.json)", [amem_target()], fetch_amem),
            *[SynthGenerate(s) for s in SYNTHETIC],
+           *[SynthControls(s, synth_controls) for s in SYNTHETIC if s != "S9"],
            *[WaitFor(f"prep-questions-{k}", f"questions {k} (Z2 S1-S6 chain + review)", HISTORIES[k].path("asks"))
              for k in PRIVATE if k != "B"]]
     local, cloud = [], []
@@ -648,9 +672,11 @@ def final_stages(limit=None):
         replay = replays[k] = FinalReplay(k, limit)
         replay.needs = ((f"prep-generate-{k}",) if k in SYNTHETIC else ()) + (("prep-asks-B",) if k == "B" else ())
         read = FinalRead(k, asks, replay)
+        if k in SYNTHETIC and k != "S9":
+            read.needs = tuple(read.needs) + (f"prep-controls-{k}",)
         if k in AUDITED:
             inventory = Inventory(k, replay)
-            read.needs = (replay.key, inventory.key)
+            read.needs = (replay.key, inventory.key) + tuple(n for n in read.needs if n.startswith("prep-"))
             local += [replay, inventory, read]
         else:
             local += [replay, read]
@@ -676,7 +702,7 @@ def final_stages(limit=None):
     local += [Group("local-replay-LOCOMO", f"replay LoCoMo ({len(lk)})", loco_replays, "turns", needs=("prep-locomo-export",)),
               Group("local-read-LOCOMO", "read passes LoCoMo",
                     [FinalRead(k, HISTORIES[k].path("asks"), r) for k, r in zip(lk, loco_replays)], "contexts",
-                    needs=("local-replay-LOCOMO",))]
+                    needs=("local-replay-LOCOMO", "prep-locomo-controls"))]
     cloud.append(Group("cloud-answers-LOCOMO", "answers LoCoMo",
                        [answers(k, planned=HISTORIES[k].planned_asks * len(LOCOMO_ANSWERED), conditions=LOCOMO_ANSWERED)
                         for k in lk], "answers", needs=("local-read-LOCOMO",)))
@@ -692,7 +718,7 @@ def final_stages(limit=None):
     # FINAL's own run an unfinished one resumes after ICE's local stages (maintainer, 2026-10-31).
     local += [Group(f"local-baseline-search-{system}-LOCOMO", f"baseline {system} LoCoMo (ingest + search)",
                     [LoCoMoSearch(system, k) for k in lk], "questions",
-                    needs=("prep-locomo-export",) + (("prep-amem-vendor",) if system == "amem" else ()))
+                    needs=("prep-locomo-export", "prep-locomo-controls") + (("prep-amem-vendor",) if system == "amem" else ()))
               for system in MEMORY_SYSTEMS]
     local += [Group(f"local-baseline-{system}-LOCOMO", f"baseline {system} LoCoMo (wrap in ICE's frame)",
                     [LoCoMoBaseline(system, k) for k in lk], "questions",

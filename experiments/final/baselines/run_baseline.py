@@ -276,7 +276,8 @@ def speakers(originals):
 
 
 def questions(asks):
-    return [a for a in asks if a.get("kind") == "question"]
+    """Every ask searched: the questions and the no-memory controls (FINAL revision 5)."""
+    return [a for a in asks if a.get("kind") in ("question", "control")]
 
 
 async def search(system, history, originals, asks, out):

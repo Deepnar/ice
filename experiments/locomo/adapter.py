@@ -132,6 +132,9 @@ def export(out_dir="logs/final-locomo", data=None):
         originals, dia_to_turn = to_originals(sample)
         asks, occurrences, dropped = questions(sample, dia_to_turn, originals[-1]["turn_number"])
         d = out_dir / sample["sample_id"]
+        if (d / "controls.json").exists():           # FINAL revision 5: a re-export keeps the no-memory controls
+            from experiments.z2.questions import control_asks
+            asks += control_asks(json.loads((d / "controls.json").read_text())["kept"])
         d.mkdir(parents=True, exist_ok=True)
         (d / "originals.json").write_text(json.dumps(originals, ensure_ascii=False) + "\n")
         (d / "asks.json").write_text(json.dumps(asks, indent=1, ensure_ascii=False) + "\n")

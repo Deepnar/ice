@@ -70,8 +70,11 @@ HISTORIES.update(FINAL_PRIVATE)
 # plans (experiments/synth/plans/<id>.asks.json).
 def _synthetic():
     from experiments.synth.plans import BRIEFS
+    # S1–S8 read the plan's asks plus their no-memory controls (FINAL revision 5; written once the
+    # conversation exists, experiments/final/no_memory_controls.py); S9 keeps its gate questions
     return {sid: History(sid, f"syn{sid.lower()}", f"logs/final-synth/{sid}/originals.json", brief["pairs"], True,
-                         0, 1.0, 0, asks=f"experiments/synth/plans/{sid}.asks.json")
+                         0, 1.0, 0, asks=(f"experiments/synth/plans/{sid}.asks.json" if sid == "S9"
+                                          else f"logs/final-synth/{sid}/asks.json"))
             for sid, brief in BRIEFS.items()}
 
 
@@ -103,7 +106,7 @@ def _locomo():
     for sid, c in json.loads(manifest.read_text())["conversations"].items():
         key, d = f"LOCOMO-{sid}", f"logs/final-locomo/{sid}"
         out[key] = History(key, f"locomo{sid.replace('-', '')}", f"{d}/originals.json", c["turns"], True,
-                           0, 1.0, c["questions"], asks=f"{d}/asks.json")
+                           0, 1.0, c["questions"] + 10, asks=f"{d}/asks.json")     # + its no-memory controls
     return out
 
 

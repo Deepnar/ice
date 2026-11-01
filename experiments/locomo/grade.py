@@ -110,7 +110,8 @@ def run(units_dir, answers_dir, occurrences_path, out, judge, *, say=print):
                 done[row["key"]] = row
     unlabelled = 0
     todo = [(f"{unit['condition']}|{unit['ask']['id']}", unit, answer, occ.get(unit["ask"]["id"]))
-            for unit, answer in contexts(units_dir, answers_dir)]
+            for unit, answer in contexts(units_dir, answers_dir)
+            if unit["ask"].get("kind", "question") == "question"]      # controls: the blind no-memory comparison
 
     def one(job):
         """The row, or (key, None) when the judge gave no label (left for the next run)."""
