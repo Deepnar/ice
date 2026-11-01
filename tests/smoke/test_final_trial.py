@@ -87,3 +87,11 @@ def test_a_stop_ends_the_child_and_the_same_command_resumes(tmp_path, monkeypatc
 def test_an_unknown_conversation_is_refused(tmp_path, monkeypatch):
     fake_run(tmp_path, monkeypatch, seconds=0)
     assert T.beam("BEAM-100K-99") == 2
+
+
+def test_the_lme_trial_is_the_runners_oracle_stage_on_two_slice_questions(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "RUN", tmp_path)
+    stage = T.lme_stage()
+    assert isinstance(stage, Z.Oracle) and stage.total(None) == 2 and stage.done(None) == 0
+    args = stage.extra_args(None)
+    assert args[:2] == ["--dataset", "s"] and "--slice" in args and args[-2:] == ["--limit", "2"]
