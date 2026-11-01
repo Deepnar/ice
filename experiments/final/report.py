@@ -45,10 +45,11 @@ def condition_summary(report):
     return out
 
 
-def costs(read_dir, answers_dir):
+def costs(read_dir, answers_dir, units=None):
     """Per condition: mean prompt tokens per answer (read passes) and mean answer seconds."""
     from experiments.z2.report import unit_index
-    units = unit_index(read_dir) if Path(read_dir).exists() else {}
+    if units is None:
+        units = unit_index(read_dir) if Path(read_dir).exists() else {}
     secs = {}
     if (Path(answers_dir) / "answers.jsonl").exists():
         rows = {json.loads(l)["prompt_sha256"]: json.loads(l) for l in (Path(answers_dir) / "answers.jsonl").read_text().splitlines() if l.strip()}
@@ -123,8 +124,13 @@ def headline(scoring):
 
 
 def history_table(run, h, read_dir, answers_dir):
+    from experiments.final import decision_report
+    from experiments.z2.histories import HISTORIES
+    from experiments.z2.report import unit_index
     report = _load(run / f"grade-{h}" / "report.json") or {}
     sc = report.get("scoring")
+    units = unit_index(read_dir) if Path(read_dir).exists() else {}
+    turns = HISTORIES[h.removesuffix("-repeat")].turns
     return dict(headline=headline(sc), primary_tests=(sc or {}).get("primary_tests"),
                 noninferiority=(sc or {}).get("hallucination_noninferiority"),
                 by_distance=(sc or {}).get("by_distance"), evidence_recall=(sc or {}).get("evidence_recall"),
@@ -133,7 +139,40 @@ def history_table(run, h, read_dir, answers_dir):
                           if f["state"] != "not ablated here"} or None,
                 write_cost=(sc or {}).get("write_cost"), window_rule=(sc or {}).get("window_rule"),
                 questions=(sc or {}).get("questions"), out_of_window=(sc or {}).get("out_of_window"),
-                descriptive_1_5=condition_summary(report), costs=costs(read_dir, answers_dir))
+                descriptive_1_5=condition_summary(report), costs=costs(read_dir, answers_dir, units),
+                memory_decision=decision_report.history(units, _load(run / f"grade-{h}" / "grades.json"), turns,
+                                                        "full_default"))
+
+
+def memory_decision_benchmarks(run):
+    """Revision 5 on the benchmarks: every question needs memory, so MDM only, by their own question
+    types — and LoCoMo's no-memory controls, ICE and the three memory systems (MDF, NMH)."""
+    from experiments.final import decision_report as D
+    from experiments.z2.report import unit_index
+    run = Path(run)
+
+    def pooled(dirs):
+        index = {}
+        for d in dirs:
+            for key, row in unit_index(d).items():
+                cond, ask = key.split("|", 1)
+                index[f"{cond}|{d.name}:{ask}"] = row
+        return index
+    out = {}
+    for name, dirs, ice in (("LongMemEval-S", [run / "local-lmes"], "full"),
+                            ("BEAM", sorted(run.glob("local-read-BEAM-*")), "full_default"),
+                            ("LoCoMo", sorted(run.glob("local-read-LOCOMO-*")), "full_default")):
+        dirs = [d for d in dirs if (d / "units").exists()]
+        if dirs:
+            out[name] = D.decision(pooled(dirs), ice)
+    verdicts = {}
+    for path in sorted(run.glob("grade-*LOCOMO-*/locomo-controls.json")):
+        for key, v in json.loads(path.read_text())["verdicts"].items():
+            cond, ask = key.split("|", 1)
+            verdicts[f"{cond}|{path.parent.name}:{ask}"] = v
+    if verdicts and "LoCoMo" in out:
+        out["LoCoMo"]["no_memory_harm"] = D.harm(verdicts)
+    return out or None
 
 
 def cross_judge(run):
@@ -272,6 +311,7 @@ def build(run):
                 longmemeval_s=longmemeval_s(run),
                 run_to_run_variance_S1=variance, cloud_answerer_subset=subset or None,
                 cross_family_judge=cross_judge(run), locomo=locomo(run), full_history_upper_bound=upper_bound(run),
+                memory_decision_benchmarks=memory_decision_benchmarks(run),
                 judge_vs_human=_load(run / "human-sample" / "agreement.json"))
 
 
@@ -381,10 +421,47 @@ def markdown(report):
                   f"- {j['reading']}: family effect {_pct(j['family_effect'])} points, 95% CI {[_pct(x) for x in j['ci95'] or []]}",
                   f"- agreement on Muse answers {j['on_muse_answers']['agreement']} (kappa {j['on_muse_answers']['kappa']}); "
                   f"on other-family answers {j['on_other_family_answers']['agreement']} (kappa {j['on_other_family_answers']['kappa']})", ""]
+    lines += memory_decision_markdown(report)
     if report["judge_vs_human"]:
         j = report["judge_vs_human"]
         lines += ["## Judge vs the maintainer", "", f"- n {j['n']}, exact {j['exact']}, Cohen's kappa {j['cohen_kappa']}", ""]
     return "\n".join(lines) + "\n"
+
+
+def memory_decision_markdown(report):
+    """Revision 5: MDM misses, MDF false alarms, NMH no-memory harm, POS by history quarter."""
+    lines = ["## The memory decision (revision 5) — MDM misses · MDF false alarms · NMH no-memory harm", "",
+             "| data | questions | MDM | controls | MDF | memory tokens on a false alarm | read s fetching / skipping |",
+             "|---|---|---|---|---|---|---|"]
+    rows = [(h, t["memory_decision"]["decision"]) for h, t in report["histories"].items() if t.get("memory_decision")]
+    rows += list((report.get("memory_decision_benchmarks") or {}).items())
+    for name, d in rows:
+        lines.append(f"| {name} | {d['questions']} | {_pct(d['mdm'])} | {d['controls']} | {_pct(d['mdf'])} | "
+                     f"{d['mdf_memory_tokens']} | {d['read_seconds_fetching']} / {d['read_seconds_skipping']} |")
+    lines.append("")
+    for name, d in (report.get("memory_decision_benchmarks") or {}).items():
+        lines.append(f"- {name} MDM by its question types: " + ", ".join(
+            f"{t} {_pct(v['mdm'])} of {v['n']}" for t, v in d["mdm_by_type"].items()))
+    harms = [(h, t["memory_decision"]["no_memory_harm"]) for h, t in report["histories"].items()
+             if (t.get("memory_decision") or {}).get("no_memory_harm")]
+    harms += [("LoCoMo", d["no_memory_harm"]) for d in [(report.get("memory_decision_benchmarks") or {}).get("LoCoMo") or {}]
+              if d.get("no_memory_harm")]
+    for name, by in harms:
+        lines.append(f"- NMH {name}: " + ", ".join(f"{LABELS.get(c, c)} {_pct(v['nmh'])} worse / {_pct(v['better'])} "
+                                                   f"better of {v['n']}" for c, v in by.items()))
+    lines += ["", "**POS** — prompt tokens ICE minus the other condition, first vs last quarter of each history "
+              "(mean, 95% CI, share where ICE is cheaper); SCA / MDM / MDF per quarter. Observational.", ""]
+    for h, t in report["histories"].items():
+        pos = (t.get("memory_decision") or {}).get("position")
+        if not pos:
+            continue
+        for q in ("Q1", "Q4"):
+            cell = pos[q]
+            parts = [f"vs {LABELS.get(b, b)} {v['mean_delta']:+} {v['interval']} (ICE cheaper {_pct(v['ice_cheaper'])})"
+                     for b, v in ((b, cell.get(f"tokens_vs_{b}")) for b in ("bare_vector", "long_context")) if v]
+            lines.append(f"- {h} {q}: {cell['questions']} questions, SCA {_pct(cell['sca'])}, MDM {_pct(cell['mdm'])}, "
+                         f"MDF {_pct(cell['mdf'])}; " + "; ".join(parts))
+    return lines + [""]
 
 
 def main() -> int:

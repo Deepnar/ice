@@ -71,7 +71,11 @@ def unit_index(units_dir, count_messages=None):
             source_turns=sorted({t for f in selected for t in (f.get("source_turns") or
                                                                 ([f["turn"]] if isinstance(f.get("turn"), int) else []))}),
             recent_tokens=((ledger.get("blocks") or {}).get("recent_turns") or 0) if ledger else None,
-            legs=sorted({f.get("leg") for f in selected if f.get("leg")}))
+            legs=sorted({f.get("leg") for f in selected if f.get("leg")}),
+            # FINAL revision 5 (MDM, MDF, POS): the decision as it landed, its cost, where it was asked
+            memory_given=(stage.get("gate") or {}).get("final_retrieve"),
+            read_seconds=(stage.get("gate") or {}).get("read_seconds"),
+            checkpoint_turn=u["ask"].get("checkpoint_turn"))
     for key, row in out.items():
         if row["recent_tokens"] is None:
             row["recent_tokens"] = out.get(f"recent_only|{key.split('|', 1)[1]}", {}).get("recent_tokens") or 0

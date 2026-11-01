@@ -68,3 +68,44 @@ def test_final_waits_for_the_controls_before_reading_or_searching():
     assert stages["prep-controls-S1"].needs == ("prep-generate-S1",) and "prep-controls-S9" not in stages
     reads = [s for k, s in stages.items() if k.startswith("local-read-S") and "prep-controls-S4" in s.needs]
     assert reads
+
+
+def _folder(root, condition, asks, texts):
+    import json as j
+    (root / "units" / condition).mkdir(parents=True, exist_ok=True)
+    index, rows = {}, []
+    for ask, text in zip(asks, texts):
+        (root / "units" / condition / f"{ask['id']}.json").write_text(j.dumps(dict(condition=condition, ask=ask)))
+        index[f"{condition}|{ask['id']}"] = f"{condition}-{ask['id']}"
+        rows.append(dict(prompt_sha256=f"{condition}-{ask['id']}", finish="complete", text=text))
+    (root / "index.json").write_text(j.dumps(dict(index=index)))
+    (root / "answers.jsonl").write_text("".join(j.dumps(r) + "\n" for r in rows))
+
+
+def test_a_memory_system_is_compared_with_ices_no_memory_reply(tmp_path):
+    from experiments.locomo import grade as LG
+    asks = [dict(id="c1", kind="control", question="capital of peru?"), dict(id="q1", kind="question", question="?")]
+    _folder(tmp_path / "mem0", "mem0", asks, ["Lima, and you once said you liked Peru", "x"])
+    _folder(tmp_path / "ice", "recent_only", asks[:1], ["Lima."])
+    seen = []
+
+    def ask(system, prompt):
+        seen.append(json.loads(prompt))
+        return dict(better="B" if json.loads(prompt)["A"].startswith("Lima,") else "A")
+    LG.no_memory_harm(tmp_path / "mem0", tmp_path / "mem0", tmp_path / "out", ask,
+                      no_memory_units=tmp_path / "ice", no_memory_answers=tmp_path / "ice")
+    report = json.loads((tmp_path / "out" / "locomo-controls.json").read_text())
+    assert len(seen) == 2 and all(s["MESSAGE"] == "capital of peru?" for s in seen)     # the control only, both orders
+    assert report["by_condition"]["mem0"]["harm_rate"] == 1.0
+
+
+def test_answers_take_recent_only_for_the_controls_only(tmp_path):
+    from experiments.z2 import answers as A
+    asks = [dict(id="c1", kind="control"), dict(id="q1", kind="question")]
+    for cond in ("recent_only", "full_default"):
+        (tmp_path / "units" / cond).mkdir(parents=True)
+        for a in asks:
+            (tmp_path / "units" / cond / f"{a['id']}.json").write_text(json.dumps(dict(
+                condition=cond, ask=a, stage=dict(prompt_messages=[dict(role="user", content=cond + a["id"])]))))
+    got = sorted((c, q) for c, q, _, _ in A.load_units(tmp_path, ["full_default", "recent_only:control"]))
+    assert got == [("full_default", "c1"), ("full_default", "q1"), ("recent_only", "c1")]

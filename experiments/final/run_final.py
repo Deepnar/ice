@@ -52,7 +52,8 @@ MEMORY_SYSTEMS = ("graphiti", "mem0", "amem")    # on LoCoMo only — the benchm
 # everywhere — it is the prompt frame bare vector and long context are built in — but on the
 # public benchmarks it is not answered: each benchmark runs the way its own field runs it.
 BEAM_ANSWERED = ("full_default", "bare_vector", "long_context")
-LOCOMO_ANSWERED = ("full_default", "full_b2000", "bare_vector", "long_context")
+LOCOMO_ANSWERED = ("full_default", "full_b2000", "bare_vector", "long_context",
+                   "recent_only:control")     # the no-memory answer, for the controls only (revision 5: NMH)
 LMES_ANSWERED = ("full", "bare_vector", "full_context", "all_evidence")    # oracle.py's ICE is `full`
 # Pre-registration §6 (maintainer, 2026-10-28): the answerer itself, Muse 1.2, within its own
 # 1,048,576-token window — one model answers every condition. Set to None to make the stages wait.
@@ -465,13 +466,16 @@ def grade_stage(history, repeat="", judge="muse", *, units=None, answers_dir=Non
 
 
 def locomo_grade(key, *, units=None, answers_dir=None, out_key=None, judge="muse"):
-    """LoCoMo graded the way memory papers grade it — Mem0's J, F1, BLEU-1 (experiments/locomo/grade.py)."""
+    """LoCoMo graded the way memory papers grade it — Mem0's J, F1, BLEU-1 (experiments/locomo/grade.py)
+    — plus the no-memory controls against ICE's recent-only replies (revision 5: NMH)."""
     rel = lambda path: str(Z._rel(path))
-    units, answers_dir = units or f"local-read-{key}", answers_dir or f"cloud-answers-{key}"
+    ice_units, ice_answers = f"local-read-{key}", f"cloud-answers-{key}"
+    units, answers_dir = units or ice_units, answers_dir or ice_answers
     sid = key.removeprefix("LOCOMO-")
     args = lambda ctx, out: ["experiments/locomo/grade.py", "--units", rel(ctx.dir / units),
                              "--answers", rel(ctx.dir / answers_dir),
-                             "--occurrences", f"logs/final-locomo/{sid}/occurrences.json", "--out", rel(out)]
+                             "--occurrences", f"logs/final-locomo/{sid}/occurrences.json", "--out", rel(out),
+                             "--no-memory-units", rel(ctx.dir / ice_units), "--no-memory-answers", rel(ctx.dir / ice_answers)]
     out_key = out_key or f"grade-{key}"
     return FinalGrade(out_key, out_key.replace("-", " "), args, (), judge)
 

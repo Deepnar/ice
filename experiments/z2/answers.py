@@ -69,18 +69,26 @@ def prompt_sha(messages):
     return hashlib.sha256(json.dumps(messages, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
 
+def wanted(conditions):
+    """{condition: the one ask kind answered, or None for every kind}; "recent_only:control" answers
+    that condition only for the no-memory controls (LoCoMo's no-memory comparison, FINAL revision 5)."""
+    return {c.split(":")[0]: (c.split(":")[1] if ":" in c else None) for c in conditions or ()}
+
+
 def load_units(units_dir, conditions=None, checkpoints=None):
     """[(condition, ask_id, messages, cache session or None)] for every S9 unit. A unit may name
     a `cache_session` (FINAL's full-history prompts share one per conversation, so the provider
     can reuse the cached transcript); otherwise each prompt has its own session. *checkpoints*
     (FINAL's streaming cloud runner): only units of those checkpoints, whole checkpoints only, so a
     cache session's prompts are always answered together."""
-    out = []
+    out, kinds = [], wanted(conditions)
     for path in sorted(Path(units_dir).glob("units/*/*.json")):
-        if conditions and path.parent.name not in conditions:
+        if conditions and path.parent.name not in kinds:
             continue                              # read only as another condition's prompt frame
         unit = json.loads(path.read_text())
         if checkpoints is not None and str(unit.get("checkpoint")) not in checkpoints:
+            continue
+        if kinds.get(path.parent.name) and unit["ask"].get("kind", "question") != kinds[path.parent.name]:
             continue
         out.append((unit["condition"], unit["ask"]["id"], unit["stage"]["prompt_messages"],
                     unit["stage"].get("cache_session")))
@@ -336,7 +344,7 @@ def prompt_set(units_dir, conditions=None):
     (<units_dir>/prompt-set[-<conditions>].json, keyed by the files' count and newest time): every
     fresh `status` and every runner start re-read all ~7 GB of B to draw a finished stage's meter
     (2026-10-28: a RAM spike that lagged the laptop)."""
-    paths = sorted(p for p in Path(units_dir).glob("units/*/*.json") if not conditions or p.parent.name in conditions) \
+    paths = sorted(p for p in Path(units_dir).glob("units/*/*.json") if not conditions or p.parent.name in wanted(conditions)) \
         if Path(units_dir).exists() else []
     key = [len(paths), max((p.stat().st_mtime for p in paths), default=0)]
     tag = "-" + hashlib.sha256(json.dumps(sorted(conditions)).encode()).hexdigest()[:8] if conditions else ""

@@ -96,6 +96,31 @@ def contexts(units_dir, answers_dir):
             yield unit, answer
 
 
+def no_memory_harm(units_dir, answers_dir, out, ask, *, no_memory_units=None, no_memory_answers=None):
+    """FINAL revision 5 (NMH): each condition's reply to a no-memory control against the recent-only
+    reply, blind, both orders (experiments/z2/grade.controls). The memory systems are graded from
+    their own folders, so the recent-only replies may come from ICE's (*no_memory_units/answers*).
+    "B" = the no-memory reply was better: memory hurt."""
+    from experiments.z2 import grade as G
+    ctl = lambda pairs: [(u, a, None) for u, a in pairs if u["ask"].get("kind") == "control"]
+    jobs = ctl(contexts(units_dir, answers_dir))
+    if no_memory_units:
+        jobs += [j for j in ctl(contexts(no_memory_units, no_memory_answers or answers_dir))
+                 if j[0]["condition"] == "recent_only"]
+    if not jobs:
+        return 0
+    Path(out).mkdir(parents=True, exist_ok=True)
+    rows, pending = G.controls(jobs, ask, Path(out))
+    by = collections.defaultdict(collections.Counter)
+    for key, verdict in rows.items():
+        by[key.split("|")[0]][verdict] += 1
+    summary = {c: dict(n=sum(v.values()), **v, harm_rate=round(v["B"] / max(1, sum(v.values())), 4)) for c, v in by.items()}
+    (Path(out) / "locomo-controls.json").write_text(json.dumps(dict(
+        label="no-memory controls: condition (A) vs recent-only (B), blind, both orders",
+        by_condition=summary, verdicts=rows), indent=1) + "\n")
+    return pending
+
+
 def run(units_dir, answers_dir, occurrences_path, out, judge, *, say=print):
     """judge(prompt) -> reply text (a durable call)."""
     occ = {f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}": o
@@ -163,6 +188,8 @@ def main() -> int:
     parser.add_argument("--occurrences", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--judge", default="muse")
+    parser.add_argument("--no-memory-units", type=Path, help="ICE's read folder: its recent-only control replies")
+    parser.add_argument("--no-memory-answers", type=Path, help="ICE's answers folder for --no-memory-units")
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("grades are private: keep them under logs/")
@@ -186,6 +213,10 @@ def main() -> int:
         return calls.get(identity, call)["text"]
 
     pending = run(args.units, args.answers, args.occurrences, args.out, judge)
+    from experiments.z2.grade import judge_caller
+    ask = judge_caller(M.Calls(args.out / "locomo-controls-raw.jsonl"), generate, meta, "locomo-controls", role=args.judge)
+    pending += no_memory_harm(args.units, args.answers, args.out, ask, no_memory_units=args.no_memory_units,
+                              no_memory_answers=args.no_memory_answers)
     print(json.dumps(dict(pending=pending)))
     return 3 if pending else 0
 
