@@ -380,3 +380,17 @@ uv run --no-sync python experiments/z2/gpu_extra.py status --watch        # the 
 The report: `logs/gpu-extra-main/nomem-report.log`. Trial on 3 messages: the main gate itself fetched
 memory on 2 (counted apart — not the double-check's doing); the third was refused and the double-check
 let ~1,900 tokens in at best score 2.3.
+
+**Result (2026-11-01, v3, store B, fresh chat, code check, nothing answered).** 146 read, 0 failures, 17
+candidates left out (stored word for word). The main gate itself fetched memory on 67 (46%) — not
+the double-check's doing; many are follow-ups pointing at something earlier in their original chat, missing in a fresh
+chat. The double-check saw the other 79. Memory let in, needed (R10, of 146) vs not needed (of 79):
+bar −4 95% / 87% · −2 88% / 66% · −1 84% / 54% · **0 80% / 37%** · **+1 77% / 27%** · +2 71% / 22% ·
++3 62% / 13%. Checked by eye at bar 0: 1 of 29 found its own turn (a two-word message); the other 28
+pulled the maintainer's earlier talk on the same theme — related, not needed. ~2,000 tokens added each.
+
+Reading: the reranker scores how related memory is, not whether the message needs it, so it cannot
+separate the two cleanly. The best trade is bar +1: from 0 to +1 the answer reaches the prompt on 93
+instead of 94 of R10's 136 while unneeded memory drops from 29 to 21 of 79; above +1 each step loses
+more needed questions than it saves. Not measured: whether unneeded related memory makes an answer
+worse (nothing was answered).
