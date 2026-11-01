@@ -120,7 +120,7 @@ re-read, never set from B alone.
 | R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
 | R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ✅ G60 replaced (F20), G75 off, B7 no change |
 | R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | LoCoMo ✅; LME-S ✅ (2026-10-31, `trial.py lme`); BEAM ✅ (2026-11-01, `trial.py beam`) |
-| R10 | F4 — B2 "no memory" on a third of LongMemEval | after S12 graded | ☐ |
+| R10 | F4 — B2 "no memory" on a third of LongMemEval | GPU | ✅ read (2026-11-01): reranker rescue reaches the answer on 94/136 vs 17 shipped; bar and ordinary-chat cost open |
 | R11 | F18 — clusters dropped from FINAL's parts test (audit A12); decay tested on S4 + S9 | design | ✅ |
 
 **Cloud budget (Go, ~$30 usable Nov 2–27; measured per-call prices):** Z2 grade-1 finishing — B's
@@ -345,3 +345,22 @@ admitted (abstention questions apart), beside no memory, plain vector search and
 sessions, and split by question type. If it recovers most and the bar holds, the setting joins
 Z3 judging run 2's answered settings and R7. FINAL's LongMemEval-S report gets the same
 question-type split (maintainer, 2026-11-01).
+
+**Result (2026-11-01, v3, LongMemEval oracle, code check on prompts, no answers graded).** 146
+refused questions read, 0 failures (136 answerable, 10 abstention). The answer reached the prompt on:
+no memory 3 · shipped proof rescue 17 · **reranker rescue at bar 0: 94** (112 admitted) · bar −4: 105
+(131 admitted) · bar +3: 77 (86 admitted) · no gate (always fetch) 109 · plain vector search 136 ·
+all answer sessions 136. By type at bar 0 (shipped → reranker, of refused): knowledge-update 3 → 22
+of 22, single-session-user 5 → 18 of 21, single-session-assistant 5 → 8 of 8, temporal 3 → 8 of 15,
+multi-session 1 → 27 of 47, preference 0 → 11 of 23.
+
+What the numbers can and cannot say:
+- The shipped-vs-reranker comparison is like for like (same store, same words, same check).
+- The 27 always-fetch "misses" are mostly invisible to the check, not retrieval failures: 10 are
+  preference questions whose reference is a rubric ("The user would prefer…"), and most of the rest
+  are counts, sums or short answers ("two", "$750", "3.83") that ICE carries reworded as facts. Plain
+  search stores the original turns, so it matches word for word; ICE vs plain search here is not a
+  fair comparison (oracle histories hold only answer sessions, and the check sees words, not meaning).
+- Every question in this slice needs memory, so a lower bar always looks better here. The bar's cost,
+  memory added to ordinary chat that needed none, is **not measured**.
+- "Abstention admitted" is not a cost: those questions are still about the past.
