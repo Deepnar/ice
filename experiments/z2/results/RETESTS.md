@@ -192,6 +192,17 @@ each history's answers start as soon as its reads finish (a cloud lane that wait
    get each session's date. Mem0 now ingests each session with the clock its modules read set to that
    session's time (`session_clock`; its code and prompts untouched) — as if run live that day; the
    trial then stored "May 7, 2023", LoCoMo's own answer. Disclosed in the pre-registration's §4.
+7. ☐ **The memory decision in FINAL** (pre-registration revision 5, maintainer 2026-11-01) — MDM misses,
+   MDF false alarms, NMH no-memory harm, POS position contrast:
+   - every read records the gate's breakdown (each term) and the memory read's wall seconds
+     (`production_parity` / `seed_v3` stage record — harness, not `src/`);
+   - no-memory controls for S1–S8 from `questions.py`'s control machine (sized from measured calls);
+   - ~100 no-memory controls for the LoCoMo conversations, through ICE (full, 2K) and the three memory
+     systems' search, answered and compared blind with recent-only;
+   - the report: MDM by suite and by each benchmark's question types, MDF/NMH, synthetic quiet turns
+     from the replay's per-turn gate record, and POS (paper 1's token-crossover table, extended).
+8. ☐ **The gate inside running chats (FINDINGS F24)** — measure, then fix: the gate fetches on almost
+   every turn of a long chat. Offline sweep of its terms on recorded reads, then a GPU check; Z3 decides.
 
 ## R1 — F1 fix, database tests (GPU/DB, ~20 min)
 

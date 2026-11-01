@@ -464,6 +464,29 @@ position (RRF over the legs' saved lists), packed greedily into the same budget:
 differences between weights count — and every blend is level or worse. No switch built; the reranker's
 remaining losses are its inputs (query context, instruction: x3 reads), not its weight against fusion.
 
+## F24 — inside a running chat the memory gate fetches on almost every turn (v3, B and C)
+
+The B replay's per-turn gate record: memory fetched on **1,118 of 1,119** turns, from turn 1 (empty
+store, p_need_mem 0.99); C 325 of 325. Z2's no-memory controls: fetched on **33 of 34** (B, median ~17K
+memory tokens) and **10 of 11** (C). A fresh chat differs: 67 of 146 labeled no-memory messages
+(`nomem_cost.py`). Two causes, measured separately:
+- **The classifier:** p_ltm ≥ 0.5 on 88% of B's turns scored alone and 95% with the prior-turn prefix
+  (C 90% / 98%) — the prefix adds ~7 points, so it is not a context multiplier but what the head
+  learned: v2's training labels mark the maintainer's messages with context as needing memory 74% of
+  the time (ICE development chats 79%; public chats with context 0.5%). On the 146 no-memory messages
+  alone it says yes on 51; on B's controls with the prefix, 23 of 34.
+- **The gate's fixed terms** (log-odds, added to logit p_ltm): bias +0.4, length pressure +2.4 at its
+  cap in any long chat, the word-list term +0.5 (fires on 45 of 45 controls — "the", "my", "it"),
+  creative +0.7. Sum +3.3 to +4.0 in a running chat, so the gate fetches whenever p_ltm > 2–4%; in a
+  fresh chat +0.4 to +1.6. These turn the classifier's 23 of 34 into 33 of 34.
+
+Consequence: as v3 stands, skipping memory saves almost nothing in long chats. The fix to test first
+is the gate's terms (settings; no retrain): an offline sweep on recorded reads — needed questions
+(Z2 B/C reads, S12, R10) vs no-memory ones (controls, `nomem_cost` messages) — then a GPU check. The
+word-list term is a writing-convention rule (CLAUDE.md invariance) and a candidate for removal. The
+training labels are the slower fix (relabel/retrain). Z3 decides; FINAL measures it either way
+(pre-registration revision 5: MDM, MDF, NMH).
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |
