@@ -10,6 +10,9 @@ logs/gpu-extra-<name>. Start it by hand after the GPU day; it does not check the
                   and each leg's share of prompt pieces, tokens and cited turns delivered
   r10, r10-report S12's 146 refused LongMemEval questions re-read with the reranker rescue (R10), then
                   r10_report.py on them (its output: logs/gpu-extra-main/r10-report.log)
+  nomem, nomem-report  R10's other side: 146 of the maintainer's no-memory messages read on a copy of B's
+                  store with the reranker rescue — how often it lets in memory nobody needed, at each bar
+                  (nomem_cost.py; its output: logs/gpu-extra-main/nomem-report.log)
 
     uv run --no-sync python experiments/z2/gpu_extra.py run
     uv run --no-sync python experiments/z2/gpu_extra.py status --watch
@@ -52,6 +55,37 @@ class RescueReread(Z.Oracle):
         return ["--slice", str(self.SLICE.relative_to(ROOT)), "--rescue-read"]
 
 
+class NoMemoryCost(Z.Stage):
+    """R10's other side: the maintainer's no-memory messages read with the reranker rescue (nomem_cost.py)."""
+
+    def __init__(self):
+        super().__init__(key="nomem", title="R10 other side: no-memory messages", unit="messages", estimate=30.0)
+
+    def out(self, ctx):
+        return ROOT / "logs" / "z2-run-main" / "nomem-cost"
+
+    def total(self, ctx):
+        from experiments.z2 import nomem_cost
+        return nomem_cost.progress(self.out(ctx))[1]
+
+    def done(self, ctx):
+        from experiments.z2 import nomem_cost
+        return nomem_cost.progress(self.out(ctx))[0]
+
+    def complete(self, ctx):
+        return self.done(ctx) >= self.total(ctx)
+
+    def run(self, ctx):
+        log = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = PY + ["experiments/z2/nomem_cost.py", "run", "--database", "ice_z2_nomem_b",
+                        "--out", str(self.out(ctx).relative_to(ROOT))]
+            return ctx.run_child(cmd, log), Z._tail(log)
+
+        return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
 def funnel(history, database, conditions, needs):
     return Command(f"x-funnel-{history}", f"where evidence is lost + leg shares ({history})", PY + [
         "experiments/z2/funnel.py", "--history", history, "--database", database,
@@ -82,6 +116,10 @@ def stages(_limit=None):
             Command("r10-report", "R10 report: answer in the prompt per setup and bar",
                     PY + ["experiments/z2/r10_report.py", "--units", "logs/z2-run-main/s12-r10/units"],
                     needs=("r10",), estimate=60)]
+    out += [NoMemoryCost(),
+            Command("nomem-report", "R10 other side report: memory let in per bar, needed vs not",
+                    PY + ["experiments/z2/nomem_cost.py", "report", "--out", "logs/z2-run-main/nomem-cost"],
+                    needs=("nomem",), estimate=30)]
     out.append(funnel("B", "ice_z2_main_b", ("retest_cand64", "retest_cand256") + B_VARIANTS,
                       [f"x-B-{c.removeprefix('retest_')}" for c in B_VARIANTS]))
     out.append(funnel("C", "ice_z2_main_c", C_VARIANTS, [f"x-C-{c.removeprefix('retest_')}" for c in C_VARIANTS]))

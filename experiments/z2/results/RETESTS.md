@@ -364,3 +364,19 @@ What the numbers can and cannot say:
 - Every question in this slice needs memory, so a lower bar always looks better here. The bar's cost,
   memory added to ordinary chat that needed none, is **not measured**.
 - "Abstention admitted" is not a cost: those questions are still about the past.
+
+**The other side — memory nobody needed (built 2026-11-01).** 146 of the maintainer's own messages
+labeled "needs no memory" (`labeled_prompts.jsonl`, personal, Zero_Shot; those stored word for word in
+B left out), each read in a fresh chat on a copy of B's store (`ice_z2_nomem_b`; the original is never
+written) with the rescue's bar off. The report gives, at each bar, memory let in on R10's needed-memory
+questions beside these, plus the tokens added and seconds per read. ~30 s a message, ~75 min:
+
+```bash
+cd ~/Programs/ice-worktrees/fix-pass
+uv run --no-sync python experiments/z2/gpu_extra.py run --only nomem,nomem-report
+uv run --no-sync python experiments/z2/gpu_extra.py status --watch        # the meter, from another terminal
+```
+
+The report: `logs/gpu-extra-main/nomem-report.log`. Trial on 3 messages: the main gate itself fetched
+memory on 2 (counted apart — not the double-check's doing); the third was refused and the double-check
+let ~1,900 tokens in at best score 2.3.
