@@ -390,7 +390,11 @@ bar −4 95% / 87% · −2 88% / 66% · −1 84% / 54% · **0 80% / 37%** · **+
 pulled the maintainer's earlier talk on the same theme — related, not needed. ~2,000 tokens added each.
 
 Reading: the reranker scores how related memory is, not whether the message needs it, so it cannot
-separate the two cleanly. The best trade is bar +1: from 0 to +1 the answer reaches the prompt on 93
-instead of 94 of R10's 136 while unneeded memory drops from 29 to 21 of 79; above +1 each step loses
-more needed questions than it saves. Not measured: whether unneeded related memory makes an answer
-worse (nothing was answered).
+separate the two cleanly. **Bar 0 chosen (2026-11-01).** Between bars only a few needed-memory questions
+move, and most are ones the literal check cannot see: 0 → +1 drops 4 (2 preference, 1 GPA average, 1
+commute — only the last counted as "reached") to save 8 of 79 unneeded; 0 → −1 adds 5 (and 1 abstention)
+for 14 more unneeded. A miss costs a wrong answer; unneeded related memory costs ~2,000 tokens and an
+unmeasured, likely small, harm — and unneeded cases scale with ordinary chat. (A first reading called +1
+the knee from the "reached" counts alone — 93 vs 94 — which miss 3 of those 4.) The LongMemEval grading
+(always-fetch answers + no-memory answers, every bar replayed offline) confirms or moves it. Not measured:
+whether unneeded related memory makes an answer worse (nothing was answered).
