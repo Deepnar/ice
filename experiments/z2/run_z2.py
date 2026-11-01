@@ -602,11 +602,14 @@ class Oracle(Stage):
                    "--out", str(self.out(ctx).relative_to(ROOT)),
                    # questions side by side, each worker its own database (one at a time, S12's
                    # background calls never overlapped); Z2_S12_WORKERS=1 for the old way
-                   "--workers", os.environ.get("Z2_S12_WORKERS", "2")]
+                   "--workers", os.environ.get("Z2_S12_WORKERS", "2")] + self.extra_args(ctx)
             rc = ctx.run_child(cmd, log_path)
             return rc, _tail(log_path)
 
         return run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+    def extra_args(self, ctx):
+        return []
 
 
 class OracleGrade(Stage):

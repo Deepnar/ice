@@ -333,10 +333,11 @@ cleanly — the questions in flight are redone; the same command resumes):
 
 ```bash
 cd ~/Programs/ice-worktrees/fix-pass
-uv run --no-sync python experiments/z2/oracle.py run --slice experiments/lme/r10_slice.json --rescue-read --workers 2 --database ice_z2_r10 --out logs/z2-run-main/s12-r10
-ls logs/z2-run-main/s12-r10/instances/*/done.json | wc -l          # progress, of 146
-uv run --no-sync python experiments/z2/r10_report.py --units logs/z2-run-main/s12-r10/units
+uv run --no-sync python experiments/z2/gpu_extra.py run --only r10,r10-report
+uv run --no-sync python experiments/z2/gpu_extra.py status --watch        # the meter, from another terminal
 ```
+
+The report runs by itself at the end (`logs/gpu-extra-main/r10-report.log`).
 
 Reads both rescues in the same run (`full`, `full_rescue_reranker`); the report gives, for the
 questions the gate refused, how many reach the answer under each, and at each bar how many are

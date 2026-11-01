@@ -8,11 +8,14 @@ logs/gpu-extra-<name>. Start it by hand after the GPU day; it does not check the
   x-C-*           C reads at 64, 256 and wider legs — the same sweep on a second history
   x-funnel-*      where each cited turn is lost (never found / not ranked / over the budget / assembly)
                   and each leg's share of prompt pieces, tokens and cited turns delivered
+  r10, r10-report S12's 146 refused LongMemEval questions re-read with the reranker rescue (R10), then
+                  r10_report.py on them (its output: logs/gpu-extra-main/r10-report.log)
 
     uv run --no-sync python experiments/z2/gpu_extra.py run
     uv run --no-sync python experiments/z2/gpu_extra.py status --watch
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -24,6 +27,29 @@ from experiments.z2.gpu_day import GATES, Command, PY, Reads  # noqa: E402
 
 B_VARIANTS = ("retest_c256_wide", "retest_c256_originals_first", "retest_c256_policy", "retest_c256_wide_originals")
 C_VARIANTS = ("retest_cand64", "retest_cand256", "retest_c256_wide")
+
+
+class RescueReread(Z.Oracle):
+    """R10 (Z2 F4): the 146 S12 questions B2 refused, replayed and read again with the reranker rescue
+    beside full ICE (oracle.py --slice experiments/lme/r10_slice.json --rescue-read)."""
+    SLICE = ROOT / "experiments/lme/r10_slice.json"
+
+    def __init__(self):
+        Z.Stage.__init__(self, key="r10", title="R10 reranker rescue: S12's refused questions", unit="questions",
+                         estimate=320.0)
+
+    def out(self, ctx):
+        return ROOT / "logs" / "z2-run-main" / "s12-r10"
+
+    def database(self, ctx):
+        return "ice_z2_r10"
+
+    def total(self, ctx):
+        from experiments.z2 import oracle
+        return oracle.progress(self.out(ctx), total=len(json.loads(self.SLICE.read_text())["question_ids"]))[1]
+
+    def extra_args(self, ctx):
+        return ["--slice", str(self.SLICE.relative_to(ROOT)), "--rescue-read"]
 
 
 def funnel(history, database, conditions, needs):
@@ -51,6 +77,11 @@ def stages(_limit=None):
         f = funnel(h, db, ("retest_cand256",) + rq, [f"x3-{h}-{c.removeprefix('retest_')}" for c in rq])
         f.key, f.title = f"x3-funnel-{h}", f"reranker inputs: where evidence is lost ({h})"
         out.append(f)
+    # 2026-11-01: R10 — S12's refused questions re-read with the reranker rescue, then its report
+    out += [RescueReread(),
+            Command("r10-report", "R10 report: answer in the prompt per setup and bar",
+                    PY + ["experiments/z2/r10_report.py", "--units", "logs/z2-run-main/s12-r10/units"],
+                    needs=("r10",), estimate=60)]
     out.append(funnel("B", "ice_z2_main_b", ("retest_cand64", "retest_cand256") + B_VARIANTS,
                       [f"x-B-{c.removeprefix('retest_')}" for c in B_VARIANTS]))
     out.append(funnel("C", "ice_z2_main_c", C_VARIANTS, [f"x-C-{c.removeprefix('retest_')}" for c in C_VARIANTS]))
