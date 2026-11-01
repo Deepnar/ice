@@ -55,6 +55,13 @@ one_conversation() {
     [ "$tries" -ge 3 ] && { echo "[$sid] stopped 3 times — left for repair (status shows the turn)"; return; }
     echo "[$sid] stopped at a turn — relaunching ($tries/3)"
   done
+  # FINAL revision 5: its no-memory controls (one per checkpoint) once the conversation is whole; S9
+  # keeps its gate questions. Resumable; FINAL's prep-controls-<id> finishes any left undone.
+  if [ "$sid" != S9 ] && [ -f "logs/final-synth/$sid/originals.json" ] && [ -z "${LIMIT:-}" ]; then
+    "$UV" run --no-sync python experiments/final/no_memory_controls.py synth --id "$sid" \
+      >> "logs/final-synth/$sid.log" 2>&1 && echo "[$sid] no-memory controls written" \
+      || echo "[$sid] no-memory controls failed — FINAL's prep-controls-$sid retries them"
+  fi
 }
 
 for sid in "${@:-S1 S2 S3 S4 S5 S6 S7 S8 S9}"; do
