@@ -296,14 +296,64 @@ class Once(Z.Stage):
         return "done" if self.complete(ctx) else "stuck"
 
 
-class SynthControls(Once):
-    """A synthetic conversation's no-memory controls, once it is generated (FINAL revision 5; cloud)."""
+class ControlCalls(Z.Stage):
+    """No-memory controls written by a child process (experiments/final/no_memory_controls.py), metered
+    by its cloud calls — one write and one check per control — so the meter moves while it works
+    (FINAL revision 5)."""
 
-    def __init__(self, sid, action):
-        h = HISTORIES[sid]
-        super().__init__(f"prep-controls-{sid}", f"no-memory controls {sid} (one per checkpoint; cloud)",
-                         [h.path("asks")], lambda: action(sid), inputs=[h.path("originals")])
-        self.needs = (f"prep-generate-{sid}",)
+    def __init__(self, key, title, cmd, outputs, calls_glob, planned, *, inputs=(), needs=()):
+        super().__init__(key=key, title=title, unit="calls", estimate=3.0, needs=tuple(needs))
+        self.cmd, self.outputs, self.calls_glob, self.planned = cmd, [Path(o) for o in outputs], calls_glob, planned
+        self.inputs = [Path(i) for i in inputs]
+
+    def _rows(self):
+        rows = []
+        for path in ROOT.glob(self.calls_glob):
+            rows += [line for line in path.read_text().splitlines() if line.strip()]
+        return rows
+
+    def total(self, ctx):
+        return self.planned
+
+    def done(self, ctx):
+        return self.planned if self.complete(ctx) else min(len(self._rows()), self.planned - 1)
+
+    def rate(self, ctx):
+        secs = [json.loads(r).get("seconds") for r in self._rows()[-30:]]
+        secs = sorted(s for s in secs if s)
+        return secs[len(secs) // 2] if len(secs) >= 5 else None
+
+    def complete(self, ctx):
+        return all(o.exists() for o in self.outputs)
+
+    def missing(self, ctx):
+        return [str(Z._rel(i)) for i in self.inputs if not i.exists()]
+
+    def run(self, ctx):
+        log = ctx.dir / f"{self.key}.log"
+        attempt = lambda: (ctx.run_child([sys.executable, *self.cmd], log), Z._tail(log))
+        return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
+def locomo_controls_stage():
+    from experiments.final.no_memory_controls import PER
+    outputs = [HISTORIES[k].path("asks").with_name("controls.json") for k in LOCOMO]
+    return ControlCalls("prep-locomo-controls", f"LoCoMo no-memory controls ({PER} per conversation; cloud)",
+                        ["experiments/final/no_memory_controls.py", "locomo"], outputs,
+                        "logs/final-locomo/*/controls/*/questions-raw.jsonl", len(LOCOMO) * PER * 2,
+                        inputs=[HISTORIES[k].path("asks") for k in LOCOMO])
+
+
+def synth_controls_stage(sid):
+    from experiments.synth.keys import checkpoints
+    from experiments.synth.plans import PLANS
+    points = len(checkpoints(json.loads((PLANS / f"{sid}.json").read_text())))
+    h = HISTORIES[sid]
+    return ControlCalls(f"prep-controls-{sid}", f"no-memory controls {sid} (one per checkpoint; cloud)",
+                        ["experiments/final/no_memory_controls.py", "synth", "--id", sid],
+                        [h.path("asks").with_name("controls.json")],
+                        f"logs/final-synth/{sid}/controls/*/questions-raw.jsonl", points * 2,
+                        inputs=[h.path("originals")], needs=(f"prep-generate-{sid}",))
 
 
 class WaitFor(Z.Stage):
@@ -637,14 +687,6 @@ def final_stages(limit=None):
         from experiments.locomo.adapter import export
         export(ROOT / "logs/final-locomo")
 
-    def locomo_controls():
-        from experiments.final.no_memory_controls import locomo
-        locomo(ROOT / "logs/final-locomo")
-
-    def synth_controls(sid):
-        from experiments.final.no_memory_controls import synth
-        synth(sid, ROOT / "logs/final-synth")
-
     def derive_synth():
         import subprocess
         subprocess.run([sys.executable, "experiments/synth/derive.py"], check=True, cwd=ROOT)
@@ -660,12 +702,10 @@ def final_stages(limit=None):
                 [HISTORIES[k].path("asks") for k in LOCOMO], export_locomo),
            # FINAL revision 5: ~10 no-memory controls per conversation (cloud, minutes) — before the memory
            # systems' search (A-Mem's store lives in memory: a later control would re-ingest it)
-           Once("prep-locomo-controls", "LoCoMo no-memory controls (10 per conversation; cloud)",
-                [HISTORIES[k].path("asks").with_name("controls.json") for k in LOCOMO], locomo_controls,
-                inputs=[HISTORIES[k].path("asks") for k in LOCOMO]),
+           locomo_controls_stage(),
            Once("prep-amem-vendor", "A-Mem's pinned memory layer (AMEM.json)", [amem_target()], fetch_amem),
            *[SynthGenerate(s) for s in SYNTHETIC],
-           *[SynthControls(s, synth_controls) for s in SYNTHETIC if s != "S9"],
+           *[synth_controls_stage(s) for s in SYNTHETIC if s != "S9"],
            *[WaitFor(f"prep-questions-{k}", f"questions {k} (Z2 S1-S6 chain + review)", HISTORIES[k].path("asks"))
              for k in PRIVATE if k != "B"]]
     local, cloud = [], []

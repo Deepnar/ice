@@ -786,7 +786,9 @@ def _clock(seconds):
 
 def meter(ctx, note=None):
     rows, left_total, estimated = [], 0.0, False
-    for stage in ctx.stages:
+    shown = getattr(ctx, "shown", None)        # the runner's own --only stages; None = all
+    stages = [s for s in ctx.stages if not shown or s.key in shown]
+    for stage in stages:
         st = ctx.stage_state(stage.key)
         status = st["status"]
         if not stage.built:
@@ -814,8 +816,10 @@ def meter(ctx, note=None):
     head = (f"Z2 run '{ctx.name}'  {_rel(ctx.dir)}   elapsed {_clock(elapsed)}   "
             f"built stages left ~{_clock(left_total)}{' (partly estimated)' if estimated else ''}")
     lines = [head, *rows]
-    if any(not s.built for s in ctx.stages):
+    if any(not s.built for s in stages):
         lines.append(" Stages not built yet are skipped; a stage that needs one waits. Everything done is saved.")
+    if shown:
+        lines.append(f" Showing this runner's {len(stages)} stages (--only); `status --all` shows every stage.")
     if note:
         lines.append(f" ⏳ {note}")
     lines.append(f" Ctrl-C stops cleanly; the same command resumes.  Log: {_rel(ctx.dir / 'runner.log')}")
@@ -827,6 +831,21 @@ def meter(ctx, note=None):
 # — unload the background model once its queue drains — stays for real use; every stage this
 # runner starts inherits the switch.
 os.environ.setdefault("BG_RELEASE_AFTER_DRAIN", "false")
+
+
+def started_only(ctx):
+    """The stages the latest runner of this run and lane was started with (`--only`), from the run
+    log; None when it ran everything or never ran — so `status` shows what that runner works on."""
+    path = ctx.dir / "runner.log"
+    if not path.exists():
+        return None
+    only = None
+    for line in path.read_text().splitlines():
+        if '"runner started"' in line:
+            row = json.loads(line)
+            if row.get("lane") == ctx.lane:
+                only = row.get("only")
+    return set(only) if only and len(only) < len(ctx.stages) else None
 
 
 def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs="logs/z2-run-<name>") -> int:
@@ -843,6 +862,7 @@ def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs=
     run.add_argument("--only", help="comma-separated stage keys, e.g. s7-B,s7-C")
     run.add_argument("--limit", type=int, help="replay only the first N turns per history (a slice check)")
     status.add_argument("--watch", action="store_true")
+    status.add_argument("--all", action="store_true", help="every stage, not only the latest runner's --only")
     args = parser.parse_args()
 
     ctx = Context(args.name, directory=run_dir(args.name) if run_dir else None, lane=args.lane)
@@ -857,6 +877,7 @@ def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs=
             alive = "runner active"
         while True:
             ctx.state = json.loads(ctx.state_path.read_text()) if ctx.state_path.exists() else ctx.state
+            ctx.shown = None if args.all else started_only(ctx)
             ctx.render(note=alive, force=True)
             if not args.watch:
                 return 0
@@ -875,6 +896,7 @@ def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs=
     known = {s.key for s in ctx.stages}
     wanted = set(args.only.split(",")) if args.only else known
     ctx.owned = wanted
+    ctx.shown = wanted if args.only else None
     if wanted - known:
         print(f"unknown stage(s) {sorted(wanted - known)}; known: {sorted(known)}")
         return 2
