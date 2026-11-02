@@ -221,7 +221,7 @@ headline (kept as a descriptive column).
   every session's date: Graphiti and A-Mem through their own options; open-source Mem0 has none (its
   date option is platform-only), so it ingests each session with its clock set to that session's
   date, as if run live that day — its code and prompts unchanged; otherwise it would date a 2023
-  event to the run day (amended before any FINAL answer, 2026-10-31).
+  event to the run day (amended before any FINAL answer, 2026-10-31). Graphiti's entity-merge step sometimes receives its answer as a bare list instead of the object its schema asks for (gemma4:e4b on Ollama, despite constrained output), which crashes Graphiti's own code; the adapter wraps such a list back into that object — the answer unchanged — and reports the number of repairs per step beside Graphiti's score (amended before any FINAL answer, 2026-11-02).
 - **LoCoMo** as a small, clearly labelled extra table (its known answer-key errors — ~6% — and
   lenient common judge stated; every conversation fits a 256K window, so it cannot show
   out-of-window behaviour), conditions and scoring as in §1 — Mem0's protocol (J, F1, BLEU-1) on
