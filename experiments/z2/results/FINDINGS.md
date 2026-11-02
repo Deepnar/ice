@@ -110,6 +110,19 @@ the history's own conversation); LongMemEval's shape — a new chat whose first 
 the user's own past — is also the product's cross-conversation case. The FINAL LongMemEval-S trial
 (2026-10-31) hit it on 1 of 2 questions (p 0.048).
 
+**Graded (2026-11-02, S12; LongMemEval prompts, Muse 1.3 judge, Muse 1.2 answerer; main's code as Z2
+ran it — 64 candidates, summaries, shipped rescue).** Full ICE 65.6% of 456 · plain vector 84.2% ·
+all answer sessions 93.6% · no memory 9.9%. Split by the gate: fetched **287/325 (88%)** — plain vector
+82%, all sessions 95% on the same questions — vs refused **12/131 (9%; abstentions only)**. F4 is
+nearly the whole gap. **It is a v3 regression, not a v2 weakness:** v2 (`v2-paper-eval`, matched
+cloud run, same 456 questions, same judge, Luna answerer) fetched on 450/456 at its 2,000-token cap
+and scored 51.8%. Same questions, v2 → v3: where v3 fetched, 130 wrong→right vs 13 right→wrong;
+where v3 refused, 55 right→wrong (preference 70% → 30%, single-session-user 78% → 70%). By type v2 →
+v3: temporal 16.7 → 72.2, multi-session 29.8 → 50.4 (fetched only 66/82), knowledge-update 59.4 →
+62.3, single-session-assistant 91.1 → 98.2. The answerer and the vector arm differ between the runs
+(v2's vector 73.0% top-30 unbudgeted; v3's budget-matched 84.2%), so the overall +13.8 is not ICE's
+alone; the temporal and multi-session gains are far larger than the vector arm's.
+
 ## F5 OPEN — where ICE still misses (questions it retrieved for)
 
 Of the 56 B questions plain search won: 25 had no piece from the cited turns (16 of them
