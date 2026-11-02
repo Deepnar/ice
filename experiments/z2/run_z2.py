@@ -713,6 +713,7 @@ def drive(ctx, selected):
         st.update(status="running", started=st.get("started") or time.time())
         ctx.save()
         ctx.log("stage started", stage=stage.key)
+        ctx.render(force=True)                       # the meter is up the moment a stage begins
         try:
             result = stage.run(ctx)
         except Stop:
@@ -813,7 +814,7 @@ def meter(ctx, note=None):
         rows.append(f" [{status:>11}] {stage.title:<34} {done:>5}/{total:<5} {stage.unit} {bar} {share:4.0%}"
                     f"{tail}{f'  ({fails} restarts)' if fails else ''}")
     elapsed = time.time() - ctx.state.get("started", time.time())
-    head = (f"Z2 run '{ctx.name}'  {_rel(ctx.dir)}   elapsed {_clock(elapsed)}   "
+    head = (f"{getattr(ctx, 'label', 'Z2')} run '{ctx.name}'  {_rel(ctx.dir)}   elapsed {_clock(elapsed)}   "
             f"built stages left ~{_clock(left_total)}{' (partly estimated)' if estimated else ''}")
     lines = [head, *rows]
     if any(not s.built for s in stages):
@@ -866,6 +867,7 @@ def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs=
     args = parser.parse_args()
 
     ctx = Context(args.name, directory=run_dir(args.name) if run_dir else None, lane=args.lane)
+    ctx.label = {"run_z2.py": "Z2", "run_final.py": "FINAL"}.get(prog, prog.removesuffix(".py"))
     ctx.stages = stages_fn(getattr(args, "limit", None) or ctx.state.get("limit"))   # status: the run's own slice
     if args.command == "status":
         lock = ctx.lock_path.open("a")
@@ -919,6 +921,7 @@ def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs=
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, request_stop)
     ctx.log("runner started", only=sorted(wanted), pid=os.getpid(), lane=ctx.lane)
+    ctx.render(force=True)                           # the run's own terminal shows the meter from the start
     outcomes = drive(ctx, [s for s in ctx.stages if s.key in wanted])
     ctx.render(force=True)
     print("\nOutcome: " + ", ".join(f"{k} {v}" for k, v in outcomes.items()))

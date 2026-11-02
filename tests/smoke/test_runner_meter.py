@@ -41,3 +41,21 @@ def test_the_controls_stage_counts_cloud_calls(tmp_path, monkeypatch):
     assert stage.done(None) == 6 and stage.total(None) == 20 and stage.rate(None) == 2.5
     (tmp_path / "done.json").write_text("{}")
     assert stage.done(None) == 20
+
+
+def test_the_meter_is_drawn_when_a_stage_begins(tmp_path):
+    import io
+
+    class Quick(S):
+        def run(self, ctx):
+            return "done"
+
+        def complete(self, ctx):
+            return False
+
+    out = io.StringIO()
+    ctx = Z.Context("t", directory=tmp_path, out=out)
+    ctx.stages = [Quick(key="a", title="quick stage")]
+    ctx.label = "FINAL"
+    Z.drive(ctx, ctx.stages)
+    assert "FINAL run 't'" in out.getvalue() and "quick stage" in out.getvalue()
