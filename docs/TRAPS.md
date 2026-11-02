@@ -2998,3 +2998,16 @@ author imagined it, so it agrees with the harness by construction. **Before a th
 numbers are trusted — or its long run is planned — run it live on a slice, through the same
 command the runner will use, against the versions pinned in its lock file.** (FINAL, RETESTS
 build item 6.)
+
+### 155. A one-conversation corpus cannot see a cross-conversation limit
+
+Z2's B and C are each a single conversation of more than 500 turns. Two limits that apply only to
+OTHER conversations or SHORT ones — the growth cap (2,000 memory tokens in a new chat) and three
+pieces per other chat — therefore never fired there, so Z2's ablation switches for them had nothing
+to measure and no verdict was ever written; the growth cap had even been left standing on the
+condition that Z2 would decide it. Both bound on every LongMemEval read (fresh chat, one conversation
+per session), which is also the product's ordinary case: a new chat asking about earlier chats.
+**Before trusting a corpus to judge a part, ask what conversation shape the part keys on (this chat
+vs others, turn count, session) and whether the corpus has that shape; if not, the part is
+"unexercised", never "no effect".** (Z2 F25; same family as #152 and F18.)
+

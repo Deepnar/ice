@@ -507,6 +507,31 @@ word-list term is a writing-convention rule (CLAUDE.md invariance) and a candida
 training labels are the slower fix (relabel/retrain). Z3 decides; FINAL measures it either way
 (pre-registration revision 5: MDM, MDF, NMH).
 
+## F25 OPEN — two limits that bind only when the asking chat is new or short (v3; S12 reads, offline)
+
+Both are ON by default, both bind on every fresh-chat read, and neither can show on B or C (one
+conversation of >500 turns each), so Z2's ablations never judged them (`session_diversify`,
+`dynamic_budget` flags; no verdict in any Z2 result).
+- **The growth cap** (`context_growth_cap_ladder`, `orchestrator.set_budget_from_turn_count`): memory is
+  capped by the CURRENT chat's length — 2,000 tokens in a new chat, +150 a turn, none past 500 turns.
+  From v2 (the paper named it "architecturally consequential" for LongMemEval); kept in C16 until
+  coverage stopping (off) was tested, "Z2 owns the deletion" — never done. Non-monotone: turn 29 →
+  6,350 tokens, turn 30 → 5,000.
+- **Three pieces per other chat** (`retrieval_max_per_conversation` = 3, `_session_diversify` inside
+  `_enforce_token_budget`): any other conversation may contribute at most 3 fragments; the current one
+  is uncapped. In a new chat every memory is another chat's. S12: of 134 questions whose store holds one
+  past chat, the prompt held ≤ 3 of its episodic pieces on all 134 (exactly 3 on 108, with more ranked
+  and budget left); two chats → ≤ 6. Facts carry no conversation id and are exempt — likely why facts
+  fill the rest (37% of selected items are assistant-side facts).
+
+**Offline estimate (saved ranked lists refilled in rank order; original words matched, so facts do
+not count).** Answer turns in the prompt, of 309 fetched answerable questions: now 62.3% · no
+per-chat limit at 2k 63.3% · at 4k 70.0% · at 8k 73.1%; multi-session 44.6 → 64.1%. On the 33 ICE
+answered wrong: 35.7% → 70.1%, all answer turns present on 5 → 17. Upper bound on the oracle file
+~+12 answers (~2.6 points); the limits matter more where past chats are many and long (LongMemEval-S,
+the product). At 2k the per-chat limit alone moves little — the budget binds first; plain search at the
+same 2k reaches 92.6% on multi-session, so what fills the 2k (facts vs originals, R4) matters as much.
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |
