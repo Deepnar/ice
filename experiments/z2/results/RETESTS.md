@@ -50,8 +50,11 @@ uv run --no-sync python experiments/final/run_final.py status --watch
    Phase 1's command (from `main`'s checkout; its grading embeds with the 0.6B encoder on the GPU — it fits
    beside the memory systems' gemma4:e4b):
    ```bash
-   cd ~/Programs/ice && uv run --no-sync python experiments/z2/run_z2.py run --lane cloud --only s11-B,s11-C,s12-answers,s12-grade
+   cd ~/Programs/ice && uv run --no-sync python experiments/z2/run_z2.py run --lane cloud --only s10-B,s10-C,s11-B,s11-C,s12-answers,s12-grade
    ```
+   **s10-B,s10-C must be named** (already done; skipped at once): a lane trusts only the stages it was
+   given, and reads every other stage from the main runner's `state.json`, where S10 shows
+   stopped/pending — so without them S11 is "blocked" (it was, 2026-11-02, after S12 graded).
 3. **~Nov 8–10:** R7 — the chosen settings together on B and C (GPU reads + cloud answers/grades);
    the memory systems pause for its reads if not done.
 4. **~Nov 10:** Z3 freeze — switch defaults, D9 simplification (**switch OFF, code kept; deletion only after FINAL** — maintainer, 2026-11-01; the record is FEATURE_INVENTORY's "Z3 FREEZE" section; each OFF part checked by query on R7's stores and a short live replay — no rows written, no job run, no fragment in a prompt), merge fix-pass into `main`, the freeze commit.
