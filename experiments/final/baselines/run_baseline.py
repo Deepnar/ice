@@ -73,6 +73,43 @@ def envelope(recent_unit, memories, question):
     return messages[:-1] + evidence + messages[-1:]
 
 
+def wrapped_list(reply, response_model):
+    """A bare JSON list where the schema is an object holding one list field, wrapped back into that
+    object — the model's answer unchanged, only its envelope restored; None when it is not that case.
+    gemma4:e4b on Ollama returns `[...]` for Graphiti's NodeResolutions on LoCoMo conv-26 session 1
+    despite the json_schema response format (2026-11-02), and Graphiti's own code then crashes on it."""
+    if not isinstance(reply, list) or response_model is None:
+        return None
+    fields = response_model.model_fields
+    if len(fields) != 1:
+        return None
+    (name, field), = fields.items()
+    return {name: reply} if getattr(field.annotation, "__origin__", None) is list else None
+
+
+def graphiti_client(cfg):
+    """Graphiti's own OpenAI-compatible client, with one counted repair: wrapped_list. Every repair is
+    warned and counted (stats → done.json), never silent."""
+    import sys
+    from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
+
+    class Client(OpenAIGenericClient):
+        repairs = {}
+
+        async def _generate_response(self, messages, response_model=None, *args, **kwargs):
+            reply = await super()._generate_response(messages, response_model, *args, **kwargs)
+            fixed = wrapped_list(reply, response_model)
+            if fixed is None:
+                return reply
+            name = response_model.__name__
+            self.repairs[name] = self.repairs.get(name, 0) + 1
+            print(f"WARNING: graphiti {name}: bare list wrapped into its object "
+                  f"({self.repairs[name]} so far)", file=sys.stderr, flush=True)
+            return fixed
+
+    return Client(config=cfg)
+
+
 class GraphitiMemory:
     """Graphiti with its embedded Kuzu graph, an OpenAI-compatible client to Ollama for the LLM
     and embedder, and the LLM itself as reranker (Graphiti's documented local setup)."""
@@ -83,9 +120,8 @@ class GraphitiMemory:
         from graphiti_core.driver.kuzu_driver import KuzuDriver
         from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
         from graphiti_core.llm_client.config import LLMConfig
-        from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
         cfg = LLMConfig(api_key="local", model=LLM_MODEL, small_model=LLM_MODEL, base_url=f"{OLLAMA}/v1")
-        llm = OpenAIGenericClient(config=cfg)
+        llm = graphiti_client(cfg)
         self.g = Graphiti(graph_driver=KuzuDriver(db=str(store / "graph.kuzu")), llm_client=llm,
                           embedder=OpenAIEmbedder(config=OpenAIEmbedderConfig(api_key="local", embedding_model=EMBED_MODEL,
                                                                               base_url=f"{OLLAMA}/v1")),
@@ -103,6 +139,10 @@ class GraphitiMemory:
         for query in get_fulltext_indices(GraphProvider.KUZU):
             if query.split("'")[3] not in have:
                 await self.g.driver.execute_query(query)
+
+    def stats(self):
+        """The counted repairs (wrapped_list), per response model."""
+        return dict(repairs=dict(self.g.llm_client.repairs))
 
     async def add(self, when, sid, msgs):
         from graphiti_core.nodes import EpisodeType

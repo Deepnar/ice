@@ -161,3 +161,23 @@ def test_the_session_clock_sets_a_modules_now_and_restores_it():
         assert mod.datetime.now(timezone.utc).date().isoformat() == "2023-05-08"
         assert mod.datetime.now().year == 2023 and mod.datetime.fromisoformat("2024-01-01").year == 2024
     assert mod.datetime is datetime and datetime.now().year >= 2026
+
+
+def test_a_bare_list_is_wrapped_only_where_the_schema_is_one_list_field():
+    """Graphiti's NodeResolutions came back as `[...]` from gemma4:e4b on Ollama (2026-11-02)."""
+    from pydantic import BaseModel
+    RB = B
+
+    class Item(BaseModel):
+        id: int
+
+    class Resolutions(BaseModel):
+        entity_resolutions: list[Item]
+
+    class Two(BaseModel):
+        a: list[int]
+        b: int
+
+    assert RB.wrapped_list([{"id": 1}], Resolutions) == {"entity_resolutions": [{"id": 1}]}
+    assert RB.wrapped_list({"entity_resolutions": []}, Resolutions) is None       # already right
+    assert RB.wrapped_list([1], Two) is None and RB.wrapped_list([1], None) is None
