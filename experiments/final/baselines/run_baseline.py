@@ -336,8 +336,9 @@ async def search(system, history, originals, asks, out):
         ingest = json.loads((d / "ingested.json").read_text())["ingest_seconds"]
         print(json.dumps(dict(history=history, resumed="search", hits=len(list((d / "hits").glob("*.json"))))), flush=True)
     else:
-        for when, sid, msgs in groups:
+        for i, (when, sid, msgs) in enumerate(groups, 1):
             await memory.add(when, sid, msgs)
+            write_json(d / "ingest-progress.json", dict(sessions=i, of=len(groups)))   # the runner's meter
         ingest = time.time() - started
         write_json(d / "ingested.json", dict(policy=POLICY, system=system, ingest_seconds=round(ingest, 1)))
     for ask in questions(asks):

@@ -181,3 +181,19 @@ def test_a_bare_list_is_wrapped_only_where_the_schema_is_one_list_field():
     assert RB.wrapped_list([{"id": 1}], Resolutions) == {"entity_resolutions": [{"id": 1}]}
     assert RB.wrapped_list({"entity_resolutions": []}, Resolutions) is None       # already right
     assert RB.wrapped_list([1], Two) is None and RB.wrapped_list([1], None) is None
+
+
+def test_the_search_meter_counts_sessions_ingested_and_questions_searched(tmp_path, monkeypatch):
+    import json
+    from experiments.final import run_final as F
+    stage = F.LoCoMoSearch("graphiti", "LOCOMO-conv-26")
+    monkeypatch.setattr(stage, "out", lambda ctx: tmp_path)
+    stage._sessions = 19
+    d = tmp_path / "instances" / "LOCOMO-conv-26"
+    (d / "hits").mkdir(parents=True)
+    assert stage.done(None) == 0
+    (d / "ingest-progress.json").write_text(json.dumps(dict(sessions=7, of=19)))
+    assert stage.done(None) == 7
+    (d / "ingested.json").write_text("{}")
+    (d / "hits" / "q1.json").write_text("{}")
+    assert stage.done(None) == 20 and stage.total(None) == 19 + F.HISTORIES["LOCOMO-conv-26"].planned_asks

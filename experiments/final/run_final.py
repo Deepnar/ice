@@ -618,14 +618,31 @@ class LoCoMoSearch(Baseline):
 
     def __init__(self, system, history):
         Z.Stage.__init__(self, key=f"local-baseline-search-{system}-{history}", title=f"baseline {system} {history} (search)",
-                         unit="questions", estimate=60.0)
+                         unit="steps", estimate=30.0)        # a step: one session ingested or one question searched
         self.system, self.history = system, history
 
+    def sessions(self):
+        """The conversation's sessions as the memory system ingests them (run_baseline.originals_sessions)."""
+        if not hasattr(self, "_sessions"):
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("run_baseline", ROOT / "experiments/final/baselines/run_baseline.py")
+            rb = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(rb)
+            path = HISTORIES[self.history].path("originals")
+            self._sessions = len(rb.originals_sessions(json.loads(path.read_text()))) if path.exists() else 0
+        return self._sessions
+
     def total(self, ctx):
-        return HISTORIES[self.history].planned_asks
+        return self.sessions() + HISTORIES[self.history].planned_asks
 
     def done(self, ctx):
-        return len(list((self.out(ctx) / "instances" / self.history / "hits").glob("*.json")))
+        d = self.out(ctx) / "instances" / self.history
+        if (d / "ingested.json").exists() or (d / "done.json").exists():
+            ingested = self.sessions()
+        else:
+            progress = d / "ingest-progress.json"
+            ingested = json.loads(progress.read_text())["sessions"] if progress.exists() else 0
+        return ingested + len(list((d / "hits").glob("*.json")))
 
     def complete(self, ctx):
         return (self.out(ctx) / "instances" / self.history / "done.json").exists()
@@ -639,6 +656,9 @@ class LoCoMoBaseline(LoCoMoSearch):
     FINAL's LoCoMo read (the frame the freeze may still change). Minutes; its units are answered."""
 
     phase = "wrap"
+
+    def total(self, ctx):
+        return HISTORIES[self.history].planned_asks
 
     def __init__(self, system, history):
         Z.Stage.__init__(self, key=f"local-baseline-{system}-{history}", title=f"baseline {system} {history} (wrap)",
@@ -761,7 +781,7 @@ def final_stages(limit=None):
     # weeks before the freeze (`run --only local-baseline-search-…`); last in the local order, so in
     # FINAL's own run an unfinished one resumes after ICE's local stages (maintainer, 2026-10-31).
     local += [Group(f"local-baseline-search-{system}-LOCOMO", f"baseline {system} LoCoMo (ingest + search)",
-                    [LoCoMoSearch(system, k) for k in lk], "questions",
+                    [LoCoMoSearch(system, k) for k in lk], "steps",
                     needs=("prep-locomo-export", "prep-locomo-controls") + (("prep-amem-vendor",) if system == "amem" else ()))
               for system in MEMORY_SYSTEMS]
     local += [Group(f"local-baseline-{system}-LOCOMO", f"baseline {system} LoCoMo (wrap in ICE's frame)",
