@@ -94,11 +94,15 @@ class Context:
     def need_status(self, key):
         """A prerequisite's status. A lane owns only the stages it was given (`owned`); every
         other stage's status is the main runner's, re-read from its state.json each time. A stage
-        another runner finished counts as done for every runner (FINAL's local lanes, 2026-10-28)."""
+        another runner finished counts as done for every runner (FINAL's local lanes, 2026-10-28),
+        and so does one this lane finished in an earlier run without naming it now (Z2 S11 was
+        blocked on the cloud lane's own S10, 2026-11-02)."""
         if self.lane and key not in getattr(self, "owned", ()):
             main = self.dir / "state.json"
             stages = json.loads(main.read_text())["stages"] if main.exists() else {}
             status = stages.get(key, {}).get("status", "pending")
+            if self.state["stages"].get(key, {}).get("status") == "done":
+                status = "done"
         else:
             status = self.stage_state(key)["status"]
         return "done" if status != "done" and self.done_elsewhere(key) else status

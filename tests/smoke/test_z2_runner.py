@@ -127,6 +127,18 @@ def test_a_lane_reads_its_prerequisites_from_the_main_runner(tmp_path):
     assert lane.need_status("s8-B") == "pending"
 
 
+def test_a_lane_trusts_a_stage_it_finished_in_an_earlier_run(tmp_path):
+    """Z2, 2026-11-02: --only s11-B on the cloud lane, whose S10 was done in its own state file
+    while the main runner's state.json still said stopped — S11 was blocked."""
+    import json
+    (tmp_path / "state.json").write_text(json.dumps(dict(stages={"s10-B": dict(status="stopped")})))
+    (tmp_path / "state-cloud.json").write_text(json.dumps(dict(stages={"s10-B": dict(status="done")})))
+    lane = R.Context("t", directory=tmp_path, out=io.StringIO(), lane="cloud")
+    lane.owned = {"s11-B"}
+    assert lane.need_status("s10-B") == "done"
+    assert lane.need_status("s10-C") == "pending"
+
+
 def test_a_stage_finished_by_another_runner_is_done_for_all(tmp_path):
     """FINAL's local lanes: the main runner never reruns what a lane finished, and a lane's
     prerequisite done by another lane counts."""
