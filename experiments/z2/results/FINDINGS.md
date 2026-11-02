@@ -507,7 +507,7 @@ word-list term is a writing-convention rule (CLAUDE.md invariance) and a candida
 training labels are the slower fix (relabel/retrain). Z3 decides; FINAL measures it either way
 (pre-registration revision 5: MDM, MDF, NMH).
 
-## F25 OPEN — two limits that bind only when the asking chat is new or short (v3; S12 reads, offline)
+## F25 ⚑ CHANGED on fix-pass (2026-11-02; new-chat cap 8,000, no per-chat limit; verified by one live read) — two limits that bind only when the asking chat is new or short (v3; S12 reads, offline)
 
 Both are ON by default, both bind on every fresh-chat read, and neither can show on B or C (one
 conversation of >500 turns each), so Z2's ablations never judged them (`session_diversify`,
