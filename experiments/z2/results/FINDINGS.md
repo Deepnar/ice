@@ -532,6 +532,26 @@ answered wrong: 35.7% → 70.1%, all answer turns present on 5 → 17. Upper bou
 the product). At 2k the per-chat limit alone moves little — the budget binds first; plain search at the
 same 2k reaches 92.6% on multi-session, so what fills the 2k (facts vs originals, R4) matters as much.
 
+## F26 — the shape sweep: parts keyed on a shape FINAL's evals have and B/C lack (offline, existing reads)
+
+Shapes: LongMemEval-S — one chat per session, the question from a fresh chat; LoCoMo — one chat per
+conversation, two people (speaker_b on ICE's assistant side), weeks between sessions; BEAM — one very
+long chat with pastes. Checked against S12, the FINAL trial reads (LoCoMo 10 × 10, BEAM 10, LME-S 2)
+and B's reads:
+- **Fixed (F25):** the new-chat cap and three pieces per other chat.
+- **User half embedded only** (`importer._store_turn`): no loss seen — LoCoMo trial, cited halves
+  in ICE's memory 39/52 on the user side and 39/52 on the assistant side (a turn is stored whole).
+- **Facts name speaker_b "the assistant"** (LoCoMo): 404 distinct trial facts; speaker_b's mostly
+  "asserted" (135; "suggested" 23); ~17% of fact appearances carry no person's name ("The assistant
+  commented that the painting was lovely…"). A benchmark shape, not a product defect — disclosed, no change.
+- **Decay**: replay catch-up applies at most 96 cycles (6 days) per gap (D5); B's 90 days changed no
+  answer (F16/F18); FINAL tests live vs neutral on S4 and S9 — covered.
+- **The gate inside a short chat**: LoCoMo trial (30-turn slice) refused 5/10, BEAM 2/10; at FINAL
+  scale the chats are long, where the gate fetches on nearly every turn (F24) — check on the first
+  full LoCoMo read.
+- Already known: batch summaries (G79, fixed), candidate limits full on B (F22, wider legs not worth
+  it), long passages (reranker windows, audit A4), recency bonus (0 for other chats; harmless).
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |
