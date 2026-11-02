@@ -90,7 +90,8 @@ FROZEN = [
     ("retrieval_cluster_candidate_multiplier", ORCH, 230, r'"limit": top_k \* (\d+)'),
     ("codex_entity_match_threshold", ORCH, 1166, r"threshold: float = ([\d.]+)"),
     ("retrieval_rrf_k", ORCH, 2223, r"k: int = (\d+)"),
-    ("retrieval_max_per_conversation", ORCH, 2372, r"max_per_conversation=(\d+)"),
+    # retrieval_max_per_conversation's row was retired 2026-11-02: Z2 F25 changed it
+    # on purpose from 3 to None (no limit per other chat). Its proof moves below.
     ("retrieval_bm25_candidate_limit", ORCH, 920, r"LIMIT (\d+)"),
     ("retrieval_vector_candidate_limit", ORCH, 1038, r'else (\d+),'),
     ("retrieval_vector_candidate_limit_evolution", ORCH, 1038, r'"cand_limit": (\d+) if'),
@@ -308,8 +309,17 @@ def test_budget_ladders_match_base_commit():
                r"turn_count < ([\d_]+):\s*\n\s*growth_cap = ([\d_]+) \+ "
                r"(?:turn_count|\(turn_count - [\d_]+\)) \* ([\d_]+)", src)]
     assert len(cap) == 3, f"growth-cap anchors drifted: found {len(cap)} brackets"
+    # Z2 F25 (2026-11-02) changed the ladder on purpose: a new chat starts at
+    # 8,000, the base commit's per-turn rates kept, each bracket starting where
+    # the last ended. The proof is derived from the base ladder, not retyped.
     got = [[int(x) for x in row] for row in _declared("context_growth_cap_ladder")]
-    assert got == cap, f"growth-cap ladder changed: {cap} -> {got}"
+    assert [r[0] for r in got] == [r[0] for r in cap] and [r[2] for r in got] == [r[2] for r in cap], (
+        f"growth-cap edges or per-turn rates changed: {cap} -> {got}")
+    start, prev = 8_000, 0
+    for (edge, base, per_turn), new in zip(cap, got):
+        assert new[1] == start, f"growth-cap bracket below {edge} should start at {start}: {got}"
+        start, prev = start + (edge - prev) * per_turn, edge
+    assert cap[0][1] == 2_000, "the base-commit anchor for the 2,000-token new-chat cap drifted"
 
     frac = [[int(a), float(b)] for a, b in re.findall(
         r"turn_count < (\d+):\s*\n\s*base = ([\d.]+)", src)]
@@ -482,3 +492,14 @@ def test_cluster_entity_max_chars_was_retired_deliberately():
     assert m and int(m.group(1)) == 2000, "the base-commit anchor for the retired cap drifted"
     assert _declared("cluster_entity_extraction_max_chars") is None, (
         "the cap is back; record the reversal of G74's change rather than re-freezing it")
+
+
+def test_max_per_conversation_was_retired_deliberately():
+    """Z2 F25 (2026-11-02): in a new chat every memory is another chat's, and 3 per
+    other chat held S12's prompts to three original turns per past chat. The proof
+    that 3 existed and that None is the recorded change lives here."""
+    line = _base_lines(ORCH)[2372 - 1]
+    m = re.search(r"max_per_conversation=(\d+)", line)
+    assert m and int(m.group(1)) == 3, "the base-commit anchor for the retired limit drifted"
+    assert _declared("retrieval_max_per_conversation") is None, (
+        "the per-chat limit is back; record the reversal of Z2 F25 rather than re-freezing it")

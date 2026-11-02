@@ -111,3 +111,22 @@ def test_subclass_defaults_match_the_parent():
                                         for k in differing))
     assert not drifted, ("ablation override defaults drifted from the parent:\n  "
                          + "\n  ".join(drifted))
+
+
+
+def test_no_per_chat_limit_by_default(monkeypatch):
+    """Z2 F25: None, the default, means no limit on another chat's pieces."""
+    o = object.__new__(HybridRetrievalOrchestrator)
+    monkeypatch.setattr(settings, "retrieval_max_per_conversation", None)
+    assert len(o._session_diversify([_Frag("other")] * 9, "current")) == 9
+
+
+def test_growth_cap_never_steps_back_and_starts_at_8000():
+    """Z2 F25: a new chat gets 8,000 memory tokens and the cap only grows with turns."""
+    o = object.__new__(HybridRetrievalOrchestrator)
+    caps = []
+    for turns in range(0, 520):
+        o.set_budget_from_turn_count(turns, total_budget=200_000)
+        caps.append(o.max_retrieval_tokens)
+    assert caps[0] == 8_000
+    assert all(b >= a for a, b in zip(caps, caps[1:])), "the growth cap steps back at a bracket edge"

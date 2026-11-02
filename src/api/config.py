@@ -462,8 +462,10 @@ class Settings(BaseSettings):
     retrieval_conversation_summary_limit: int = 2
 
     # Session diversification: how many fragments one FOREIGN conversation may
-    # contribute (the active conversation is uncapped).
-    retrieval_max_per_conversation: int = 3
+    # contribute (the active conversation is uncapped). None = no limit, the
+    # default since Z2 F25 (2026-11-02): in a new chat every memory is foreign,
+    # so 3 meant at most three original turns per past chat (S12: 134/134).
+    retrieval_max_per_conversation: int | None = None
 
     # Cluster restriction: how many clusters scope a query, and how many
     # candidates the SQL over-fetches before tag-overlap re-ranking.
@@ -812,10 +814,14 @@ class Settings(BaseSettings):
 
     # Retrieval's cap grows with conversation length: [turn_count_below, base,
     # per_turn]. Past the last bracket there is no cap. Read in order.
+    # Z2 F25 (2026-11-02): a new chat starts at 8,000 (was 2,000 — every
+    # cross-chat question read at 2,000), the old per-turn rates kept, each
+    # bracket starting where the last ended (the old one stepped back: turn 29
+    # 6,350 -> turn 30 5,000).
     context_growth_cap_ladder: list[list[int]] = [
-        [30, 2_000, 150],
-        [100, 5_000, 100],
-        [500, 10_000, 30],
+        [30, 8_000, 150],
+        [100, 12_500, 100],
+        [500, 19_500, 30],
     ]
     # Share of the budget given to the recent window, by conversation length:
     # [turn_count_below, fraction]. Past the last bracket, the default applies.

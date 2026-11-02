@@ -2523,6 +2523,8 @@ class HybridRetrievalOrchestrator:
     def _session_diversify(self, fragments, current_id, max_per_conversation=None):
         if max_per_conversation is None:
             max_per_conversation = settings.retrieval_max_per_conversation
+        if max_per_conversation is None:                # no limit (Z2 F25)
+            return list(fragments)
         counts: Dict[str, int] = {}
         result = []
         for f in fragments:
