@@ -4,9 +4,10 @@ runner (meter, lock, retries, clean stop, resume); state in logs/z3-judging-<nam
 
   r5-panel        the planted judge panel (qualify.py) under grade-2, reusing Z2's planted answers
   r5-judge-B/C    judge_check.py: grade-2 on grade-1 verdicts (B 230 + C ~50, invariance pairs)
+  r5-aux-B/C      aux_judge_check.py: the fixed claim check and controls judge (Z2 F27) on Z2's own
+                  cases beside the old verdicts, with planted cases of known answer
   r34-answers-*   the retest answers (Muse 1.2) for the order and summary settings, all at 256 candidates
-  r34-grade-*     grade-2 verdicts on those answers (--verdicts-only; claims can be added if a
-                  decision hinges on them)
+  r34-grade-*     grade-2 on those answers with the claim check (SCA needs it: Z2 F27); no ranking
   r10-answers     R10's own replay answered (Muse 1.2): shipped, no memory, reranker rescue (bar off) —
                   308 distinct prompts; every bar is replayed offline from them (r10_report.py --grades)
   r10-grade       LongMemEval's own yes/no judge on those answers (--upstream-only)
@@ -15,8 +16,8 @@ R7 (the chosen settings together) is added once R2–R4 have chosen.
 It waits while any Z2 runner is active (Z2's cloud run first), and a stage waits ("needs input")
 until its inputs exist: Z2's grade-1 grades for the judge check, the GPU day's reads for answers.
 
-    uv run --no-sync python experiments/z2/z3_judging.py run --only r5-panel,r5-judge-B,r5-judge-C   # run 1
-    (read logs/z3-judging/judge-check-*/report.txt and blind-sheet.md; approve: touch logs/z3-judging/judge-approved)
+    uv run --no-sync python experiments/z2/z3_judging.py run --only r5-panel,r5-judge-B,r5-judge-C,r5-aux-B,r5-aux-C   # run 1
+    (read logs/z3-judging/{judge-check,aux-check}-*/report.txt and blind-sheet.md; approve: touch logs/z3-judging/judge-approved)
     uv run --no-sync python experiments/z2/z3_judging.py run                                        # run 2
     uv run --no-sync python experiments/z2/z3_judging.py status --watch
 """
@@ -45,6 +46,8 @@ APPROVED = ROOT / "logs/z3-judging/judge-approved"
 R10_ANSWERED = ("full", "recent_only", "full_rescue_reranker")   # a refused question's prompt is recent_only's
 ASKS = {"B": 174, "C": 75}                                 # questions per history (retests read questions only)
 SCALE = {"B": 1.0, "C": 0.22}
+CLAIM_SHARE = 1.73                     # grade + claim calls per graded answer (B: 3,120 claim calls / 4,300 graded)
+AUX = {"B": 447, "C": 160}             # aux_judge_check.py --dry-run: B's plan; C's estimated
 
 
 def gpu_day_done(key):
@@ -112,6 +115,12 @@ def stages(_limit=None):
             calls=d / f"judge-check-{h}/grade2-raw.jsonl", planned=round(230 * SCALE[h]) + 20,
             inputs=(grades,)))
     for h in ("B", "C"):
+        report = RUN / f"s11-{h}/report.json"               # Z2's grading finished: its old verdicts are final
+        out.append(Counted(f"r5-aux-{h}", f"R5 claim check + controls judge {h} (fixed prompts, planted cases)", PY + [
+            "experiments/z2/aux_judge_check.py", "--history", h, "--grades", f"logs/z2-run-main/s11-{h}/grades.json",
+            "--run", "logs/z2-run-main", "--questions", "logs/z2-questions-final", "--out", f"logs/z3-judging/aux-check-{h}"],
+            calls=d / f"aux-check-{h}/aux-raw.jsonl", planned=AUX[h], inputs=(report,)))
+    for h in ("B", "C"):
         answers = ROOT / f"logs/z2-retest-{h}-answers"
         out.append(Counted(f"r34-answers-{h}", f"R3/R4 retest answers {h} (Muse 1.2)", PY + [
             "experiments/z2/answers.py", "--units", f"logs/z2-retest-{h}", "--out", str(answers.relative_to(ROOT)),
@@ -119,12 +128,12 @@ def stages(_limit=None):
             calls=answers / "answers.jsonl", planned=ASKS[h] * len(ANSWERED), unit="answers",
             inputs=(f"reads-{h}", APPROVED)))
         hist = HISTORIES[h]
-        out.append(Counted(f"r34-grade-{h}", f"R3/R4 retest grades {h} (grade-2 verdicts)", PY + [
+        out.append(Counted(f"r34-grade-{h}", f"R3/R4 retest grades {h} (grade-2 + claim check)", PY + [
             "experiments/z2/grade.py", "--history", h, "--units", f"logs/z2-retest-{h}",
             "--answers", str(answers.relative_to(ROOT)), "--questions", "logs/z2-questions-final",
             "--ledger", str(hist.path("ledger").relative_to(ROOT)), "--changes", str(hist.path("changes").relative_to(ROOT)),
-            "--out", f"logs/z2-retest-{h}-grades", "--verdicts-only"],
-            calls=ROOT / f"logs/z2-retest-{h}-grades/grade-raw.jsonl", planned=ASKS[h] * len(ANSWERED),
+            "--out", f"logs/z2-retest-{h}-grades", "--no-ranking"],
+            calls=ROOT / f"logs/z2-retest-{h}-grades/grade-raw.jsonl", planned=round(ASKS[h] * len(ANSWERED) * CLAIM_SHARE),
             needs=(f"r34-answers-{h}",)))
     # R10 (Z2 F4, 2026-11-01): the reranker rescue graded — LongMemEval's judge needs no judge check
     r10, r10_answers = RUN / "s12-r10", ROOT / "logs/z3-judging/r10-answers"

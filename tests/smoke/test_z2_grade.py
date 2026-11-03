@@ -249,3 +249,16 @@ def test_control_judge_never_counts_memory_as_invented():
     assert "remembers its earlier conversations" in G.CONTROL_SYSTEM
     assert "never count a mention" in G.CONTROL_SYSTEM and "unrelated to MESSAGE" in G.CONTROL_SYSTEM
 
+
+
+def test_aux_check_plants_a_false_twin_at_a_time_no_turn_has():
+    """The claim-check plants (Z2 F27): a true dated claim and the same claim nine days later."""
+    from experiments.z2 import aux_judge_check as A
+    dates = {1: "2025-01-09 05:30 UTC", 2: "2025-01-09 05:33 UTC"}
+    graded = {"full|q1": dict(status="graded", unsupported_claims=["x"],
+                              claims={"On [2025-01-09T05:30:00Z] you said the garden plan was ready": "confirmed_invented",
+                                      "you like tea": "confirmed_invented"})}
+    plants = A.claim_plants(graded, dates, 1.0)
+    assert [(k, c) for k, _, c, _ in plants] == [("true", "On [2025-01-09T05:30:00Z] you said the garden plan was ready"),
+                                                 ("false", "On [2025-01-18T05:30:00Z] you said the garden plan was ready")]
+    assert A.PASS == dict(true_supported=0.9, false_invented=0.9, intrusion_clean_wins=0.8)
