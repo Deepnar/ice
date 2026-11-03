@@ -6,6 +6,7 @@ runner (meter, lock, retries, clean stop, resume); state in logs/z3-judging-<nam
   r5-judge-B/C    judge_check.py: grade-2 on grade-1 verdicts (B 230 + C ~50, invariance pairs)
   r5-aux-B/C      aux_judge_check.py: the fixed claim check and controls judge (Z2 F27) on Z2's own
                   cases beside the old verdicts, with planted cases of known answer
+  r5-beam         experiments/beam/judge_check.py: BEAM's own protocol (F27) on planted answers
   r34-answers-*   the retest answers (Muse 1.2) for the order and summary settings, all at 256 candidates
   r34-grade-*     grade-2 on those answers with the claim check (SCA needs it: Z2 F27); no ranking
   r10-answers     R10's own replay answered (Muse 1.2): shipped, no memory, reranker rescue (bar off) —
@@ -16,8 +17,8 @@ R7 (the chosen settings together) is added once R2–R4 have chosen.
 It waits while any Z2 runner is active (Z2's cloud run first), and a stage waits ("needs input")
 until its inputs exist: Z2's grade-1 grades for the judge check, the GPU day's reads for answers.
 
-    uv run --no-sync python experiments/z2/z3_judging.py run --only r5-panel,r5-judge-B,r5-judge-C,r5-aux-B,r5-aux-C   # run 1
-    (read logs/z3-judging/{judge-check,aux-check}-*/report.txt and blind-sheet.md; approve: touch logs/z3-judging/judge-approved)
+    uv run --no-sync python experiments/z2/z3_judging.py run --only r5-panel,r5-judge-B,r5-judge-C,r5-aux-B,r5-aux-C,r5-beam   # run 1
+    (read logs/z3-judging/{judge-check,aux-check}-*/report.txt, beam-check/report.txt and blind-sheet.md; approve: touch logs/z3-judging/judge-approved)
     uv run --no-sync python experiments/z2/z3_judging.py run                                        # run 2
     uv run --no-sync python experiments/z2/z3_judging.py status --watch
 """
@@ -48,6 +49,7 @@ ASKS = {"B": 174, "C": 75}                                 # questions per histo
 SCALE = {"B": 1.0, "C": 0.22}
 CLAIM_SHARE = 1.73                     # grade + claim calls per graded answer (B: 3,120 claim calls / 4,300 graded)
 AUX = {"B": 447, "C": 160}             # aux_judge_check.py --dry-run: B's plan; C's estimated
+BEAM_CHECK = 800                       # judge_check.py --dry-run: 288 nugget calls + the ordering alignment
 
 
 def gpu_day_done(key):
@@ -120,6 +122,9 @@ def stages(_limit=None):
             "experiments/z2/aux_judge_check.py", "--history", h, "--grades", f"logs/z2-run-main/s11-{h}/grades.json",
             "--run", "logs/z2-run-main", "--questions", "logs/z2-questions-final", "--out", f"logs/z3-judging/aux-check-{h}"],
             calls=d / f"aux-check-{h}/aux-raw.jsonl", planned=AUX[h], inputs=(report,)))
+    out.append(Counted("r5-beam", "R5 BEAM's own judge on planted answers", PY + [
+        "experiments/beam/judge_check.py", "--out", "logs/z3-judging/beam-check"],
+        calls=d / "beam-check/beam-grade-raw.jsonl", planned=BEAM_CHECK, inputs=(ROOT / "logs/final-beam",)))
     for h in ("B", "C"):
         answers = ROOT / f"logs/z2-retest-{h}-answers"
         out.append(Counted(f"r34-answers-{h}", f"R3/R4 retest answers {h} (Muse 1.2)", PY + [

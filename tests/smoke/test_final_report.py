@@ -39,7 +39,7 @@ def test_report_tables(tmp_path):
     write(tmp_path / "grade-S1/report.json", dict(scoring=first, by_condition_and_type=descriptive))
     write(tmp_path / "grade-S1-repeat/report.json", dict(scoring=second, by_condition_and_type=descriptive))
     write(tmp_path / "grade-BEAM-500K-12/beam-report.json", {"by_condition_and_type": {
-        "full": {"knowledge_update": dict(graded=2, mean_nugget=0.5)}}})
+        "full": {"knowledge_update": dict(graded=2, mean_score=0.5)}}})
     r = F.build(tmp_path)
     head = r["histories"]["S1"]["headline"]["full_default"]
     assert head["m1"] == 0.8 and head["m2"] == 0.8 and head["m2_out_of_window"] == 0.8 and head["tur"] == 0.4
@@ -47,7 +47,7 @@ def test_report_tables(tmp_path):
     assert r["histories"]["S1"]["primary_tests"]["M1 all: full_default vs bare_vector"]["verdict"] == "win"
     assert r["histories"]["S1"]["descriptive_1_5"]["full_default"]["mean_score"] == 4.2
     assert r["run_to_run_variance_S1"]["full_default"]["m1"] == -0.1
-    assert r["beam"]["500K"]["full"]["mean_nugget"] == 0.5
+    assert r["beam"]["500K"]["full"]["mean_score"] == 0.5
     md = F.markdown(r)
     assert "## S1" in md and "suites pooled first" in r["label"] and "| ICE | 20 | 80.0 | 80.0 | 80.0 |" in md
 
@@ -75,14 +75,14 @@ def test_locomo_and_upper_bound_sections(tmp_path):
             "".join(json.dumps(r) + "\n" for r in rows if r["condition"] == cond))
     out = F.locomo(tmp_path / "run", exports=exports)
     assert out["full_default"]["j"] == 1.0 and out["mem0"]["j"] == 0.0 and out["mem0"]["f1"] == 0.5
-    rows = lambda pairs: "".join(json.dumps(dict(key=f"{c}|q{i}", condition=c, status="graded", nugget_mean=v)) + "\n"
+    rows = lambda pairs: "".join(json.dumps(dict(key=f"{c}|q{i}", condition=c, status="graded", beam_score=v)) + "\n"
                                  for i in range(4) for c, v in pairs)
     (tmp_path / "run/upper-grade-BEAM-500K-1").mkdir(parents=True)
     (tmp_path / "run/upper-grade-BEAM-500K-1/beam-grades.jsonl").write_text(rows((("full_history", 0.75),)))
     (tmp_path / "run/grade-BEAM-500K-1").mkdir(parents=True)
     (tmp_path / "run/grade-BEAM-500K-1/beam-grades.jsonl").write_text(rows((("full_default", 0.5), ("long_context", 0.25))))
     up = F.upper_bound(tmp_path / "run")
-    assert up["mean_nugget"] == {"full_default": 0.5, "long_context": 0.25, "full_history": 0.75}
+    assert up["mean_score"] == {"full_default": 0.5, "long_context": 0.25, "full_history": 0.75}
     assert up["full_default minus full_history"] == dict(questions=4, diff=-0.25, ci95=[-0.25, -0.25])
     assert up["full_default minus long_context"]["diff"] == 0.25
 

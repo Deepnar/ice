@@ -1,5 +1,5 @@
 """FINAL BEAM adapter: pairs and dates from BEAM's own anchors, evidence ids to turns,
-rubric nuggets to references, nugget mean and Kendall tau-b scoring."""
+rubric nuggets to references, and BEAM's own scoring (one nugget per call, tau_norm for order)."""
 
 import json
 
@@ -25,11 +25,26 @@ def test_originals_asks_and_scoring():
     asks = A.to_asks(row(), ids, 3)
     upd = next(a for a in asks if a["type"] == "knowledge_update")
     assert upd["reference"]["source_turns"] == [1, 3] and upd["checkpoint_turn"] == 3
-    judge = lambda system, prompt: ({"scores": [1, 0.5]} if system is A.NUGGET_SYSTEM else {"positions": [2, 1]})
     order = next(a for a in asks if a["type"] == "event_ordering")
-    s = A.score(order, "b then a", judge)
-    assert s["nugget_mean"] == 0.75 and s["kendall_tau_b"] == -1.0
-    assert A.kendall_tau_b([1, 2, 3]) == 1.0
+    seen = []
+
+    def judge(messages):
+        seen.append(messages)
+        if messages[0]["role"] == "system":                     # BEAM's llm_equivalence: YES/NO
+            first, second = (x.split(":", 1)[1].strip() for x in messages[1]["content"].split("\n") if "snippet:" in x)
+            return "YES" if first == second else "NO"
+        nugget = messages[0]["content"].split("RUBRIC CRITERION (what to check): ", 1)[1].split("\n", 1)[0]
+        return json.dumps(dict(score=1.0 if nugget == "a" else 0.5, reason="r"))
+    s = A.score(order, "b\na", judge)
+    assert s["llm_judge_score"] == 0.75 and s["nuggets"] == [1.0, 0.5]
+    assert s["tau_norm"] == 0.0 and s["beam_score"] == 0.0 and s["f1"] == 1.0          # reversed order
+    blank = A.score(order, "b\n\na", judge)              # BEAM keeps a blank line as an unmatched item
+    assert round(blank["tau_norm"], 4) == round(1 / 3, 4) and round(blank["f1"], 4) == 0.8
+    assert A.score(order, "a\nb", judge)["beam_score"] == 1.0
+    nugget_calls = [m for m in seen if m[0]["role"] == "user"]
+    assert len(nugget_calls) == 6 and len(nugget_calls[0]) == 1         # 3 answers x 2 nuggets, one per call and A.UNIFIED_JUDGE_PROMPT.split("<rubric_item>")[0] in nugget_calls[0][0]["content"]
+    assert all(m[1]["content"].split("Second snippet:")[1].strip() for m in seen if m[0]["role"] == "system")  # blank lines cost no call
+    assert A.parse_json_response('```json\n{"score": 0.5}\n```') == {"score": 0.5}
 
 
 def test_beam_grading_scores_resumes_and_leaves_incomplete_ungraded(tmp_path):
@@ -50,11 +65,14 @@ def test_beam_grading_scores_resumes_and_leaves_incomplete_ungraded(tmp_path):
     (ans / "index.json").write_text(json.dumps(dict(index=index)))
     (ans / "answers.jsonl").write_text("\n".join(lines) + "\n")
     calls = []
-    def judge(system, prompt):
-        calls.append(system)
-        return {"scores": [1] * len(json.loads(prompt)["NUGGETS"])} if system is A.NUGGET_SYSTEM else {"positions": [1, 2]}
-    report = G.run(units, ans, tmp_path / "asks.json", tmp_path / "out", judge)
-    assert report["full"]["knowledge_update"]["mean_nugget"] == 1.0
+    def judge(messages):
+        calls.append(messages)
+        if messages[0]["role"] == "system":
+            return "NO"
+        return json.dumps(dict(score=1.0, reason="r"))
+    assert G.run(units, ans, tmp_path / "asks.json", tmp_path / "out", judge) == 0
+    report = json.loads((tmp_path / "out/beam-report.json").read_text())["by_condition_and_type"]
+    assert report["full"]["knowledge_update"]["mean_score"] == 1.0
     assert report["recent_only"]["knowledge_update"]["graded"] == 0
     before = len(calls)
     G.run(units, ans, tmp_path / "asks.json", tmp_path / "out", judge)
@@ -67,3 +85,38 @@ def test_grouped_source_ids_are_flattened():
     id_to_turn = {7: 1, 24: 2, 26: 2, 146: 5}
     assert source_turns(dict(source_chat_ids="[[24, 26], [146], 7]"), id_to_turn) == [1, 2, 5]
     assert source_turns(dict(source_chat_ids={"a": [7, [24]]}), id_to_turn) == [1, 2]
+
+
+def test_an_unreadable_reply_leaves_the_answer_for_the_next_run(tmp_path, capsys):
+    """Never scored 0 for the judge's failure: BEAM would repair the text; this run retries it."""
+    from experiments.beam import grade as G
+    from experiments.z2 import read_passes as R
+    _, ids = A.to_originals(row())
+    asks = [a for a in A.to_asks(row(), ids, 3) if a["type"] == "knowledge_update"]
+    (tmp_path / "asks.json").write_text(json.dumps(asks))
+    units, ans = tmp_path / "units", tmp_path / "ans"
+    ans.mkdir()
+    R.write_unit(R.unit_path(units, "full", asks[0]["id"]), dict(condition="full", ask=dict(id=asks[0]["id"])))
+    (ans / "index.json").write_text(json.dumps(dict(index={f"full|{asks[0]['id']}": "s"})))
+    (ans / "answers.jsonl").write_text(json.dumps(dict(prompt_sha256="s", finish="complete", text="250ms")) + "\n")
+    assert G.run(units, ans, tmp_path / "asks.json", tmp_path / "out", lambda m: "no json here") == 1
+    assert json.loads((tmp_path / "out/status.json").read_text()) == dict(pending=1, finished=False)
+    assert "left for the next run" in capsys.readouterr().out
+
+
+def test_beam_judge_check_plants_and_pass_marks():
+    """Z2 F27: BEAM's own judge is checked on planted answers before FINAL uses it."""
+    from experiments.beam import judge_check as J
+    ask = lambda i, t, ans, nug: dict(id=f"BEAM:c1:{t}:{i}", type=t, question="q", reference=dict(answer=ans, nuggets=nug))
+    asks = [ask(i, t, f"{t} answer {i}", [f"{t} point {i}"]) for t in ("knowledge_update", "abstention", "temporal_reasoning")
+            for i in range(3)] + [ask(i, "event_ordering", "x", ["e1", "e2", "e3"]) for i in range(2)]
+    ps = J.plants(asks)
+    kinds = [k for k, _, _ in ps]
+    assert kinds.count("gold") == 9 and kinds.count("extra") == 6 and kinds.count("ordered") == 2   # no extra on abstention
+    rev = next(p for p in ps if p[0] == "reversed")
+    assert rev[2] == "e3\ne2\ne1"
+    rows = [(k, a, dict(beam_score={"gold": 1.0, "extra": 0.95, "off_topic": 0.0, "ordered": 1.0, "reversed": 0.0}[k]))
+            for k, a, _ in ps]
+    assert all(J.summarise(rows)["passed"].values())
+    rows = [(k, a, dict(beam_score=0.5 if k == "extra" else s["beam_score"])) for k, a, s in rows]
+    assert J.summarise(rows)["passed"]["extra_drop"] is False                  # long answers must not lose points

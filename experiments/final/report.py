@@ -74,10 +74,10 @@ def beam(run):
             for cond, kinds in json.loads(path.read_text())["by_condition_and_type"].items():
                 for c in kinds.values():
                     acc = cells.setdefault(cond, [0.0, 0])
-                    if c["graded"] and c["mean_nugget"] is not None:
-                        acc[0] += c["mean_nugget"] * c["graded"]
+                    if c["graded"] and c["mean_score"] is not None:
+                        acc[0] += c["mean_score"] * c["graded"]
                         acc[1] += c["graded"]
-        out[tier] = {c: dict(graded=n, mean_nugget=round(s / n, 4) if n else None) for c, (s, n) in cells.items()}
+        out[tier] = {c: dict(graded=n, mean_score=round(s / n, 4) if n else None) for c, (s, n) in cells.items()}
     return out
 
 
@@ -248,7 +248,7 @@ def longmemeval_s(run):
 
 def upper_bound(run):
     """BEAM's 500K tier: ICE as it runs, long context (256K) and the full history, all answered by
-    Muse 1.2 on the same questions — nugget means, and paired differences per question with a 95%
+    Muse 1.2 on the same questions — BEAM scores, and paired differences per question with a 95%
     interval over questions (ICE − full history, long context − full history, ICE − long context)."""
     from experiments.z2.scoring import family_interval
     per_ask = {}
@@ -262,13 +262,13 @@ def upper_bound(run):
                 row = json.loads(line) if line.strip() else None
                 if row and row["status"] == "graded":
                     cond, ask = row["key"].split("|", 1)
-                    per_ask.setdefault(ask, {})[cond] = row["nugget_mean"]
+                    per_ask.setdefault(ask, {})[cond] = row["beam_score"]
     if not stores:
         return None
     conds = ("full_default", "long_context", "full_history")
     means = {c: round(statistics.fmean(v[c] for v in per_ask.values() if c in v), 4)
              for c in conds if any(c in v for v in per_ask.values())}
-    out = dict(mean_nugget=means)
+    out = dict(mean_score=means)
     for a, b in (("full_default", "full_history"), ("long_context", "full_history"), ("full_default", "long_context")):
         diffs = {q: v[a] - v[b] for q, v in per_ask.items() if a in v and b in v}
         out[f"{a} minus {b}"] = dict(questions=len(diffs), diff=round(statistics.fmean(diffs.values()), 4) if diffs else None,
@@ -382,8 +382,8 @@ def markdown(report):
         lines.append("")
     for tier, conds in report["beam"].items():
         if conds:
-            lines += [f"## BEAM {tier} (nugget protocol, non-official judge)", ""] + \
-                     [f"- {c}: {v['mean_nugget']} over {v['graded']}" for c, v in conds.items()] + [""]
+            lines += [f"## BEAM {tier} (BEAM's own protocol, non-official judge)", ""] + \
+                     [f"- {c}: {v['mean_score']} over {v['graded']}" for c, v in conds.items()] + [""]
     if report["run_to_run_variance_S1"]:
         lines += ["## Run-to-run variance (S1 replayed twice; second minus first, points)", ""] + \
                  [f"- {c}: M1 {_pct(d.get('m1'))}, M2 {_pct(d.get('m2'))}" for c, d in report["run_to_run_variance_S1"].items()] + [""]
@@ -412,9 +412,9 @@ def markdown(report):
     if report.get("full_history_upper_bound"):
         u = report["full_history_upper_bound"]
         lines += ["## Full history vs long context vs ICE (BEAM 500K tier, all answered by Muse 1.2)", "",
-                  "- mean nugget: " + ", ".join(f"{c} {v}" for c, v in u["mean_nugget"].items())]
+                  "- mean BEAM score: " + ", ".join(f"{c} {v}" for c, v in u["mean_score"].items())]
         lines += [f"- {k}: {v['diff']} over {v['questions']} questions, 95% CI {v['ci95']}"
-                  for k, v in u.items() if k != "mean_nugget"] + [""]
+                  for k, v in u.items() if k != "mean_score"] + [""]
     if report["cross_family_judge"]:
         j = report["cross_family_judge"]
         lines += ["## Cross-family judge (does Muse 1.3 favour Muse 1.2's answers?)", "",

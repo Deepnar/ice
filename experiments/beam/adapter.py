@@ -1,5 +1,5 @@
 """FINAL's BEAM adapter (FINAL_experiments.md §2.1): a BEAM conversation to Z2-format
-originals and asks, and BEAM-style nugget scoring.
+originals and asks, and BEAM's own scoring.
 
 Run natively: replay the whole conversation, ask its 20 probing questions once after the
 last turn. Timestamps come from BEAM's own session anchors (one per session, e.g.
@@ -7,28 +7,105 @@ last turn. Timestamps come from BEAM's own session anchors (one per session, e.g
 Z2's declared clock is not imposed. The generator's bookkeeping markers ("->-> 3,8") are
 kept: BEAM's own baselines saw them (decided 2026-10-26).
 
-Scoring follows BEAM's protocol in our own words, labelled non-official: each rubric nugget
-is scored 0 / 0.5 / 1 by the judge and averaged; event ordering adds Kendall tau-b between
-the rubric order and the order the answer gives.
+Scoring is BEAM's own (its repository's prompts and metrics, verbatim; the judge is FINAL's, so
+labelled non-official): each rubric nugget scored 0 / 0.5 / 1 in its own call and averaged; event
+ordering scored, as BEAM reports it, by normalised Kendall tau-b between the rubric's order and
+the answer's lines aligned to it.
 """
 
 import ast
 import json
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TURN_GAP, SESSION_START = timedelta(minutes=3), "19:00"
 
-NUGGET_SYSTEM = """You grade one ANSWER to a QUESTION about a long conversation against NUGGETS, the
-atomic points a correct answer must contain (from the benchmark's reference). For each nugget
-give 1 if the answer states it, 0.5 if it states it partly or vaguely, 0 if it is missing or
-contradicted. For an abstention question the single nugget is that the answer declines for lack
-of information. Return only JSON: {"scores": [one number per nugget, in order], "reason": "..."}"""
+# BEAM's own judge, verbatim (github.com/mohammadtavakoli78/BEAM @ b2da22e, MIT): src/prompts.py
+# unified_llm_judge_base_prompt, one rubric nugget per call, and compute_metrics.llm_equivalence's
+# messages for aligning an event-ordering answer (Z2 F27: the adapter had paraphrased them).
+UNIFIED_JUDGE_PROMPT = """
+You are an expert evaluator tasked with judging whether the LLM's response demonstrates compliance with the specified RUBRIC CRITERION.
 
-ORDER_SYSTEM = """ITEMS are events from a conversation, in their true order. ANSWER lists events in some
-order. For each item give the position (1-based) at which the answer places the matching event,
-or null if the answer does not mention it. Return only JSON: {"positions": [...]}"""
+## EVALUATION INPUTS
+- RUBRIC CRITERION (what to check): <rubric_item>
+- RESPONSE TO EVALUATE: <llm_response>
+
+## EVALUATION RUBRIC:
+The rubric defines a specific requirement, constraint, or expected behavior that the LLM response should demonstrate. 
+
+**IMPORTANT**: Pay careful attention to whether the rubric specifies:
+- **Positive requirements** (things the response SHOULD include/do)
+- **Negative constraints** (things the response SHOULD NOT include/do, often indicated by "no", "not", "avoid", "absent")
+
+## RESPONSIVENESS REQUIREMENT
+A compliant response must be **on-topic** and attempt to answer it.
+- If the response does not address the QUESTION, score **0.0** and stop.
+- For negative constraints, both must hold: (a) the response is responsive to the QUESTION, and (b) the prohibited element is absent.
+
+## SEMANTIC TOLERANCE RULES:
+Judge by meaning, not exact wording.
+- Accept **paraphrases** and **synonyms** that preserve intent.
+- **Case/punctuation/whitespace** differences must be ignored.
+- **Numbers/currencies/dates** may appear in equivalent forms (e.g., “$68,000”, “68k”, “68,000 USD”, or “sixty-eight thousand dollars”). Treat them as equal when numerically equivalent.
+- If the rubric expects a number or duration, prefer **normalized comparison** (extract and compare values) over string matching.
+
+## STYLE NEUTRALITY (prevents style contamination):
+Ignore tone, politeness, length, and flourish unless the rubric explicitly requires a format/structure (e.g., “itemized list”, “no citations”, “one sentence”).
+- Do **not** penalize hedging, voice, or verbosity if content satisfies the rubric.
+- Only evaluate format when the rubric **explicitly** mandates it.
+
+## SCORING SCALE:
+- **1.0 (Complete Compliance)**: Fully complies with the rubric criterion.
+  - Positive: required element present, accurate, properly executed (allowing semantic equivalents).
+  - Negative: prohibited element **absent** AND response is **responsive**.
+  
+- **0.5 (Partial Compliance)**: Partially complies.
+  - Positive: element present but minor inaccuracies/incomplete execution.
+  - Negative: generally responsive and mostly avoids the prohibited element but with minor/edge violations.
+  
+- **0.0 (No Compliance)**: Fails to comply.
+  - Positive: required element missing or incorrect.
+  - Negative: prohibited element present **or** response is non-responsive/evasive even if the element is absent.
+
+## EVALUATION INSTRUCTIONS:
+1. **Understand the Requirement**: Determine if the rubric is asking for something to be present (positive) or absent (negative/constraint).
+
+2. **Parse Compound Statements**: If the rubric contains multiple elements connected by "and" or commas, evaluate whether:
+   - **All elements** must be present for full compliance (1.0)
+   - **Some elements** present indicates partial compliance (0.5)
+   - **No elements** present indicates no compliance (0.0)
+   
+3. **Check Compliance**: 
+   - For positive requirements: Look for the presence and quality of the required element
+   - For negative constraints: Look for the absence of the prohibited element
+
+4. **Assign Score**: Based on compliance with the specific rubric criterion according to the scoring scale above.
+
+5. **Provide Reasoning**: Explain whether the rubric criterion was satisfied and justify the score.
+
+## OUTPUT FORMAT:
+Return your evaluation in JSON format with two fields:
+
+{
+   "score": [your score: 1.0, 0.5, or 0.0],
+   "reason": "[detailed explanation of whether the rubric criterion was satisfied and why this justified the assigned score]"
+}
+
+NOTE: ONLY output the json object, without any explanation before or after that
+"""
+
+EQUIVALENCE_SYSTEM = """
+            You are a binary classifier.
+            If the TWO snippets describe the SAME event/fact, reply **YES**
+            Otherwise reply **NO**. No extra words.
+            DO NOT provide any exaplanation.
+        """
+
+EQUIVALENCE_USER = """First snippet: {first} \n
+                       Second snippet: {second}
+                    """
 
 
 def rows(tier):
@@ -96,39 +173,78 @@ def to_asks(row, id_to_turn, last_turn):
     return asks
 
 
-def kendall_tau_b(positions):
-    """tau-b between the true order 1..n and the answer's positions (missing items dropped)."""
-    pairs = [(i, p) for i, p in enumerate(positions) if p is not None]
-    n = len(pairs)
-    if n < 2:
-        return 0.0
-    conc = disc = tie_x = tie_y = 0
-    for a in range(n):
-        for b in range(a + 1, n):
-            dx, dy = pairs[a][0] - pairs[b][0], pairs[a][1] - pairs[b][1]
-            if dy == 0:
-                tie_y += 1
-            elif dx * dy > 0:
-                conc += 1
-            else:
-                disc += 1
-    total = n * (n - 1) / 2
-    denom = ((total - tie_x) * (total - tie_y)) ** 0.5
-    return (conc - disc) / denom if denom else 0.0
+def parse_json_response(response):
+    """BEAM's compute_metrics.parse_json_response: a fenced or bare JSON object (ValueError when none;
+    BEAM then repairs the text, this adapter leaves the nugget for the next run)."""
+    response = response.strip()
+    if response.startswith("```"):
+        match = re.search(r"```(?:json)?\s*(\[.*\]|\{.*\})\s*```", response, re.DOTALL)
+        if match:
+            response = match.group(1).strip()
+    try:
+        return json.loads(response)
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r'(\{.*?\}|\[.*?\])', response, re.DOTALL)
+    if match:
+        return json.loads(match.group(1))
+    raise ValueError("No valid JSON found in response.")
+
+
+def nugget_score(judge, nugget, answer):
+    """One rubric nugget, BEAM's prompt as one user message: 1.0, 0.5 or 0.0."""
+    prompt = UNIFIED_JUDGE_PROMPT.replace("<rubric_item>", nugget).replace("<llm_response>", answer)
+    return float(parse_json_response(judge([{"role": "user", "content": prompt}]))["score"])
+
+
+def equivalent(judge, first, second):
+    """BEAM's llm_equivalence. A blank answer line is never the same event, so it costs no call."""
+    if not second.strip():
+        return False
+    messages = [{"role": "system", "content": EQUIVALENCE_SYSTEM},
+                {"role": "user", "content": EQUIVALENCE_USER.format(first=first, second=second)}]
+    return "yes" in judge(messages).lower()
+
+
+def event_ordering_score(reference, system, judge):
+    """BEAM's event_ordering_score with align_type="llm": each answer line takes the first unused
+    reference event it describes; tau-b over the union, unmatched or missing items ranked last."""
+    from scipy.stats import kendalltau
+    used, system_canon = set(), []
+    for line in system:
+        match = next((i for i, r in enumerate(reference) if i not in used and equivalent(judge, r, line)), None)
+        if match is None:
+            system_canon.append(line)
+        else:
+            system_canon.append(reference[match])
+            used.add(match)
+    tp = len(set(reference) & set(system_canon))
+    fp = len([x for x in system_canon if x not in reference])
+    fn = len([x for x in reference if x not in system_canon])
+    precision = tp / (tp + fp) if tp + fp else 0
+    recall = tp / (tp + fn) if tp + fn else 0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0
+    union = list(dict.fromkeys(list(reference) + system_canon))
+    tie_rank = len(union) + 1
+
+    def to_rank(seq):
+        r = {item: i + 1 for i, item in enumerate(seq)}
+        return [r.get(u, tie_rank) for u in union]
+
+    tau_b, _ = kendalltau(to_rank(reference), to_rank(system_canon), variant="b", method="auto")
+    tau_norm = (tau_b + 1) / 2 if tau_b is not None and tau_b == tau_b else 0
+    return dict(precision=precision, recall=recall, f1=f1, tau_norm=tau_norm, final_score=tau_norm * f1)
 
 
 def score(ask, answer, judge):
-    """judge(system, prompt) -> dict. Nugget mean; event ordering also gets tau-b."""
+    """judge(messages) -> reply text. BEAM's evaluate_<type>: the mean nugget score; event ordering
+    also gets event_ordering_score, and BEAM's report counts its tau_norm (report_results.py)."""
     nuggets = ask["reference"]["nuggets"]
-    got = judge(NUGGET_SYSTEM, json.dumps(dict(QUESTION=ask["question"], ANSWER=answer, NUGGETS=nuggets),
-                                          ensure_ascii=False))
-    scores = [min(1.0, max(0.0, float(s))) for s in (got or {}).get("scores") or []]
-    if len(scores) != len(nuggets):
-        raise ValueError(f"{ask['id']}: {len(scores)} scores for {len(nuggets)} nuggets")
-    out = dict(nugget_mean=sum(scores) / len(scores) if scores else 0.0, nuggets=scores)
+    scores = [nugget_score(judge, n, answer) for n in nuggets]
+    out = dict(llm_judge_score=sum(scores) / len(scores) if scores else 0.0, nuggets=scores)
     if ask["type"] == "event_ordering":
-        pos = judge(ORDER_SYSTEM, json.dumps(dict(ITEMS=nuggets, ANSWER=answer), ensure_ascii=False))
-        out["kendall_tau_b"] = kendall_tau_b((pos or {}).get("positions") or [])
+        out.update(event_ordering_score(nuggets, answer.split("\n"), judge))
+    out["beam_score"] = out["tau_norm"] if ask["type"] == "event_ordering" else out["llm_judge_score"]
     return out
 
 

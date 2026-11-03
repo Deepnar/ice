@@ -4,7 +4,7 @@ from experiments.z2 import z3_judging as J
 
 def test_stages_wait_for_inputs_and_answer_only_the_order_and_summary_settings():
     stages = {s.key: s for s in J.stages()}
-    assert set(stages) == {"r5-panel", "r5-judge-B", "r5-judge-C", "r5-aux-B", "r5-aux-C", "r34-answers-B",
+    assert set(stages) == {"r5-panel", "r5-judge-B", "r5-judge-C", "r5-aux-B", "r5-aux-C", "r5-beam", "r34-answers-B",
                            "r34-grade-B", "r34-answers-C", "r34-grade-C", "r10-answers", "r10-grade"}
     assert stages["r34-answers-B"].inputs == ("reads-B", J.APPROVED)     # read first, and the judge approved
     assert stages["r34-grade-C"].needs == ("r34-answers-C",)
