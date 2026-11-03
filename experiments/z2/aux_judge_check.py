@@ -43,7 +43,7 @@ CLEAN_SAMPLE, PLANTS = 40, 30
 SHIFT = timedelta(days=9)
 INTRUSION = "\n\nBy the way, this reminds me of something from our earlier conversations: "
 # pass marks, stated before the run
-PASS = dict(true_supported=0.9, false_invented=0.9, intrusion_clean_wins=0.8)
+PASS = dict(true_supported=0.9, false_invented=0.9, wrong_turn_invented=0.9, intrusion_clean_wins=0.8)
 STAMP = re.compile(r"(20\d\d-\d\d-\d\d)[T ](\d\d:\d\d)")
 
 
@@ -91,6 +91,20 @@ def claim_plants(graded, dates, scale, seed=20261103, originals=None):
         return bool(words) and any(len(words & content_words(text.get(t, ""))) / len(words) >= CONTENT_MATCH
                                    for t in turns)
 
+    def wrong_turn(claim, stamps):
+        """The claim moved to the nearest earlier real turn that does not hold its content — ICE's
+        own error (a real date on the wrong event): the judge must call it invented."""
+        words = content_words(re.sub(r"\[[^\]]*\]|20\d\d-\d\d-\d\d\S*", " ", claim))
+        (d, h), = stamps[:1]
+        here = turns_at.get(f"{d} {h}", [])
+        if not here or not words:
+            return None
+        for t in range(min(here) - 1, 0, -1):
+            if t in dates and len(words & content_words(text.get(t, ""))) / len(words) < 0.3:
+                label = dates[t]
+                return STAMP.sub(lambda m: f"{label[:10]}T{label[11:16]}", claim, count=1)
+        return None
+
     pool = []
     for key, r in sorted(graded.items()):
         if key.split("|")[0] not in CONDITIONS:
@@ -101,12 +115,14 @@ def claim_plants(graded, dates, scale, seed=20261103, originals=None):
                     and (originals is None or content_there(claim, stamps)):
                 false = shifted(claim)
                 if false and not any(f"{d} {h}" in taken for d, h in STAMP.findall(false)):
-                    pool.append((key, claim, false))
+                    pool.append((key, claim, false, wrong_turn(claim, stamps) if originals else None))
     pool = random.Random(seed).sample(pool, min(len(pool), scaled(PLANTS, scale)))
     out = []
-    for n, (key, claim, false) in enumerate(pool):
+    for n, (key, claim, false, wrong) in enumerate(pool):
         out += [("true", f"plant_true{n}|{key.split('|', 1)[1]}", claim, key),
                 ("false", f"plant_false{n}|{key.split('|', 1)[1]}", false, key)]
+        if wrong:
+            out.append(("wrong_turn", f"plant_wrong{n}|{key.split('|', 1)[1]}", wrong, key))
     return out
 
 
@@ -189,7 +205,8 @@ def summarise(history, jobs, results, plants, old_controls, new_controls, plante
         claims[cond] = dict(answers=len(keys), invented_before=sum(1 for k in keys if jobs[k].get("invented")),
                             invented_after=sum(1 for k in keys if results[k].get("invented")),
                             transitions=dict(moved.most_common()))
-    plant = {kind: [results[key]["claims"].get(claim) for k, key, claim, _ in plants if k == kind] for kind in ("true", "false")}
+    plant = {kind: [results[key]["claims"].get(claim) for k, key, claim, _ in plants if k == kind]
+             for kind in ("true", "false", "wrong_turn")}
     controls = {}
     for cond in CONDITIONS + ("plant_intrusion",):
         keys = sorted(k for k in new_controls if k.startswith(cond + "|"))
@@ -199,9 +216,14 @@ def summarise(history, jobs, results, plants, old_controls, new_controls, plante
     true_ok = round(sum(x not in ("confirmed_invented", None, "pending") for x in plant["true"]) / len(plant["true"]), 3) if plant["true"] else None
     intr = controls["plant_intrusion"]["after"]
     intr_n = max(1, sum(intr.values()) - intr.get("same_reply", 0))
+    # false (no turn at the minute) is decided by code since the dated-claim check (2026-11-03): a
+    # check of the clock lookup; true and wrong_turn are the judge's.
     marks = dict(true_supported=true_ok, false_invented=ok(plant["false"], "confirmed_invented"),
+                 wrong_turn_invented=ok(plant["wrong_turn"], "confirmed_invented"),
                  intrusion_clean_wins=round(intr.get("B", 0) / intr_n, 3) if planted else None)
-    return dict(policy=POLICY, history=history, claims=claims, controls=controls, plants=marks,
+    counts = dict(true_supported=len(plant["true"]), false_invented=len(plant["false"]),
+                  wrong_turn_invented=len(plant["wrong_turn"]))
+    return dict(policy=POLICY, history=history, claims=claims, controls=controls, plants=marks, plant_counts=counts,
                 pass_marks=PASS, passed={k: v is not None and v >= PASS[k] for k, v in marks.items()})
 
 
@@ -214,7 +236,9 @@ def text(r):
         lines.append(f"  {cond}: {c['n']}  before {c['before']}  after {c['after']}")
     lines.append("plants vs pass marks:")
     for k, v in r["plants"].items():
-        lines.append(f"  {k}: {v} (mark {r['pass_marks'][k]}) {'PASS' if r['passed'][k] else 'FAIL'}")
+        n = r.get("plant_counts", {}).get(k)
+        lines.append(f"  {k}: {v} (mark {r['pass_marks'][k]}){f' over {n}' if n else ''} "
+                     f"{'PASS' if r['passed'][k] else 'FAIL'}")
     return "\n".join(lines)
 
 
