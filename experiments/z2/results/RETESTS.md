@@ -335,6 +335,30 @@ Full ICE with F1 fixed + R2's chosen candidate setting + R3/R4 if they passed, r
 graded under grade-2 on B and C, against plain search and long context. This is the number the
 fix pass reports; FINAL's design freeze waits for it.
 
+**Built 2026-11-03 (not a dress rehearsal — B and C only).** The rule, decided before any result
+(maintainer): **R7 sets the values of existing switches only; anything new it shows is reported in
+FINAL, never fixed before it** — `read_passes.R7_SWITCHES` refuses any other setting.
+- **The frozen candidate** `r7_frozen` = full ICE as it runs (live decay; the new-chat cap and no
+  per-chat limit are already defaults) + `experiments/z2/results/r7_settings.json`
+  (`{"settings": {...}, "chosen_from": "...", "decided": "..."}`), written once run 2's grades are in.
+  Until that file exists every R7 stage waits.
+- **Reads** (`gpu_extra.py` r7-reads-B/C → `logs/z2-r7-<history>`): r7_frozen, no memory and plain
+  search on **every ask — questions and the no-memory controls** (B 208, C 86). Plain search is
+  matched to r7_frozen's budget. The raised new-chat cap acts here: Z2's budgets equal the old cap on
+  71 of B's asks and all of C's (F25 correction).
+- **Answers + grades** (`z3_judging.py` r7-answers-*, r7-grade-*): Muse 1.2, reusing Z2's answers to
+  identical prompts (`answers.py --reuse`); grade-2 with the fixed claim check, the fixed controls
+  judge and context precision by tokens, reported with `--primary r7_frozen`. Long context is not
+  read: Z2 never read it on B/C, and 249 prompts of 256k tokens are beyond Go's budget; FINAL has it.
+- **Cost:** GPU ~4 h (882 contexts); cloud ≤ 882 answers (fewer with reuse) + ~2,000 grading calls,
+  ~$4–6 — decide at run 2 whether it waits for Go Plus.
+
+```bash
+cd ~/Programs/ice-worktrees/fix-pass
+uv run --no-sync python experiments/z2/gpu_extra.py run --only r7-reads-B,r7-reads-C      # GPU
+uv run --no-sync python experiments/z2/z3_judging.py run --only r7-answers-B,r7-grade-B,r7-answers-C,r7-grade-C   # cloud
+```
+
 ## R8 — fix-pass ⏳ items (GPU/DB)
 
 As listed in the ROADMAP's FIX-PASS checklist: G79 (replay writes batch notes), G60

@@ -509,9 +509,13 @@ training labels are the slower fix (relabel/retrain). Z3 decides; FINAL measures
 
 ## F25 ⚑ CHANGED on fix-pass (2026-11-02; new-chat cap 8,000, no per-chat limit; verified by one live read) — two limits that bind only when the asking chat is new or short (v3; S12 reads, offline)
 
-Both are ON by default, both bind on every fresh-chat read, and neither can show on B or C (one
-conversation of >500 turns each), so Z2's ablations never judged them (`session_diversify`,
-`dynamic_budget` flags; no verdict in any Z2 result).
+Both are ON by default and both bind on every fresh-chat read; Z2's ablations judged neither
+(`session_diversify`, `dynamic_budget` flags; no verdict in any Z2 result). **Correction (2026-11-03,
+from Z2's own units):** the per-chat limit cannot show on B or C (one conversation each), but the
+growth cap is keyed on the chat's length *at the question*, and it bound on **71 of B's 208 asks
+(every checkpoint under 500 turns) and all 86 of C's** (C has 325 turns): Z2's ICE budget equals the
+old cap exactly on each. So C's +17 over plain search was measured with both systems held to the old
+cap, and R7 measures the raised one on B and C directly (checkpoint 50: 7,000 → 14,500 tokens).
 - **The growth cap** (`context_growth_cap_ladder`, `orchestrator.set_budget_from_turn_count`): memory is
   capped by the CURRENT chat's length — 2,000 tokens in a new chat, +150 a turn, none past 500 turns.
   From v2 (the paper named it "architecturally consequential" for LongMemEval); kept in C16 until

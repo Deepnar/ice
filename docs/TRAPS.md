@@ -3009,7 +3009,10 @@ condition that Z2 would decide it. Both bound on every LongMemEval read (fresh c
 per session), which is also the product's ordinary case: a new chat asking about earlier chats.
 **Before trusting a corpus to judge a part, ask what conversation shape the part keys on (this chat
 vs others, turn count, session) and whether the corpus has that shape; if not, the part is
-"unexercised", never "no effect".** (Z2 F25; same family as #152 and F18.)
+"unexercised", never "no effect".** (Z2 F25; same family as #152 and F18.) **And check the claim
+against the units:** "neither limit can show on B or C" was itself wrong for the growth cap — it is
+keyed on the chat's length *at the question*, and Z2's own budgets equal the old cap on 71 of B's asks
+and all of C's. A shape argument is a hypothesis; the recorded budget per unit settles it in a query.
 
 
 ### 156. Fixing one judge leaves the same flaw in every judge beside it — and a missing verdict keeps turning into "no"
