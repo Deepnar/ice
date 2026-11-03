@@ -112,7 +112,7 @@ def judge_runs(rows, out, *, models):
     calls = M.Calls(out / "judge-raw.jsonl")
     session = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{POLICY}|{JUDGE}"))
     ask = lambda system, prompt: ask_object(calls, JUDGE, models[JUDGE][1], models[JUDGE][0], system, prompt,
-                                            session, max_output_tokens=8000)
+                                            session, max_output_tokens=grade.OUTPUT_TOKENS)
 
     def one(row):
         c, p, chk = row["contract"], row["plant"], row["check"]
@@ -200,7 +200,7 @@ def controls_run(out, *, models):
         for a, b, good_is in ((good, bad, "A"), (bad, good, "B")):
             v = (ask_object(calls, JUDGE, models[JUDGE][1], models[JUDGE][0], grade.CONTROL_SYSTEM,
                             json.dumps(dict(MESSAGE=msg, A=a, B=b), ensure_ascii=False), session,
-                            max_output_tokens=4000) or {}).get("better")
+                            max_output_tokens=grade.OUTPUT_TOKENS) or {}).get("better")
             right.append(v == good_is)
     return right
 

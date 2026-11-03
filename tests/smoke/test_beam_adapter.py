@@ -120,3 +120,31 @@ def test_beam_judge_check_plants_and_pass_marks():
     assert all(J.summarise(rows)["passed"].values())
     rows = [(k, a, dict(beam_score=0.5 if k == "extra" else s["beam_score"])) for k, a, s in rows]
     assert J.summarise(rows)["passed"]["extra_drop"] is False                  # long answers must not lose points
+
+
+def test_a_failing_judge_call_is_retried_then_unjudged_never_a_crash(tmp_path):
+    """Z3 judging run 1 (2026-11-03): one reply cut by its output cap stopped the whole BEAM check."""
+    from experiments.beam import grade as G
+    from experiments.beam import judge_check as J
+    from experiments.lme.cloud_provider import CloudCompletionError
+    from experiments.z2 import read_passes as R
+
+    def cut(messages):
+        raise CloudCompletionError("cloud answer completion was not successful: incomplete")
+    _, ids = A.to_originals(row())
+    asks = [a for a in A.to_asks(row(), ids, 3) if a["type"] == "knowledge_update"]
+    (tmp_path / "asks.json").write_text(json.dumps(asks))
+    units, ans = tmp_path / "units", tmp_path / "ans"
+    ans.mkdir()
+    R.write_unit(R.unit_path(units, "full", asks[0]["id"]), dict(condition="full", ask=dict(id=asks[0]["id"])))
+    (ans / "index.json").write_text(json.dumps(dict(index={f"full|{asks[0]['id']}": "s"})))
+    (ans / "answers.jsonl").write_text(json.dumps(dict(prompt_sha256="s", finish="complete", text="250ms")) + "\n")
+    quiet = lambda *_: None
+    assert [G.run(units, ans, tmp_path / "asks.json", tmp_path / "out", cut, say=quiet) for _ in range(3)] == [1, 1, 0]
+    report = json.loads((tmp_path / "out/beam-report.json").read_text())["by_condition_and_type"]
+    assert report["full"]["knowledge_update"] == dict(n=1, graded=0, unjudged=1, mean_score=None)
+    plants = [dict(id=f"BEAM:c:{t}:{i}", type=t, question="q", reference=dict(answer=f"a{i}", nuggets=[f"n{i}"]))
+              for t in ("knowledge_update", "temporal_reasoning") for i in range(3)]
+    for _ in range(3):
+        pending = J.run(plants, tmp_path / "check", cut, say=quiet)
+    assert pending == 0 and json.loads((tmp_path / "check/report.json").read_text())["unjudged"] > 0

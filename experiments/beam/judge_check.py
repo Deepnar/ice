@@ -89,24 +89,37 @@ def run(asks, out, judge, *, dry=False, say=print):
         say(json.dumps(plan))
         return 0
 
+    import threading
+    from experiments.z2.grade import Errors
+    errors, lock = Errors(out / "beam-check-errors.json"), threading.Lock()
+
     def one(p):
+        """(kind, ask, score), "unjudged" after MAX_ERRORS failures (excluded and counted), or None
+        to retry next run — one failed plant never stops the check (2026-11-03: a cut reply did)."""
         kind, ask, answer = p
+        key = f"{kind}|{ask['id']}"
+        if errors.given_up(key):
+            return "unjudged"
         try:
             return kind, ask, A.score(ask, answer, judge)
-        except (ValueError, KeyError, TypeError) as exc:
-            say(f"WARNING: BEAM judge reply unreadable for {kind} {ask['id']} ({exc}); left for the next run")
-            return None
+        except Exception as exc:                  # noqa: BLE001 — this plant only
+            with lock:
+                errors.failed(key, exc)
+                gave_up = errors.given_up(key)
+            say(f"WARNING: BEAM judging failed for {key} ({type(exc).__name__}: {str(exc)[:120]})"
+                + ("; given up, recorded unjudged" if gave_up else "; left for the next run"))
+            return "unjudged" if gave_up else None
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         rows = list(pool.map(one, todo))
     pending = sum(r is None for r in rows)
-    report = summarise([r for r in rows if r is not None])
+    report = dict(summarise([r for r in rows if isinstance(r, tuple)]), unjudged=sum(r == "unjudged" for r in rows))
     (out / "report.json").write_text(json.dumps(report, indent=1) + "\n")
     lines = [f"BEAM judge check ({POLICY}): BEAM's own protocol, FINAL's judge", ""]
     lines += [f"  {k}: mean {report['mean'].get(k)} over {report['n'].get(k)}" for k in plan]
     lines += [f"  gold + extra drop: {report['extra_drop']}", "",
               "  pass: " + ", ".join(f"{k} {'PASS' if v else 'FAIL'}" for k, v in report["passed"].items()),
-              f"  misses: {len(report['misses'])} (report.json)"]
+              f"  misses: {len(report['misses'])} (report.json); unjudged after repeated failures: {report['unjudged']}"]
     (out / "report.txt").write_text("\n".join(lines) + "\n")
     (out / "status.json").write_text(json.dumps(dict(pending=pending, finished=not pending)) + "\n")
     say("\n".join(lines))

@@ -362,14 +362,27 @@ def grade_oracle(units, answers, out, *, ask, ask_text, upstream_only=False):
         answer = rows.get(index.get(f"{unit['condition']}|{unit['ask']['id']}"))
         if answer:
             contexts.append((unit, answer))
+    import threading
+    errors, lock = G.Errors(Path(out) / "grade-errors.json"), threading.Lock()
+
     def one(item):
+        """(key, result), or (key, None) when the judge call failed — retried next run, and after
+        MAX_ERRORS failures recorded "unjudged" (never a grade) so the run finishes."""
         unit, answer = item
         key = f"{unit['condition']}|{unit['ask']['id']}"
         if answer["finish"] != "complete":
             return key, dict(status="ungraded", reason=f"answer {answer['finish']}")
         a, inst = unit["ask"], instances[unit["ask"]["id"]]
-        upstream = ask_text(get_anscheck_prompt(a["type"], a["question"], a["answer"], answer["text"],
-                                                abstention=a["abstention"]))
+        try:
+            upstream = ask_text(get_anscheck_prompt(a["type"], a["question"], a["answer"], answer["text"],
+                                                    abstention=a["abstention"]))
+        except Exception as exc:                  # noqa: BLE001 — this answer only
+            with lock:
+                errors.failed(key, exc)
+                if errors.given_up(key):
+                    return key, dict(status="unjudged", reason=errors.counts[key]["last"], type=a["type"],
+                                     abstention=a["abstention"])
+            return key, None
         marked = [dict(turn=None, role=t["role"], text=t["content"]) for s in inst["haystack_sessions"] for t in s
                   if t.get("has_answer")]
         body = dict(QUESTION=a["question"], REQUIRED=[str(a["answer"])], SOURCES=marked, SUPERSEDED=[],
@@ -380,12 +393,17 @@ def grade_oracle(units, answers, out, *, ask, ask_text, upstream_only=False):
 
     # answers side by side (one at a time, S12's ~2,500 grades were ~10 hours); every call is durable
     from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=G.CLAIM_WORKERS) as pool:
-        results = dict(pool.map(one, contexts))
     Path(out).mkdir(parents=True, exist_ok=True)
+    with ThreadPoolExecutor(max_workers=G.CLAIM_WORKERS) as pool:
+        graded = list(pool.map(one, contexts))
+    results = {k: r for k, r in graded if r is not None}
+    pending = sum(r is None for _, r in graded)
+    if pending:
+        print(f"WARNING: {pending} judge calls failed; left for the next run", flush=True)
     (Path(out) / "oracle-grades.json").write_text(json.dumps(results, indent=1) + "\n")
     (Path(out) / "oracle-report.json").write_text(json.dumps(report(results), indent=1) + "\n")
-    return results
+    (Path(out) / "status.json").write_text(json.dumps(dict(pending=pending, finished=not pending)) + "\n")
+    return results, pending
 
 
 def _yes(text):
@@ -398,6 +416,7 @@ def _yes(text):
 def text_caller(calls, generate, meta, session):
     """A durable plain-text judge call (the upstream prompt is not JSON)."""
     import uuid as _uuid
+    from experiments.z2 import grade as G
     from experiments.z2 import ledger as L
     from experiments.z2 import ledger_merge as M
 
@@ -406,7 +425,7 @@ def text_caller(calls, generate, meta, session):
                                             prompt=L.sha256(prompt)), sort_keys=True))
 
         def run():
-            result = generate([{"role": "user", "content": prompt}], temperature=0, max_output_tokens=4000,
+            result = generate([{"role": "user", "content": prompt}], temperature=0, max_output_tokens=G.OUTPUT_TOKENS,
                               session_id=session)
             return result.text, result.usage
         return calls.get(identity, run)["text"]
@@ -489,8 +508,9 @@ def main() -> int:
         calls = M.Calls(out / "oracle-grade-raw.jsonl")
         ask = judge_caller(calls, generator(args.judge).generate, metadata(args.judge), "lme-oracle", role=args.judge)
         ask_text = text_caller(calls, generator(args.judge).generate, metadata(args.judge), "ice-z2-lme-oracle-upstream")
-        grade_oracle(args.units, args.answers, out, ask=ask, ask_text=ask_text, upstream_only=args.upstream_only)
-        return 0
+        _, pending = grade_oracle(args.units, args.answers, out, ask=ask, ask_text=ask_text,
+                                  upstream_only=args.upstream_only)
+        return 3 if pending else 0
     if args.workers > 1 and not args.shard:
         import signal
         import subprocess

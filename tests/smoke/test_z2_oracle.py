@@ -83,10 +83,20 @@ def test_grade_oracle_grades_answers_side_by_side(tmp_path, monkeypatch):
     (answers / "index.json").write_text(json.dumps(dict(index={"full|q1": "a", "bare_vector|q1": "b"})))
     for cond in ("full", "bare_vector"):
         R.write_unit(R.unit_path(tmp_path / "units", cond, "q1"), dict(condition=cond, ask=ask))
-    results = O.grade_oracle(tmp_path / "units", answers, tmp_path / "out",
-                             ask=lambda system, prompt: dict(grade="correct", score=5), ask_text=lambda prompt: "yes")
-    assert results["full|q1"]["upstream"] is True and results["full|q1"]["grade"] == "correct"
+    results, pending = O.grade_oracle(tmp_path / "units", answers, tmp_path / "out",
+                                      ask=lambda system, prompt: dict(grade="correct", score=5), ask_text=lambda prompt: "yes")
+    assert results["full|q1"]["upstream"] is True and results["full|q1"]["grade"] == "correct" and not pending
     assert results["bare_vector|q1"]["status"] == "ungraded"
+
+    def cut(prompt):                                    # a reply stopped by its output cap, every time
+        from experiments.lme.cloud_provider import CloudCompletionError
+        raise CloudCompletionError("cloud answer completion was not successful: incomplete")
+    out = tmp_path / "out-cut"
+    for attempt in range(3):                            # retried, then recorded unjudged; never a crash
+        results, pending = O.grade_oracle(tmp_path / "units", answers, out, ask=None, ask_text=cut, upstream_only=True)
+        assert pending == (1 if attempt < 2 else 0)
+    assert results["full|q1"]["status"] == "unjudged" and "incomplete" in results["full|q1"]["reason"]
+    assert json.loads((out / "status.json").read_text())["finished"] is True
 
 
 def test_workers_split_the_questions_each_with_its_own_database():

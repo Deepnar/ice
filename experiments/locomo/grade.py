@@ -36,6 +36,9 @@ WORKERS = 4                             # answers graded side by side, like the 
 sys.path.insert(0, str(ROOT))
 
 POLICY = "ice-final-locomo-grade-1"
+# Muse reasons in hidden tokens that count against the cap: 2,000 cut BEAM's judge replies
+# (Z3 judging run 1, 2026-11-03). The grader's own cap.
+OUTPUT_TOKENS = 16_000
 # Mem0's ACCURACY_PROMPT, verbatim (Apache-2.0; mem0ai/mem0 evaluation/metrics/llm_judge.py @ aae5989).
 J_PROMPT = '\nYour task is to label an answer to a question as ’CORRECT’ or ’WRONG’. You will be given the following data:\n    (1) a question (posed by one user to another user), \n    (2) a ’gold’ (ground truth) answer, \n    (3) a generated answer\nwhich you will score as CORRECT/WRONG.\n\nThe point of the question is to ask about something one user should know about the other user based on their prior conversations.\nThe gold answer will usually be a concise and short answer that includes the referenced topic, for example:\nQuestion: Do you remember what I got the last time I went to Hawaii?\nGold answer: A shell necklace\nThe generated answer might be much longer, but you should be generous with your grading - as long as it touches on the same topic as the gold answer, it should be counted as CORRECT. \n\nFor time related questions, the gold answer will be a specific date, month, year, etc. The generated answer might be much longer or use relative time references (like "last Tuesday" or "next month"), but you should be generous with your grading - as long as it refers to the same date or time period as the gold answer, it should be counted as CORRECT. Even if the format differs (e.g., "May 7th" vs "7 May"), consider it CORRECT if it\'s the same date.\n\nNow it\'s time for the real question:\nQuestion: {question}\nGold answer: {gold_answer}\nGenerated answer: {generated_answer}\n\nFirst, provide a short (one sentence) explanation of your reasoning, then finish with CORRECT or WRONG. \nDo NOT include both CORRECT and WRONG in your response, or it will break the evaluation script.\n\nJust return the label CORRECT or WRONG in a json format with the key as "label".\n'
 
@@ -138,15 +141,29 @@ def run(units_dir, answers_dir, occurrences_path, out, judge, *, say=print):
             for unit, answer in contexts(units_dir, answers_dir)
             if unit["ask"].get("kind", "question") == "question"]      # controls: the blind no-memory comparison
 
+    import threading
+    from experiments.z2.grade import Errors
+    errors, lock = Errors(out / "locomo-errors.json"), threading.Lock()
+
     def one(job):
-        """The row, or (key, None) when the judge gave no label (left for the next run)."""
+        """The row, or (key, None) when judging failed or gave no label (left for the next run);
+        after MAX_ERRORS failures the answer is recorded "unjudged", never scored, so the run
+        finishes (Z3 judging run 1, 2026-11-03: one cut reply stopped a whole BEAM check)."""
         key, unit, answer, o = job
         gold = str(o["reference"]["answer"])
         if answer.get("finish") != "complete":
             return dict(key=key, condition=unit["condition"], category=o["type"], status="ungraded",
                         reason=answer.get("finish"))
-        j = label(judge(J_PROMPT.format(question=o["question"], gold_answer=gold, generated_answer=answer["text"])))
-        if j is None:
+        try:
+            j = label(judge(J_PROMPT.format(question=o["question"], gold_answer=gold, generated_answer=answer["text"])))
+            if j is None:
+                raise ValueError("no CORRECT/WRONG label in the judge's reply")
+        except Exception as exc:                  # noqa: BLE001 — this answer only
+            with lock:
+                errors.failed(key, exc)
+                if errors.given_up(key):
+                    return dict(key=key, condition=unit["condition"], category=o["type"], status="unjudged",
+                                reason=errors.counts[key]["last"])
             return key, None
         return dict(key=key, condition=unit["condition"], category=o["type"], status="graded", j=j,
                     f1=round(f1(answer["text"], gold), 4), bleu1=round(bleu1(answer["text"], gold), 4))
@@ -157,7 +174,7 @@ def run(units_dir, answers_dir, occurrences_path, out, judge, *, say=print):
         for row in pool.map(one, [j for j in todo if j[0] not in done and j[3] is not None]):
             if isinstance(row, tuple):
                 unlabelled += 1
-                say(f"WARNING: no CORRECT/WRONG label for {row[0]}; left for the next run")
+                say(f"WARNING: judging failed or gave no CORRECT/WRONG label for {row[0]}; left for the next run")
                 continue
             with store.open("a") as handle:
                 handle.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -207,7 +224,7 @@ def main() -> int:
         identity = hashlib.sha256(json.dumps(dict(policy=POLICY, meta=meta, prompt=prompt), sort_keys=True).encode()).hexdigest()
 
         def call():
-            result = generate([{"role": "user", "content": prompt}], temperature=0, max_output_tokens=2000,
+            result = generate([{"role": "user", "content": prompt}], temperature=0, max_output_tokens=OUTPUT_TOKENS,
                               session_id=session)
             return result.text, result.usage
         return calls.get(identity, call)["text"]

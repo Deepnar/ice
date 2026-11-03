@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -41,6 +42,9 @@ def contexts(units_dir, answers_dir):
 
 
 POLICY = "ice-final-beam-grade-2"       # 2: BEAM's own prompts and metrics (was a paraphrase; Z2 F27)
+# Muse reasons in hidden tokens that count against the cap: 2,000 cut BEAM's judge replies
+# (Z3 judging run 1, 2026-11-03), as 1,500 had cut the audit's. The grader's own cap.
+OUTPUT_TOKENS = 16_000
 
 
 def run(units_dir, answers_dir, asks_path, out, judge, *, say=print):
@@ -57,7 +61,13 @@ def run(units_dir, answers_dir, asks_path, out, judge, *, say=print):
     todo = [(f"{unit['condition']}|{unit['ask']['id']}", unit, answer, asks.get(unit["ask"]["id"]))
             for unit, answer in contexts(units_dir, answers_dir)]
 
+    from experiments.z2.grade import Errors
+    errors, lock = Errors(out / "beam-errors.json"), threading.Lock()
+
     def one(job):
+        """The row; an answer whose judging fails is retried next run, and after MAX_ERRORS failures
+        recorded "unjudged" (never a score) so the run finishes (Z3 judging run 1, 2026-11-03: one
+        cut reply stopped the whole check)."""
         key, unit, answer, ask = job
         if answer.get("finish") != "complete":
             return dict(key=key, condition=unit["condition"], type=ask["type"], status="ungraded",
@@ -65,7 +75,12 @@ def run(units_dir, answers_dir, asks_path, out, judge, *, say=print):
         try:
             return dict(key=key, condition=unit["condition"], type=ask["type"], status="graded",
                         **score(ask, answer["text"], judge))
-        except (ValueError, KeyError, TypeError) as exc:              # unreadable reply: retried next run
+        except Exception as exc:                  # noqa: BLE001 — this answer only; the rest continue
+            with lock:
+                errors.failed(key, exc)
+                if errors.given_up(key):
+                    return dict(key=key, condition=unit["condition"], type=ask["type"], status="unjudged",
+                                reason=errors.counts[key]["last"])
             return key, f"{type(exc).__name__}: {exc}"[:200]
 
     (out / "meter.json").write_text(json.dumps(dict(answers=len([j for j in todo if j[3] is not None])), indent=1) + "\n")
@@ -75,21 +90,23 @@ def run(units_dir, answers_dir, asks_path, out, judge, *, say=print):
         for row in pool.map(one, [j for j in todo if j[0] not in done and j[3] is not None]):
             if isinstance(row, tuple):
                 unread += 1
-                say(f"WARNING: BEAM judge reply unreadable for {row[0]} ({row[1]}); left for the next run")
+                say(f"WARNING: BEAM judging failed for {row[0]} ({row[1]}); left for the next run")
                 continue
             with store.open("a") as handle:
                 handle.write(json.dumps(row, ensure_ascii=False) + "\n")
             done[row["key"]] = row
     report = {}
     for row in done.values():
-        cell = report.setdefault(row["condition"], {}).setdefault(row["type"], dict(n=0, graded=0, sum=0.0))
+        cell = report.setdefault(row["condition"], {}).setdefault(row["type"], dict(n=0, graded=0, unjudged=0, sum=0.0))
         cell["n"] += 1
+        cell["unjudged"] += row["status"] == "unjudged"
         if row["status"] == "graded":
             cell["graded"] += 1
             cell["sum"] += row["beam_score"]
     for cond in report.values():
         for cell in cond.values():
-            cell["mean_score"] = round(cell.pop("sum") / cell["graded"], 4) if cell["graded"] else None
+            total = cell.pop("sum")
+            cell["mean_score"] = round(total / cell["graded"], 4) if cell["graded"] else None
     (out / "beam-report.json").write_text(json.dumps(dict(policy=POLICY, label="BEAM's own protocol, non-official judge",
                                                           by_condition_and_type=report), indent=1) + "\n")
     (out / "status.json").write_text(json.dumps(dict(pending=unread, finished=not unread)) + "\n")
@@ -128,7 +145,7 @@ def message_judge(calls, generate, meta, session):
                                              sort_keys=True).encode()).hexdigest()
 
         def call():
-            result = generate(messages, temperature=0, max_output_tokens=2000, session_id=session)
+            result = generate(messages, temperature=0, max_output_tokens=OUTPUT_TOKENS, session_id=session)
             return result.text, result.usage
         return calls.get(identity, call)["text"]
     return judge
