@@ -479,7 +479,10 @@ SEMANTIC_CONDITIONS = ("full_default", "full", "warm_vector", "bare_vector")   #
 
 def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
     """Spec D11 retrieval diagnostic: of the prompt fragments citing a gold turn, which
-    carry each required item and which are wrong — so compressed memory gets credit."""
+    carry each required item and which are wrong — so compressed memory gets credit. Token
+    counts beside fragment counts: context precision is a share of prompt tokens, so it does not
+    depend on how a system cuts its memory into pieces (Z2 F27: plain search packs ~250 small
+    chunks where ICE packs ~54)."""
     from experiments.z2.bg_audit import _parallel
     errors = Errors(out / "semantic-errors.json")
     todo, result, pending = [], {}, 0
@@ -490,9 +493,11 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
         cited = [f for f in unit["stage"].get("selected") or [] if gold & set(f.get("source_turns") or [])]
         key = f"{unit['condition']}|{unit['ask']['id']}"
         total = len(unit["stage"].get("selected") or [])
+        tokens = sum(int(f.get("tokens") or 0) for f in unit["stage"].get("selected") or [])
         if not cited:
             result[key] = dict(gold_fragments=0, carried={}, wrong=0, items=len(occ["reference"].get("required", [])),
-                               fragments_total=total, fragments_carrying=0)
+                               fragments_total=total, fragments_carrying=0, tokens_total=tokens, tokens_carrying=0,
+                               tokens_wrong=0)
             continue
         alias = {f"F{n}": f for n, f in enumerate(cited, 1)}
         body = dict(QUESTION=unit["ask"]["question"], REQUIRED=occ["reference"].get("required", []),
@@ -500,8 +505,8 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
         if errors.given_up(_sha(body)):
             result[key] = dict(status="unjudged")
         else:
-            todo.append((key, body, alias, occ, total))
-    for (key, body, alias, occ, total), value, exc in _parallel(todo, lambda job: ask(SEMANTIC_SYSTEM,
+            todo.append((key, body, alias, occ, total, tokens))
+    for (key, body, alias, occ, total, tokens), value, exc in _parallel(todo, lambda job: ask(SEMANTIC_SYSTEM,
                                                                                json.dumps(job[1], ensure_ascii=False))):
         if exc is not None:
             errors.failed(_sha(body), exc)
@@ -509,10 +514,13 @@ def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
             continue
         carried_ids = {str(i): [a for a in ids if a in alias] for i, ids in ((value or {}).get("carried") or {}).items()}
         carried = {i: [alias[a].get("leg") or alias[a].get("type") for a in ids] for i, ids in carried_ids.items()}
+        carrying = {a for ids in carried_ids.values() for a in ids}
+        wrong = {a for a in (value or {}).get("wrong") or [] if a in alias}
         result[key] = dict(gold_fragments=len(alias), items=len(occ["reference"].get("required", [])),
                            items_carried=sum(1 for v in carried.values() if v), carried_by_kind=carried,
-                           wrong=len([a for a in (value or {}).get("wrong") or [] if a in alias]),
-                           fragments_total=total, fragments_carrying=len({a for ids in carried_ids.values() for a in ids}))
+                           wrong=len(wrong), fragments_total=total, fragments_carrying=len(carrying),
+                           tokens_total=tokens, tokens_carrying=sum(int(alias[a].get("tokens") or 0) for a in carrying),
+                           tokens_wrong=sum(int(alias[a].get("tokens") or 0) for a in wrong))
     return result, pending
 
 

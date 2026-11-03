@@ -301,7 +301,9 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
         recall[c] = dict(questions=len(hits), all_cited_turns_reached=round(sum(hits) / len(hits), 4) if hits else None,
                          note="turn citations only; compressed memory is credited by context_precision")
 
-    # context precision (paper 1's SPF, length-free)
+    # context precision (paper 1's SPF made length-free: the share of prompt memory TOKENS in pieces
+    # carrying a required item — pre-registration revision 7; a share of pieces favours whoever cuts
+    # memory into fewer, larger pieces, Z2 F27). Piece shares kept beside it, named as such.
     precision = {}
     for key, r in (semantic or {}).items():
         c = precision.setdefault(key.split("|", 1)[0], collections.Counter())
@@ -309,8 +311,14 @@ def score(history, graded, units, occurrences, prefix, *, semantic=None, prompts
         c["fragments"] += r.get("fragments_total") or 0
         c["carrying"] += r.get("fragments_carrying") or 0
         c["wrong"] += r.get("wrong") or 0
-    precision = {c: dict(v, precision=round(v["carrying"] / v["fragments"], 4) if v["fragments"] else None,
-                         wrong_share=round(v["wrong"] / v["fragments"], 4) if v["fragments"] else None)
+        c["tokens"] += r.get("tokens_total") or 0
+        c["tokens_carrying"] += r.get("tokens_carrying") or 0
+        c["tokens_wrong"] += r.get("tokens_wrong") or 0
+    share = lambda part, whole: round(part / whole, 4) if whole else None
+    precision = {c: dict(v, precision=share(v["tokens_carrying"], v["tokens"]),
+                         wrong_share=share(v["tokens_wrong"], v["tokens"]),
+                         piece_precision=share(v["carrying"], v["fragments"]),
+                         piece_wrong_share=share(v["wrong"], v["fragments"]))
                  for c, v in precision.items()}
 
     # primary tests (§3)

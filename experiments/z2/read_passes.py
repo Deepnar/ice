@@ -389,7 +389,7 @@ def long_context_stages(history, checkpoint, recents, originals, count):
                                long_context_budget=plans[ask_id][1],
                                selected_tokens=sum(count(c.render()) for c, _ in chosen),
                                cache_session=f"ice-final-long-{history}-{checkpoint}",
-                               selected=[dict(turn=c.turn, role=c.role) for c, _ in chosen])
+                               selected=[dict(turn=c.turn, role=c.role, source_turns=[c.turn]) for c, _ in chosen])
                   for ask_id, chosen in shared.items()}
         for s in stages.values():                       # counted once here, so the report need not
             s["prompt_tokens"] = sum(count(m["content"]) for m in s["prompt_messages"])   # re-tokenize ~256K a unit
@@ -684,8 +684,11 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                                           checkpoint=cp, question_time=now, decay_overlay="none",
                                           stage=dict(prompt_messages=bare_messages(recent, chosen, ask["question"]),
                                                      retrieval_budget=budget,
+                                                     # source_turns and text: context precision judges
+                                                     # plain search's pieces as it judges ICE's (Z2 F27)
                                                      selected=[dict(turn=c.turn, role=c.role, score=sc,
-                                                                    tokens=tokens.count(c.render()))
+                                                                    tokens=tokens.count(c.render()),
+                                                                    source_turns=[c.turn], text=c.render())
                                                                for c, sc in chosen],
                                                      selected_tokens=sum(tokens.count(c.render()) for c, _ in chosen))))
         print(json.dumps(dict(checkpoint=cp, asks=len(group), seconds=round(time.time() - started))), flush=True)

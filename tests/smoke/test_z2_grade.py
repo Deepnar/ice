@@ -157,7 +157,37 @@ def test_semantic_credit_judges_only_fragments_citing_gold_turns(tmp_path):
     assert [f["text"] for f in seen[0]["FRAGMENTS"]] == ["The cat is Tofu."] and not pending
     assert result["full|f@50#0"] == dict(gold_fragments=1, items=1, items_carried=1,
                                          carried_by_kind={"0": ["facts"]}, wrong=0,
-                                         fragments_total=2, fragments_carrying=1)
+                                         fragments_total=2, fragments_carrying=1,
+                                         tokens_total=0, tokens_carrying=0, tokens_wrong=0)
+
+
+def test_context_precision_is_a_token_share_and_plain_search_can_be_judged(tmp_path):
+    """Z2 F27: plain search's pieces carried `turn` but no `source_turns` or text, so its precision
+    was always 0; and a share of pieces favours whoever packs fewer, larger pieces."""
+    from experiments.z2 import scoring as S
+    occ = dict(reference=dict(required=["The cat is called Tofu."], citations=[dict(turn=9)]))
+    bare = dict(condition="bare_vector", checkpoint=50, ask=dict(id="f@50#0", kind="question", question="cat?"),
+                stage=dict(selected=[dict(turn=9, role="user", tokens=20, source_turns=[9], text="[User, turn 9] Tofu")]
+                           + [dict(turn=t, role="user", tokens=20, source_turns=[t], text="x") for t in range(1, 5)]))
+    ice = dict(condition="full", checkpoint=50, ask=dict(id="f@50#0", kind="question", question="cat?"),
+               stage=dict(selected=[dict(leg="vector", tokens=20, source_turns=[9], text="Tofu"),
+                                    dict(leg="vector", tokens=80, source_turns=[2], text="y")]))
+    judge = lambda system, prompt: dict(carried={"0": ["F1"]}, wrong=[])
+    result, _ = G.semantic_credit([(bare, None, occ), (ice, None, occ)], judge, tmp_path)
+    assert result["bare_vector|f@50#0"]["tokens_carrying"] == 20 and result["bare_vector|f@50#0"]["tokens_total"] == 100
+    # same tokens carrying, same budget: equal token precision, though piece shares differ 1/5 vs 1/2
+    totals = {c: S.collections.Counter() for c in ("bare_vector", "full")}
+    for key, r in result.items():
+        c = key.split("|")[0]
+        totals[c]["tokens"] += r["tokens_total"]; totals[c]["carrying"] += r["tokens_carrying"]
+    assert totals["bare_vector"]["carrying"] / totals["bare_vector"]["tokens"] == totals["full"]["carrying"] / totals["full"]["tokens"]
+
+
+def test_plain_search_reads_record_source_turns_and_text():
+    import inspect
+    from experiments.z2 import read_passes as R
+    src = inspect.getsource(R.run)
+    assert "source_turns=[c.turn], text=c.render()" in src
 
 
 def test_claim_vectors_are_kept_for_a_restart(tmp_path):
