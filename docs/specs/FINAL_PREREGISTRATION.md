@@ -67,7 +67,7 @@ rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-me
 - **The claim check sees dates.** Its passages carry the date the system saw (UTC), a claim naming
   a turn's time is shown that turn, and a date is supported only by a passage of that date stating
   the claim. SCA's "nothing invented", ICR and the hallucination non-inferiority test (§3) rest on
-  it; on B the undated check called ICE's real date labels invented (60 of 63 to the exact minute).
+  it; on B the undated check could not tell a true dated claim from a real date on the wrong content (run 1: of ICE's 49 minute-dated claims, 7 true, 33 misattached).
 - **The no-memory judge (NMH) is told the assistant has a memory it cannot see**: a mention of the
   user's past is never counted as invented; it counts against a reply only when it is unrelated to
   the message, crowds out the answer or lengthens it without adding to it. NMH's definition (worse

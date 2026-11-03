@@ -3028,4 +3028,7 @@ was combined as a negative — claim verdicts, a cut part reply, and part replie
 the run and give each the same check (does it see what it is asked to verify?); a public benchmark's
 judge is copied, not paraphrased. Any combiner treats an item with no verdict as not judged —
 retried or recorded unjudged — never as a "no".** (2026-11-03, Z2 F27; `aux_judge_check.py`,
-`experiments/beam/judge_check.py`.)
+`experiments/beam/judge_check.py`.) **And a plant's label must be checked, not inferred:** the first
+"true" claim plants were claims whose timestamp is a real turn's — but 33 of ICE's 49 put that real
+date on content from elsewhere, so the plants were wrong and the "judge error" partly ICE's. A true
+plant is one whose content is verified in its source, not one that merely looks right.

@@ -562,11 +562,18 @@ S11-B's finished report (grade-1, v3 as Z2 ran it) said full ICE invents more th
 (an answer with a confirmed-invented claim: 49.7% vs 34.1%, non-inferiority failed) and that
 memory hurts no-memory messages (21 of 34 controls worse than recent-only, plain search 15).
 Checked against the real output, no new calls:
-- **Claim check — mostly the judge.** Of full ICE's 160 confirmed-invented claims, 63 restate ICE's
-  own date labels: all 71 timestamps in them match the replay clock (60 to the minute of a real
-  turn, 11 to a real day). The claim check's PASSAGES carried no dates — F12's flaw in the judge
-  after grade-2's. Another 55 have most of their words in one real turn. Answers with a claim
-  found nowhere in the conversation: **ICE 33/173 (19.1%), plain search 32/173 (18.5%) — level.**
+- **Claim check — partly the judge, partly real (⚑ CORRECTED 2026-11-03 by run 1's plants).** Of
+  full ICE's 160 confirmed-invented claims, 63 restate ICE's own date labels, and every timestamp in
+  them is a real turn's time (60 to the minute, 11 to the day) — the claim check's PASSAGES carried no
+  dates, F12's flaw again. **But a real timestamp is not a true claim:** of ICE's 49 claims naming a
+  minute, only 7 (B) have their content in the turn at that minute; **33 put a real date on content
+  from elsewhere** (27 answers; C: 13 of 33, 12 answers) — the fixed judge, shown the dated turn,
+  rejects them, rightly. Plain search shows no timestamps and makes no such claim. Answers with a
+  genuinely invented claim (found nowhere, or a real date on the wrong content): **B ICE 30.6%
+  vs plain 23.7%; C 21.3% vs 14.7%** — ICE invents ~7 points more, less than the old judge's 49.7 vs
+  34.1, more than the "level" first reported here. The date labels invite a specific error:
+  attaching a real date to the wrong event (FINAL measures it as ICR; a presentation change is
+  out of R7's scope — existing switches only).
 - **Controls — label wrong, direction real.** 17 of full ICE's 21 losses give as the reason that
   the reply "fabricated" earlier conversations — the judge never sees the memory. But the replies
   did pull unrelated history and date labels into general questions. Plain search, which has no
