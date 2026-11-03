@@ -552,6 +552,60 @@ and B's reads:
 - Already known: batch summaries (G79, fixed), candidate limits full on B (F22, wider legs not worth
   it), long passages (reranker windows, audit A4), recency bonus (0 for other chats; harmless).
 
+## F27 ⚑ JUDGES FIXED on fix-pass (2026-11-03; claim check dated, controls judge told memory exists; checked in Z3 judging run 1, `r5-aux-*`) — two more judges that could not see what they judged
+
+S11-B's finished report (grade-1, v3 as Z2 ran it) said full ICE invents more than plain search
+(an answer with a confirmed-invented claim: 49.7% vs 34.1%, non-inferiority failed) and that
+memory hurts no-memory messages (21 of 34 controls worse than recent-only, plain search 15).
+Checked against the real output, no new calls:
+- **Claim check — mostly the judge.** Of full ICE's 160 confirmed-invented claims, 63 restate ICE's
+  own date labels: all 71 timestamps in them match the replay clock (60 to the minute of a real
+  turn, 11 to a real day). The claim check's PASSAGES carried no dates — F12's flaw in the judge
+  after grade-2's. Another 55 have most of their words in one real turn. Answers with a claim
+  found nowhere in the conversation: **ICE 33/173 (19.1%), plain search 32/173 (18.5%) — level.**
+- **Controls — label wrong, direction real.** 17 of full ICE's 21 losses give as the reason that
+  the reply "fabricated" earlier conversations — the judge never sees the memory. But the replies
+  did pull unrelated history and date labels into general questions. Plain search, which has no
+  gate and always fetches (~23k memory tokens), was worse 15 times — so much of ICE's extra
+  intrusion is how its memory is shown (date labels plus the instruction to use them), not the gate
+  alone. The gate stays as F24 decided.
+- **Context precision 2.3% (paper 1's SPF) cannot rank anything here:** the median question has
+  one gold turn and full ICE's prompt 54 pieces, so a perfect retriever scores ~2.5%; plain search
+  scores 0 because its pieces carry no source turns and no text (`read_passes` records `turn`, the
+  judge reads `source_turns`) — not measured, not zero. The share of required items reaching the
+  prompt (items_carried: full 67%) is the readable number.
+
+**Fixes (`experiments/z2/grade.py`):** the claim check's passages carry the replay-clock date
+(UTC, as ICE's labels), a claim naming a turn's minute (or day) is shown that turn, and the rubric
+says a date is supported only by a passage of that date stating the claim; the controls judge is
+told the assistant remembers earlier conversations it cannot see, never to count a mention of them
+as invented, and to judge whether a mention serves MESSAGE or intrudes. Both feed FINAL's
+headline (SCA, ICR, hallucination non-inferiority; NMH, on LoCoMo too). Checked before use
+(`experiments/z2/aux_judge_check.py`, Z3 judging run 1): Z2's own cases beside the old verdicts,
+plus planted cases with pass marks set before the run — a true dated claim supported ≥90%, the
+same claim nine days later invented ≥90%, a clean reply beating the same reply with an unrelated
+true memory appended ≥80%. R3/R4's retest grades now run the claim check (run 2).
+
+**Sweep of FINAL's other judges** (which could fail the same way — a judge missing what it needs):
+- grade-2 grading — checked by R5 (panel, judge check, invariance); NSR and AER come from it.
+- LongMemEval-S — its own judge (Muse as judge): 8 sampled "wrong" answers holding the gold
+  words were all really wrong; no defect seen.
+- LoCoMo J — Mem0's prompt verbatim, the field's protocol; known lenient, stated, unchanged.
+- **BEAM — not its own judge.** `experiments/beam/adapter.py` paraphrases BEAM's protocol; BEAM's
+  repository (MIT, `src/prompts.py` `unified_llm_judge_base_prompt`, `src/evaluation/compute_metrics.py`)
+  judges one nugget per call with paraphrase/number/style-neutrality rules, and scores event
+  order as normalised tau-b × F1 over LLM-aligned events, where the adapter batches nuggets and
+  uses tau-b alone. Open: switch to the verbatim protocol (~1,332 calls per condition vs 500).
+- **Context precision (SPF), a §4 measure for ICE and `bare_vector`** — plain search's pieces cannot
+  be judged (above), and a share of pieces is not length-free. Open: record `source_turns` and
+  text for plain search's pieces, and define it per token or report its ceiling.
+- **Fidelity audit (bg_audit)** — fold notes judged part-wise see only that step's turns, so
+  inherited statements read as unsupported (ROADMAP G73 notes, still open); its SOURCES carry no
+  dates. Open before FINAL's fidelity audit is believed.
+- The cross-family judge runs grade-2's grading prompt only and is qualified on the planted panel
+  before use; ground truth (questions, ledger, synthetic checks) is cross-family verified and
+  reviewed by the maintainer.
+
 ## Where the scores stand, B only (best estimate; grade-1 rescored per point)
 
 | | judge-correct (grade-1) | all required points |

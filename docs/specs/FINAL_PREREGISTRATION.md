@@ -63,6 +63,17 @@ rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-me
 - **LoCoMo leaves the drop order (§5):** it is the benchmark the other memory systems are compared
   on, and the one most memory papers report.
 
+**Revision 6 — APPROVED by the maintainer 2026-11-03, before any FINAL answer** ([Z2 FINDINGS](../../experiments/z2/results/FINDINGS.md) F27):
+- **The claim check sees dates.** Its passages carry the date the system saw (UTC), a claim naming
+  a turn's time is shown that turn, and a date is supported only by a passage of that date stating
+  the claim. SCA's "nothing invented", ICR and the hallucination non-inferiority test (§3) rest on
+  it; on B the undated check called ICE's real date labels invented (60 of 63 to the exact minute).
+- **The no-memory judge (NMH) is told the assistant has a memory it cannot see**: a mention of the
+  user's past is never counted as invented; it counts against a reply only when it is unrelated to
+  the message, crowds out the answer or lengthens it without adding to it. NMH's definition (worse
+  than recent-only, blind, both orders) is unchanged.
+- Both are checked in Z3 judging run 1 with planted cases before FINAL grades anything (RETESTS R5).
+
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP, ICE2 (held out; ICE2 added in revision 4)

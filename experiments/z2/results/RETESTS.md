@@ -86,8 +86,9 @@ built.
    - **Phase 1 — Z2's own cloud run** (R6): `main`'s Z2 runner as it stopped — grade-1 grading of B's
      remaining phases, C, and S12's answers and grades. Run to the end.
    - **Phase 2 — Z3 judging** (`experiments/z2/z3_judging.py`, its own runner; it waits while any Z2
-     run is active): R5 judge panel and judge checks on B and C, the R3/R4 retest answers and their
-     grade-2 verdicts, R10's answers and LongMemEval grades (`r10-answers`, `r10-grade`: 308 answers +
+     run is active): R5 judge panel and judge checks on B and C, the fixed claim check and controls
+     judge checked on B and C (`r5-aux-*`, [F27](FINDINGS.md)), the R3/R4 retest answers and their
+     grade-2 grades with the claim check, R10's answers and LongMemEval grades (`r10-answers`, `r10-grade`: 308 answers +
      438 grades, ~$1.1; then `r10_report.py --grades` gives correct answers per bar), and anything Z2 or the GPU reads turn up (R7 is added once R2–R4 choose).
    - **Phase 3 — cloud prep** (`experiments/final/cloud_prep.sh`): the synthetic conversations and
      A's private ground truth, then A's review.
@@ -149,12 +150,14 @@ Per call: an answer $0.0026 on B (~21k input tokens; ~$0.0045 at 256-candidate p
 ($0.0020 at 256); a grading call $0.0010. Phases, never mixed:
 1. **Z2's own cloud run** — B's remaining ~4,000 grading calls ($4.0), C's grading ~4,060 ($4.1), S12's 1,982
    answers and ~2,500 grades (~$2.8): **~$10.9**.
-2. **Z3 judging, run 1 — the judge check**: planted panel (932 calls) + B/C judge checks (~320): **~$1.2**.
-   The maintainer reads the report and blind sheet; `touch logs/z3-judging/judge-approved` to continue.
+2. **Z3 judging, run 1 — the judge check**: planted panel (932 calls) + B/C judge checks (~320) + the
+   claim-check and controls-judge checks (`r5-aux-B/C`, ~610, F27): **~$2.0**. Command:
+   `uv run --no-sync python experiments/z2/z3_judging.py run --only r5-panel,r5-judge-B,r5-judge-C,r5-aux-B,r5-aux-C`.
+   The maintainer reads every report and blind sheet (`judge-check-*`, `aux-check-*`); `touch logs/z3-judging/judge-approved` to continue.
 3. **Z3 judging, run 2 — answers + grade-2**: six 256-candidate settings × (174 B + 75 C) = 1,494 answers
-   (~$4.7 B + ~$0.9 C) and 1,494 grades (~$1.5): **~$7.1**.
+   (~$4.7 B + ~$0.9 C) and 1,494 grades plus ~1,090 claim checks (~$3.0; F27: SCA needs the claim check): **~$8.6**.
 4. **Cloud prep** (synthetic conversations, A's and ICE2's chains): **~$10**.
-Total **~$29** of the ~$30 Go allows until Nov 27; a $5 top-up (Extra Usage) covers any overrun. **Go Plus is
+Total **~$31** of the ~$30 Go allows until Nov 27; a $5 top-up (Extra Usage) covers any overrun. **Go Plus is
 bought only when FINAL starts** — its month then covers FINAL's cloud phase, run beside FINAL's local phase:
 each history's answers start as soon as its reads finish (a cloud lane that waits for reads).
 
