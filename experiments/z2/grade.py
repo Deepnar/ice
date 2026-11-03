@@ -85,11 +85,15 @@ Return only JSON:
 
 # One call per answer, all its claims together (maintainer, 2026-10-28: one or two calls per claim
 # made B's 19,063 claims 19,000-38,000 calls); per claim, the same two questions as before.
+# Each passage carries the date the assistant's memory showed for it (Z2 F27: without them, 60 of
+# ICE's 63 dated claims marked invented on B named the exact minute of a real turn).
 CLAIMS_SYSTEM = """CLAIMS are statements an AI assistant made about a conversation with a user. ENTRIES are
-facts recorded from that conversation; PASSAGES are original messages from it. For EACH claim:
-which entries state its content (meaning, not wording), and does any passage state or directly
-support it? Return only JSON: {"claims": [{"id": "C1", "stated_by": ["E3", ...], "found": true|false,
-"passage": <index or null>}, ...]} — one item for every claim."""
+facts recorded from that conversation; PASSAGES are original messages from it, each with the date
+the assistant's memory showed for it. For EACH claim: which entries state its content (meaning,
+not wording), and does any passage state or directly support it? A date or time in a claim is
+supported when a passage with that date states what the claim says happened then; a date that
+matches no such passage is not. Return only JSON: {"claims": [{"id": "C1", "stated_by": ["E3", ...],
+"found": true|false, "passage": <index or null>}, ...]} — one item for every claim."""
 
 RANK_SYSTEM = """Several ANSWERS respond to the same QUESTION about a user's long conversation with an
 AI assistant. REQUIRED lists what a correct answer must contain; SOURCES are the passages it comes
@@ -97,8 +101,14 @@ from (use them for exact values). Rank the answers from best to worst on correct
 completeness against REQUIRED (then clarity); equal answers share a rank.
 Return only JSON: {"ranks": {"<answer label>": <rank, 1 = best>, ...}, "reason": "..."}"""
 
-CONTROL_SYSTEM = """A user sent MESSAGE to an AI assistant; it needs no memory of earlier
-conversations. Compare the two replies A and B for how well they answer MESSAGE.
+# The assistant may remember earlier conversations the judge never sees (Z2 F27: 17 of full ICE's 21
+# losses on B called true memory "fabricated"). The judge rates the reply, not the memory's truth.
+CONTROL_SYSTEM = """A user sent MESSAGE to an AI assistant that remembers its earlier conversations with
+this user; MESSAGE itself can be answered without that memory. Compare the two replies A and B for
+how well they answer MESSAGE. You cannot see the earlier conversations, so never count a mention
+of them as invented or false. Judge whether the reply serves MESSAGE: a mention of the user's past
+counts for a reply when it makes the answer more useful to this user, and against it when it is
+unrelated to MESSAGE, crowds out the answer, or lengthens it without adding to it.
 Return only JSON: {"better": "A|B|tie", "reason": "..."}"""
 
 
@@ -231,9 +241,11 @@ def grade_answers(contexts, out, ask, *, dates=None, say=print):
     return results, pending
 
 
-def check_claims(results, contexts, ledger, originals, index, ask, out):
+def check_claims(results, contexts, ledger, originals, index, ask, out, dates=None):
     """Each unsupported claim: ledger (any status) → originals → verdict, per the maintainer's rules —
-    one judge call per answer (its claims at its checkpoint), answers side by side."""
+    one judge call per answer (its claims at its checkpoint), answers side by side. *dates*
+    ({turn: 'YYYY-MM-DD HH:MM UTC'}, turn_dates) label each passage, and a claim naming a turn's
+    time is shown that turn."""
     import numpy as np
     from experiments.z2.questions import embed
     errors = Errors(out / "claims-errors.json")
@@ -256,7 +268,26 @@ def check_claims(results, contexts, ledger, originals, index, ask, out):
         by_vec = sorted(within, key=lambda i: -float(vectors[i] @ q))[:SEARCH_K]
         words = [w for w in re.findall(r"[A-Za-z0-9][\w'-]{3,}", claim)][:6]
         by_word = [i for i in within if words and sum(w.lower() in rows[i][2].lower() for w in words) >= min(3, len(words))][:SEARCH_K]
-        return by_vec + by_word
+        return claim_dated(claim, within, lambda i: -float(vectors[i] @ q)) + by_vec + by_word
+
+    rows_of_turn = {}
+    for i, (turn, _, _) in enumerate(rows):
+        rows_of_turn.setdefault(turn, []).append(i)
+    minute_rows, day_rows = {}, {}
+    for turn, label in (dates or {}).items():
+        minute_rows.setdefault(label[:16], []).extend(rows_of_turn.get(turn, []))
+        day_rows.setdefault(label[:10], set()).update(rows_of_turn.get(turn, []))
+
+    def claim_dated(claim, within, distance):
+        """The passages at a time the claim names: every message at its minute; on a day alone, the
+        day's two messages nearest the claim."""
+        allowed, picked = set(within), []
+        for day, hour in re.findall(r"(20\d\d-\d\d-\d\d)(?:[T ](\d\d:\d\d))?", claim):
+            if hour:
+                picked += minute_rows.get(f"{day} {hour}", [])
+            else:
+                picked += sorted(day_rows.get(day, ()), key=distance)[:2]
+        return [i for i in dict.fromkeys(picked) if i in allowed]
 
     def one(group):
         """{claim key: verdict} for one answer, or "pending" after a failed or incomplete call."""
@@ -274,7 +305,9 @@ def check_claims(results, contexts, ledger, originals, index, ask, out):
             reply = ask(CLAIMS_SYSTEM, json.dumps(dict(
                 CLAIMS=[dict(id=i, text=c) for i, c in ids.items()],
                 ENTRIES=[dict(id=a, text=e["value"]) for a, e in alias.items()],
-                PASSAGES=[dict(index=n, turn=rows[i][0], role=rows[i][1], text=rows[i][2][:3000]) for n, i in enumerate(shown)]),
+                PASSAGES=[dict(index=n, turn=rows[i][0], role=rows[i][1],
+                               **({"date": dates[rows[i][0]]} if rows[i][0] in (dates or {}) else {}),
+                               text=rows[i][2][:3000]) for n, i in enumerate(shown)]),
                 ensure_ascii=False)) or {}
             items = {str(item.get("id")): item for item in reply.get("claims") or [] if isinstance(item, dict)}
             if set(items) < set(ids):                 # every claim must be answered; else retried
@@ -548,7 +581,7 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     ledger = bg_audit.load_ledger(ledger_path, changes)
     originals = load_history(history)
     verdicts, p2 = check_claims(graded, contexts, ledger, originals,
-                                originals_index(originals, cache=out / "originals-index.npz"), ask, out)
+                                originals_index(originals, cache=out / "originals-index.npz"), ask, out, dates=dates)
     ranks, p3 = rank(contexts, ask, out, dates=dates) if ranking else ({}, 0)
     ctl, p4 = controls(contexts, ask, out)
     semantic, p5 = semantic_credit(contexts, ask, out)

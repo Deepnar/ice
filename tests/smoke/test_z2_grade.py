@@ -217,3 +217,35 @@ def test_turn_dates_are_utc_like_icess_labels():
     # C's clock is written at +08:00; the judge must see the UTC time ICE's prompts show (2026-10-29)
     from experiments.z2 import grade as G
     assert G.turn_dates("C")[1] == "2026-06-04 14:34 UTC"
+
+
+def test_claim_passages_carry_dates_and_a_dated_claim_sees_its_turn(tmp_path):
+    """Z2 F27: the claim check saw undated passages, so 60 of ICE's 63 dated claims marked invented
+    on B named the exact minute of a real turn. Each passage now carries its date, and a claim
+    naming a turn's minute (or day) is shown that turn even when the search would not find it."""
+    import experiments.z2.questions as Q
+    rows = [(t, role, f"message {t} {role}") for t in range(1, 41) for role in ("user", "assistant")]
+    dates = {t: f"2025-01-{1 + t // 10:02d} {t % 10:02d}:15 UTC" for t in range(1, 41)}
+    claim = "you first proposed the garden plan on [2025-01-03T07:15:00Z]"            # turn 27's minute
+    results = {"full|q0": dict(status="graded", unsupported_claims=[claim])}
+    contexts = [(dict(condition="full", checkpoint=40, ask=dict(id="q0")), None, None)]
+    judge = Judge(lambda system, body: dict(claims=[dict(id="C1", stated_by=[], found=True, passage=0)]))
+    vectors = np.zeros((len(rows), 4))
+    vectors[:, 0] = 1                                                  # every passage ties
+    original, Q.embed = Q.embed, lambda texts, device="cpu": np.ones((len(texts), 4))
+    try:
+        G.check_claims(results, contexts, LEDGER, None, (rows, vectors), judge, tmp_path, dates=dates)
+    finally:
+        Q.embed = original
+    passages = judge.calls[0][1]["PASSAGES"]
+    assert all(p["date"] == dates[p["turn"]] for p in passages)
+    assert [p["turn"] for p in passages[:2]] == [27, 27]                # both halves of turn 27, first
+    assert "date" in G.CLAIMS_SYSTEM and "with that date" in G.CLAIMS_SYSTEM
+
+
+def test_control_judge_never_counts_memory_as_invented():
+    """Z2 F27: the controls judge never sees the memory, and 17 of full ICE's 21 losses on B called
+    true references "fabricated". It rates how the reply serves MESSAGE, both ways."""
+    assert "remembers its earlier conversations" in G.CONTROL_SYSTEM
+    assert "never count a mention" in G.CONTROL_SYSTEM and "unrelated to MESSAGE" in G.CONTROL_SYSTEM
+
