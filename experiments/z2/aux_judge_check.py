@@ -63,16 +63,42 @@ def claim_jobs(graded, scale, seed=20261103):
     return picked
 
 
-def claim_plants(graded, dates, scale, seed=20261103):
-    """[(kind, key, claim, old key)]: true dated claims and their shifted, false twins."""
+CONTENT_MATCH = 0.6     # share of a claim's content words the turn at its timestamp must hold
+
+
+def content_words(text):
+    stop = {"that", "this", "with", "from", "have", "were", "what", "your", "about", "there", "their", "they",
+            "them", "then", "than", "when", "which", "would", "could", "should", "been", "being", "into", "just",
+            "like", "also", "only", "very", "some", "more", "most", "such", "will", "said"}
+    return {w for w in re.findall(r"[a-z0-9']{4,}", text.lower()) if w not in stop}
+
+
+def claim_plants(graded, dates, scale, seed=20261103, originals=None):
+    """[(kind, key, claim, old key)]: true dated claims and their shifted, false twins. A claim is a
+    true plant only when its timestamp is a real turn's minute AND that turn states its content
+    (run 1, 2026-11-03: a real timestamp on content from elsewhere — 33 of ICE's 49 dated "inventions"
+    on B — is a genuine error, and the judge was right to reject it; the first plants assumed a real
+    date meant a true claim). *originals*: [{turn_number, prompt, response}]."""
     taken = {f"{d} {h}" for d, h in ((v[:10], v[11:16]) for v in dates.values())}
+    turns_at = {}
+    for t, v in dates.items():
+        turns_at.setdefault(v[:16], []).append(t)
+    text = {o["turn_number"]: f"{o.get('prompt', '')} {o.get('response', '')}" for o in originals or ()}
+
+    def content_there(claim, stamps):
+        words = content_words(re.sub(r"\[[^\]]*\]|20\d\d-\d\d-\d\d\S*", " ", claim))
+        turns = [t for d, h in stamps for t in turns_at.get(f"{d} {h}", [])]
+        return bool(words) and any(len(words & content_words(text.get(t, ""))) / len(words) >= CONTENT_MATCH
+                                   for t in turns)
+
     pool = []
     for key, r in sorted(graded.items()):
         if key.split("|")[0] not in CONDITIONS:
             continue
         for claim, verdict in sorted((r.get("claims") or {}).items()):
             stamps = STAMP.findall(claim)
-            if verdict == "confirmed_invented" and stamps and all(f"{d} {h}" in taken for d, h in stamps):
+            if verdict == "confirmed_invented" and stamps and all(f"{d} {h}" in taken for d, h in stamps) \
+                    and (originals is None or content_there(claim, stamps)):
                 false = shifted(claim)
                 if false and not any(f"{d} {h}" in taken for d, h in STAMP.findall(false)):
                     pool.append((key, claim, false))
@@ -123,7 +149,7 @@ def run(history, grades_path, run_dir, questions, out, ask, *, scale=1.0, dry=Fa
     contexts = [c for c in G.load(run_dir / f"s9-{history}", run_dir / f"s10-{history}", questions, history)
                 if c[0]["condition"] in CONDITIONS + ("recent_only",)]
     jobs = claim_jobs(graded, scale)
-    plants = claim_plants(graded, dates, scale)
+    plants = claim_plants(graded, dates, scale, originals=load_history(history))
     checkpoint = {f"{u['condition']}|{u['ask']['id']}": u["checkpoint"] for u, _, _ in contexts}
     results = {k: dict(status="graded", unsupported_claims=list(r["unsupported_claims"])) for k, r in jobs.items()}
     plant_contexts = []

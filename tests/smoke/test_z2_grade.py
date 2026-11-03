@@ -292,3 +292,18 @@ def test_aux_check_plants_a_false_twin_at_a_time_no_turn_has():
     assert [(k, c) for k, _, c, _ in plants] == [("true", "On [2025-01-09T05:30:00Z] you said the garden plan was ready"),
                                                  ("false", "On [2025-01-18T05:30:00Z] you said the garden plan was ready")]
     assert A.PASS == dict(true_supported=0.9, false_invented=0.9, intrusion_clean_wins=0.8)
+
+
+def test_a_true_plant_needs_its_content_in_the_dated_turn():
+    """Run 1 (2026-11-03): a real timestamp on content from elsewhere is a genuine error — 33 of ICE's
+    49 dated "inventions" on B — so a real date alone no longer makes a claim a true plant."""
+    from experiments.z2 import aux_judge_check as A
+    dates = {1: "2025-01-09 05:30 UTC", 2: "2025-01-09 05:33 UTC"}
+    originals = [dict(turn_number=1, prompt="the garden plan is ready for spring planting", response="great"),
+                 dict(turn_number=2, prompt="unrelated", response="unrelated")]
+    graded = {"full|q1": dict(status="graded", unsupported_claims=["x"], claims={
+        "On [2025-01-09T05:30:00Z] you said the garden plan was ready for spring": "confirmed_invented",
+        "On [2025-01-09T05:33:00Z] you said the garden plan was ready for spring": "confirmed_invented"})}
+    plants = A.claim_plants(graded, dates, 1.0, originals=originals)
+    trues = [c for k, _, c, _ in plants if k == "true"]
+    assert trues == ["On [2025-01-09T05:30:00Z] you said the garden plan was ready for spring"]   # 05:33's turn lacks it
