@@ -127,3 +127,23 @@ def test_long_context_in_time_order_with_one_shared_start_per_checkpoint():
     shared = R.shared_long_context(plans, lambda text: 1)
     assert shared["a"][0][0] is shared["b"][0][0] is ordered[4]    # a's own fill starts at chunk 4, b's at 1
     assert len(shared["a"]) <= 6 and len(shared["b"]) <= 7
+
+
+def test_r7_sets_existing_switches_only_and_waits_until_chosen(tmp_path):
+    """R7 (2026-11-03): the frozen candidate is full ICE plus run 2's chosen values for switches
+    that exist; anything else is refused, and before the choice the condition does not exist."""
+    import json
+    import pytest
+    from experiments.z2 import read_passes as R
+    assert R.r7_condition(tmp_path / "absent.json") is None
+    path = tmp_path / "r7.json"
+    path.write_text(json.dumps(dict(settings={"retrieval_evidence_order": "conversation",
+                                              "retrieval_rerank_original_margin": 1.0})))
+    assert R.r7_condition(path) == dict(overlay="default", arm="full", settings={
+        "retrieval_evidence_order": "conversation", "retrieval_rerank_original_margin": 1.0})
+    path.write_text(json.dumps(dict(settings={"retrieval_brand_new_trick": True})))
+    with pytest.raises(ValueError, match="existing switches only"):
+        R.r7_condition(path)
+    assert R.PRESETS["r7"] == ["r7_frozen", "recent_only", "bare_vector"] and "r7_frozen" in R.BUDGET_SOURCES
+    from src.api.config import settings
+    assert all(hasattr(settings, k) for k in R.R7_SWITCHES)            # every allowed switch is real

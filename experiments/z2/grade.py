@@ -474,7 +474,7 @@ conversation turns that hold the answer. For each required item, list the fragme
 (meaning, not wording). Also list fragment ids that state something wrong about it (a contradicted or
 stale value).
 Return only JSON: {"carried": {"<item index>": ["F1", ...]}, "wrong": ["F2", ...]}"""
-SEMANTIC_CONDITIONS = ("full_default", "full", "warm_vector", "bare_vector")   # bare_vector: precision, D6e
+SEMANTIC_CONDITIONS = ("full_default", "full", "warm_vector", "bare_vector", "r7_frozen")   # bare_vector: precision, D6e
 
 
 def semantic_credit(contexts, ask, out, conditions=SEMANTIC_CONDITIONS):
@@ -563,7 +563,7 @@ def write_meter(out, **update):
 
 
 def run(history, units, answers, questions, ledger_path, out, *, ask, changes=None, occurrences=None, audit=None,
-        replay=None, ranking=True, verdicts_only=False, partial=False):
+        replay=None, ranking=True, verdicts_only=False, partial=False, primary=None):
     """Grade one history's answers. FINAL passes ranking=False (pre-registration r2 §4 drops the
     multi-answer ranking); the cross-family judge passes verdicts_only=True (the judge's verdict
     per answer, nothing else)."""
@@ -602,7 +602,8 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
         from experiments.z2 import report
         grades = json.loads((out / "grades.json").read_text())
         extras = report.scoring_inputs(history, questions, answers, audit=audit, replay=replay, occurrences=occurrences)
-        (out / "report.json").write_text(json.dumps(report.build(history, report.unit_index(units), grades, extras),
+        (out / "report.json").write_text(json.dumps(report.build(history, report.unit_index(units), grades, extras,
+                                                                 primary=primary),
                                                     indent=1, ensure_ascii=False) + "\n")
     (out / "status.json").write_text(json.dumps(dict(pending_errors=pending, finished=not pending and not partial,
                                                      partial=partial)) + "\n")
@@ -655,6 +656,7 @@ def main() -> int:
     parser.add_argument("--audit", type=Path, help="S8's bg-audit.json (fidelity audit)")
     parser.add_argument("--replay", type=Path, help="S7's progress.jsonl (write cost per turn)")
     parser.add_argument("--no-ranking", action="store_true", help="FINAL: no multi-answer ranking (r2 §4)")
+    parser.add_argument("--primary", help="the condition the report tests (default full_default; R7: r7_frozen)")
     parser.add_argument("--verdicts-only", action="store_true", help="the cross-family judge: verdicts only")
     parser.add_argument("--partial", action="store_true",
                         help="FINAL streaming: grade what is answered so far; never marked finished, no report")
@@ -677,7 +679,7 @@ def main() -> int:
     pending = run(args.history, args.units, args.answers, args.questions, args.ledger, args.out, ask=ask,
                   changes=args.changes, occurrences=args.occurrences,
                   audit=args.audit, replay=args.replay, ranking=not args.no_ranking,
-                  verdicts_only=args.verdicts_only, partial=args.partial)
+                  verdicts_only=args.verdicts_only, partial=args.partial, primary=args.primary)
     print(json.dumps(dict(pending_errors=pending)))
     return 3 if pending else 0
 

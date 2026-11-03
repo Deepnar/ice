@@ -181,3 +181,25 @@ def test_the_prompt_set_is_kept_on_disk_for_a_fresh_process(tmp_path, monkeypatc
     units(src, [("full", "c", [dict(role="user", content="s")])])  # a new unit: counted again
     A._PROMPTS.clear()
     assert len(A.prompt_set(src)) == 3
+
+
+def test_identical_prompts_already_answered_by_the_same_answerer_are_reused(tmp_path):
+    """R7: no memory and plain search often rebuild the prompt Z2 already answered — reused, never
+    re-asked; a different answerer, output cap or an incomplete answer is asked again."""
+    same, new = [dict(role="user", content="q")], [dict(role="user", content="fresh")]
+    meta = dict(model="m", output_tokens=8000)
+    old = units(tmp_path / "z2", [("bare_vector", "a", same), ("bare_vector", "b", new)])
+    calls = []
+    gen = lambda messages, **_: calls.append(messages) or NS(text="ans", usage={})
+    A.run(old, tmp_path / "z2-answers", generate=gen, meta=meta, say=lambda *_: None)
+    src = units(tmp_path / "r7", [("bare_vector", "a", same), ("r7_frozen", "a", [dict(role="user", content="r7")])])
+    calls.clear()
+    status = A.run(src, tmp_path / "r7-answers", generate=gen, meta=meta, say=lambda *_: None,
+                   reuse=[tmp_path / "z2-answers"])
+    assert len(calls) == 1 and status["finished"]                       # only r7_frozen's prompt asked
+    rows = [json.loads(l) for l in (tmp_path / "r7-answers/answers.jsonl").read_text().splitlines()]
+    assert sum("reused_from" in r for r in rows) == 1
+    calls.clear()
+    A.run(src, tmp_path / "other-cap", generate=gen, meta=dict(meta, output_tokens=4000), say=lambda *_: None,
+          reuse=[tmp_path / "z2-answers"])
+    assert len(calls) == 2                                              # a different cap is never reused

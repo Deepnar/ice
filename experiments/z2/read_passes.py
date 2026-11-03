@@ -270,6 +270,43 @@ RETEST_CONDITIONS.update({
 })
 PRESETS["retest_candidates"] = [k for k in RETEST_CONDITIONS if k.startswith("retest_cand")]
 
+# R7 (RETESTS): the frozen candidate — full ICE as it runs, plus the values Z3 judging run 2 chose
+# for the switches built from Z2's findings, and nothing else (maintainer, 2026-11-03: R7 sets
+# existing switches only; anything new it shows is reported, never fixed before FINAL). The values
+# live in R7_SETTINGS (tracked), written once run 2 is graded; until then r7_frozen does not exist
+# and R7 waits. Every ask — questions and no-memory controls — beside no memory and plain search.
+R7_SETTINGS = Path(os.environ.get("ICE_R7_SETTINGS") or ROOT / "experiments/z2/results/r7_settings.json")  # env: a trial
+R7_SWITCHES = frozenset({
+    "retrieval_rerank_candidates", "retrieval_rerank_keep_unranked", "retrieval_evidence_order",
+    "retrieval_rerank_original_margin", "turn_summaries_in_reads", "retrieval_rerank_representation",
+    "representation_summary_first_intents", "memory_source_rescue_mode", "memory_source_rescue_min_score",
+    "retrieval_rerank_query_context", "retrieval_rerank_instruction"})
+
+
+def r7_condition(path=R7_SETTINGS):
+    """The frozen candidate's read spec, or None before its settings are chosen. A setting outside
+    R7_SWITCHES is refused: R7 chooses among existing switches, it does not try new ones."""
+    if not Path(path).exists():
+        return None
+    chosen = json.loads(Path(path).read_text())["settings"]
+    extra = sorted(set(chosen) - R7_SWITCHES)
+    if extra:
+        raise ValueError(f"R7 sets existing switches only; not one: {extra}")
+    return dict(overlay="default", arm="full", settings=dict(chosen))
+
+
+def r7_conditions():
+    """{name: spec} of R7's three conditions, read fresh (a waiting runner sees the settings appear)."""
+    frozen = r7_condition()
+    return None if frozen is None else {"r7_frozen": frozen, "recent_only": CONDITIONS["recent_only"],
+                                        "bare_vector": CONDITIONS["bare_vector"]}
+
+
+if r7_condition():
+    RETEST_CONDITIONS["r7_frozen"] = r7_condition()
+PRESETS["r7"] = ["r7_frozen", "recent_only", "bare_vector"]
+BUDGET_SOURCES = ("full_default", "r7_frozen")    # plain search's budget is matched to ICE's own
+
 
 def select_conditions(spec):
     """'z2', a preset name, presets joined with '+', or comma-separated condition names."""
@@ -637,7 +674,7 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                         continue
                     path = unit_path(out, name, ask["id"])
                     if path.exists():
-                        if name == "full_default":
+                        if name in BUDGET_SOURCES:
                             full_budget[ask["id"]] = json.loads(path.read_text())["stage"].get(
                                 "retrieval_budget_if_retrieved")
                         continue
@@ -649,7 +686,7 @@ def run(history, replay, asks, out, *, conditions=CONDITIONS, limit_checkpoints=
                         annotate_turns(db, stage)
                     if future:
                         raise ValueError(f"{ask['id']}/{name}: future evidence {future}")
-                    if name == "full_default":          # the budget does not depend on decay
+                    if name in BUDGET_SOURCES:          # the budget does not depend on decay
                         full_budget[ask["id"]] = stage.get("retrieval_budget_if_retrieved")
                     write_unit(path, dict(policy=POLICY, history=history, condition=name, ask=ask,
                                           checkpoint=cp, question_time=now, decay_overlay=spec["overlay"],

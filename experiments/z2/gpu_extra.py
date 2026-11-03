@@ -13,6 +13,9 @@ logs/gpu-extra-<name>. Start it by hand after the GPU day; it does not check the
   nomem, nomem-report  R10's other side: 146 of the maintainer's no-memory messages read on a copy of B's
                   store with the reranker rescue — how often it lets in memory nobody needed, at each bar
                   (nomem_cost.py; its output: logs/gpu-extra-main/nomem-report.log)
+  r7-reads-B/C    R7: the frozen candidate (experiments/z2/results/r7_settings.json, written after Z3
+                  judging run 2), no memory and plain search on every ask — questions and no-memory
+                  controls — into logs/z2-r7-<history>; waits until the settings exist
 
     uv run --no-sync python experiments/z2/gpu_extra.py run
     uv run --no-sync python experiments/z2/gpu_extra.py status --watch
@@ -26,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from experiments.z2 import run_z2 as Z  # noqa: E402
-from experiments.z2.gpu_day import GATES, Command, PY, Reads  # noqa: E402
+from experiments.z2.gpu_day import GATES, HIST, Command, PY, Reads  # noqa: E402
 
 B_VARIANTS = ("retest_c256_wide", "retest_c256_originals_first", "retest_c256_policy", "retest_c256_wide_originals")
 C_VARIANTS = ("retest_cand64", "retest_cand256", "retest_c256_wide")
@@ -86,6 +89,40 @@ class NoMemoryCost(Z.Stage):
         return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
 
 
+class R7Reads(Reads):
+    """R7 (RETESTS): the frozen candidate, no memory and plain search on every ask of one history."""
+
+    def __init__(self, history):
+        super().__init__(f"r7-reads-{history}", history, "r7", needs=(), estimate=16.0 if history == "C" else 15.0)
+        self.title = f"R7 reads {history}: frozen candidate, no memory, plain search (questions + controls)"
+
+    def out(self, ctx):
+        return ROOT / f"logs/z2-r7-{self.history}"
+
+    def missing(self, ctx):
+        from experiments.z2 import read_passes as R
+        return [] if R.R7_SETTINGS.exists() else [str(R.R7_SETTINGS.relative_to(ROOT))]
+
+    def _progress(self):
+        from experiments.z2 import read_passes as R
+        conditions = R.r7_conditions()
+        if conditions is None:
+            return 0, 0
+        return R.progress(self.out(None), ROOT / HIST[self.history]["asks"], conditions)
+
+    def run(self, ctx):
+        h = HIST[self.history]
+        log = ctx.dir / f"{self.key}.log"
+
+        def attempt():
+            cmd = PY + ["experiments/z2/read_passes.py", "--history", self.history, "--database", h["database"],
+                        "--replay", h["replay"], "--asks", h["asks"], "--out", f"logs/z2-r7-{self.history}",
+                        "--conditions", "r7"]
+            return ctx.run_child(cmd, log), Z._tail(log)
+
+        return Z.run_with_retries(ctx, self.key, attempt, lambda: self.done(ctx), lambda: self.complete(ctx))
+
+
 def funnel(history, database, conditions, needs):
     return Command(f"x-funnel-{history}", f"where evidence is lost + leg shares ({history})", PY + [
         "experiments/z2/funnel.py", "--history", history, "--database", database,
@@ -123,6 +160,7 @@ def stages(_limit=None):
     out.append(funnel("B", "ice_z2_main_b", ("retest_cand64", "retest_cand256") + B_VARIANTS,
                       [f"x-B-{c.removeprefix('retest_')}" for c in B_VARIANTS]))
     out.append(funnel("C", "ice_z2_main_c", C_VARIANTS, [f"x-C-{c.removeprefix('retest_')}" for c in C_VARIANTS]))
+    out += [R7Reads("B"), R7Reads("C")]               # 2026-11-03: R7, after Z3 judging run 2 chooses
     return out
 
 

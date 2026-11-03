@@ -287,7 +287,7 @@ def answer_one(generate, messages, sha, *, say=print, sleep=time.sleep, reload_e
 
 
 def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1, pace=False,
-        output_tokens=OUTPUT_TOKENS["local"], conditions=None, checkpoints=None):
+        output_tokens=OUTPUT_TOKENS["local"], conditions=None, checkpoints=None, reuse=()):
     from concurrent.futures import ThreadPoolExecutor
     out.mkdir(parents=True, exist_ok=True)
     store = Store(out / "answers.jsonl")
@@ -301,6 +301,9 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
         index = {**json.loads((out / "index.json").read_text())["index"], **index}
     prompts = {prompt_sha(m): m for _, _, m, _ in units}
     sessions = {prompt_sha(m): s for _, _, m, s in units if s}
+    reused = reuse_answers(store, prompts, meta, reuse)
+    if reused:
+        say(f"{reused} prompts identical to ones already answered with this answerer: reused, not asked again")
     todo = [s for s in prompts if not store.settled(s)]
     pacer = Pacer([r["wall"] for r in store.rows.values() if r.get("wall")]) if pace else None
     say(f"{len(units)} contexts, {len(prompts)} distinct prompts, {len(todo)} to answer")
@@ -333,6 +336,25 @@ def run(units_dir, out, *, generate, meta, say=print, reload_env=None, workers=1
                   pending=len(pending), finished=not pending)
     (out / "status.json").write_text(json.dumps(status, indent=1))
     return status
+
+
+def reuse_answers(store, prompts, meta, sources):
+    """Copy, from earlier answer folders, the complete answers to prompts identical to this run's,
+    given by the same answerer at the same output cap (R7: no memory and plain search often build
+    the same prompt Z2 already answered). Each copied row records its source folder."""
+    from experiments.z2.ledger_merge import complete_lines
+    n = 0
+    for source in sources or ():
+        path = Path(source) / "answers.jsonl"
+        if not path.exists():
+            continue
+        for line in complete_lines(path):
+            row = json.loads(line)
+            sha = row["prompt_sha256"]
+            if sha in prompts and sha not in store.rows and row.get("finish") == "complete" and row.get("answerer") == meta:
+                store.add(dict(row, reused_from=str(source)))
+                n += 1
+    return n
 
 
 _PROMPTS = {}
@@ -378,6 +400,8 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--conditions", help="answer only these conditions (comma-separated); others are prompt frames")
     parser.add_argument("--checkpoints", help="answer only these whole checkpoints (comma-separated; FINAL streaming)")
+    parser.add_argument("--reuse", action="append", type=Path, default=[],
+                        help="an earlier answers folder: identical prompts, same answerer, reused (repeatable)")
     parser.add_argument("--answerer", default="muse12",
                         help="muse12 (D6d, default) | local | luna | cloud:<role> (FINAL's cloud-answerer subset)")
     args = parser.parse_args()
@@ -391,7 +415,7 @@ def main() -> int:
         status = run(args.units, args.out, generate=answerer.generate, meta=dict(metadata(role), output_tokens=cap),
                      reload_env=answerer.refresh, workers=workers, pace=role == "luna", output_tokens=cap,
                      conditions=args.conditions.split(",") if args.conditions else None,
-                     checkpoints=set(args.checkpoints.split(",")) if args.checkpoints else None)
+                     checkpoints=set(args.checkpoints.split(",")) if args.checkpoints else None, reuse=args.reuse)
     else:
         answerer = LocalAnswerer()
         try:

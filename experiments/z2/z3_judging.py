@@ -12,7 +12,11 @@ runner (meter, lock, retries, clean stop, resume); state in logs/z3-judging-<nam
   r10-answers     R10's own replay answered (Muse 1.2): shipped, no memory, reranker rescue (bar off) —
                   308 distinct prompts; every bar is replayed offline from them (r10_report.py --grades)
   r10-grade       LongMemEval's own yes/no judge on those answers (--upstream-only)
-R7 (the chosen settings together) is added once R2–R4 have chosen.
+  r7-answers-*    R7 (RETESTS): the frozen candidate's answers, beside no memory and plain search, on
+                  every ask — questions and no-memory controls — reusing Z2's answers to identical
+                  prompts; waits for gpu_extra.py's r7-reads-* (which wait for r7_settings.json)
+  r7-grade-*      grade-2 with the claim check, controls and context precision, reported with
+                  r7_frozen as the system tested (no ranking)
 
 It waits while any Z2 runner is active (Z2's cloud run first), and a stage waits ("needs input")
 until its inputs exist: Z2's grade-1 grades for the judge check, the GPU day's reads for answers.
@@ -48,7 +52,7 @@ R10_ANSWERED = ("full", "recent_only", "full_rescue_reranker")   # a refused que
 ASKS = {"B": 174, "C": 75}                                 # questions per history (retests read questions only)
 SCALE = {"B": 1.0, "C": 0.22}
 CLAIM_SHARE = 1.73                     # grade + claim calls per graded answer (B: 3,120 claim calls / 4,300 graded)
-AUX = {"B": 447, "C": 160}             # aux_judge_check.py --dry-run: B's plan; C's estimated
+AUX = {"B": 447, "C": 243}             # aux_judge_check.py --dry-run plans
 BEAM_CHECK = 800                       # judge_check.py --dry-run: 288 nugget calls + the ordering alignment
 
 
@@ -57,6 +61,21 @@ def gpu_day_done(key):
         return json.loads(GPU_DAY.read_text())["stages"][key]["status"] == "done"
     except (OSError, ValueError, KeyError):
         return False
+
+
+R7_ASKS = {"B": 174 + 34, "C": 75 + 11}                  # questions + no-memory controls
+R7_GRADE_CALLS = 2.3                                       # per answered ask: grade + claims + controls + precision
+
+
+def r7_reads_done(history):
+    """R7's three conditions read for every ask of this history (gpu_extra.py r7-reads-<history>)."""
+    from experiments.z2 import read_passes as R
+    conditions = R.r7_conditions()
+    if conditions is None:
+        return False
+    asks = ROOT / f"logs/z2-questions-final/{history}/z2-asks.json"
+    done, total = R.progress(ROOT / f"logs/z2-r7-{history}", asks, conditions)
+    return bool(total) and done >= total
 
 
 def reads_done(history):
@@ -89,8 +108,13 @@ class Counted(Command):
         return self.planned if self.complete(ctx) else min(lines(self.calls), self.planned - 1)
 
     def missing(self, ctx):
-        return [str(m) for m in self.inputs if not (reads_done(m.removeprefix("reads-")) if isinstance(m, str)
-                                                    and m.startswith("reads-") else Path(m).exists())]
+        def ready(m):
+            if isinstance(m, str) and m.startswith("r7reads-"):
+                return r7_reads_done(m.removeprefix("r7reads-"))
+            if isinstance(m, str) and m.startswith("reads-"):
+                return reads_done(m.removeprefix("reads-"))
+            return Path(m).exists()
+        return [str(m) for m in self.inputs if not ready(m)]
 
 
 class Panel(Counted):
@@ -140,6 +164,22 @@ def stages(_limit=None):
             "--out", f"logs/z2-retest-{h}-grades", "--no-ranking"],
             calls=ROOT / f"logs/z2-retest-{h}-grades/grade-raw.jsonl", planned=round(ASKS[h] * len(ANSWERED) * CLAIM_SHARE),
             needs=(f"r34-answers-{h}",)))
+    # R7 (2026-11-03): the frozen candidate on B and C, after run 2 chose its switches
+    for h in ("B", "C"):
+        units, answers = f"logs/z2-r7-{h}", ROOT / f"logs/z2-r7-{h}-answers"
+        out.append(Counted(f"r7-answers-{h}", f"R7 answers {h}: frozen candidate, no memory, plain search (Muse 1.2)",
+                           PY + ["experiments/z2/answers.py", "--units", units, "--out", str(answers.relative_to(ROOT)),
+                                 "--answerer", "muse12", "--reuse", f"logs/z2-run-main/s10-{h}"],
+                           calls=answers / "answers.jsonl", planned=R7_ASKS[h] * 3, unit="answers",
+                           inputs=(f"r7reads-{h}",)))
+        hist = HISTORIES[h]
+        out.append(Counted(f"r7-grade-{h}", f"R7 grades {h} (grade-2, claim check, controls, precision)", PY + [
+            "experiments/z2/grade.py", "--history", h, "--units", units, "--answers", str(answers.relative_to(ROOT)),
+            "--questions", "logs/z2-questions-final", "--ledger", str(hist.path("ledger").relative_to(ROOT)),
+            "--changes", str(hist.path("changes").relative_to(ROOT)), "--out", f"logs/z2-r7-{h}-grades",
+            "--no-ranking", "--primary", "r7_frozen"],
+            calls=ROOT / f"logs/z2-r7-{h}-grades/grade-raw.jsonl", planned=round(R7_ASKS[h] * 3 * R7_GRADE_CALLS),
+            needs=(f"r7-answers-{h}",)))
     # R10 (Z2 F4, 2026-11-01): the reranker rescue graded — LongMemEval's judge needs no judge check
     r10, r10_answers = RUN / "s12-r10", ROOT / "logs/z3-judging/r10-answers"
     out.append(Counted("r10-answers", "R10 answers: shipped, no memory, reranker rescue (Muse 1.2)", PY + [

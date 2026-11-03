@@ -99,14 +99,16 @@ def scoring_inputs(history, questions, answers, *, audit=None, replay=None, orig
                 replay_walls=walls)
 
 
-def build(history, units, grades, extras=None):
+def build(history, units, grades, extras=None, primary=None):
+    """*primary*: the condition the report tests (scoring.ICE when None; R7: r7_frozen)."""
     graded, ranks, ctl = grades["graded"], grades["ranks"], grades["controls"]
     scored = None
     if extras:
         from experiments.z2 import scoring
         scored = scoring.score(history, graded, units, extras["occurrences"], extras["prefix"],
                                semantic=grades.get("semantic_credit"), prompts=extras.get("prompts"),
-                               audit=extras.get("audit"), replay_walls=extras.get("replay_walls"))
+                               audit=extras.get("audit"), replay_walls=extras.get("replay_walls"),
+                               **({"primary": primary} if primary else {}))
     rows = collections.defaultdict(list)                     # (condition, type) -> [row]
     for key, g in graded.items():
         cond, ask_id = key.split("|", 1)
