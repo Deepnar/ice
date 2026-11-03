@@ -574,6 +574,10 @@ Checked against the real output, no new calls:
   34.1, more than the "level" first reported here. The date labels invite a specific error:
   attaching a real date to the wrong event (FINAL measures it as ICR; a presentation change is
   out of R7's scope — existing switches only).
+  **The claim check itself** still got ~1 dated claim in 4 wrong with dated passages (run 1: 17/24
+  content-verified true plants supported, 18/24 date-shifted twins rejected), so a minute-dated
+  claim is now decided by code (a turn at that minute?) and judged on that turn only; run 1's aux
+  check re-measures it, with wrong-turn plants (ICE's own error) beside the true ones.
 - **Controls — label wrong, direction real.** 17 of full ICE's 21 losses give as the reason that
   the reply "fabricated" earlier conversations — the judge never sees the memory. But the replies
   did pull unrelated history and date labels into general questions. Plain search, which has no

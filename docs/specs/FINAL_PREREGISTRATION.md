@@ -64,7 +64,10 @@ rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-me
   on, and the one most memory papers report.
 
 **Revision 6 — APPROVED by the maintainer 2026-11-03, before any FINAL answer** ([Z2 FINDINGS](../../experiments/z2/results/FINDINGS.md) F27):
-- **The claim check sees dates.** Its passages carry the date the system saw (UTC), a claim naming
+- **The claim check sees dates; a minute-dated claim is decided by the clock, then on that turn only**
+  (run 1, 2026-11-03: the batched check still got ~1 dated claim in 4 wrong, both ways). Code
+  decides whether a turn exists at the claim's minute (none: invented); the judge then reads only
+  that turn and judges content. Its passages carry the date the system saw (UTC), a claim naming
   a turn's time is shown that turn, and a date is supported only by a passage of that date stating
   the claim. SCA's "nothing invented", ICR and the hallucination non-inferiority test (§3) rest on
   it; on B the undated check could not tell a true dated claim from a real date on the wrong content (run 1: of ICE's 49 minute-dated claims, 7 true, 33 misattached).
