@@ -97,6 +97,15 @@ def plants(items, originals, out, *, models):
         return list(pool.map(one, items))
 
 
+def claim_found(ask, claim, passages):
+    """One planted claim through the claim check FINAL runs (grade.CLAIMS_SYSTEM: claims judged
+    together per answer; here one per call, no ledger entries): did a passage support it?"""
+    reply = ask(grade.CLAIMS_SYSTEM, json.dumps(dict(CLAIMS=[dict(id="C1", text=claim)], ENTRIES=[], PASSAGES=passages),
+                                                ensure_ascii=False)) or {}
+    items = [i for i in reply.get("claims") or [] if isinstance(i, dict) and str(i.get("id")) == "C1"]
+    return items[0].get("found") if items else None
+
+
 def judge_runs(rows, out, *, models):
     """Every judge prompt on the plants that passed the other family's check."""
     from concurrent.futures import ThreadPoolExecutor
@@ -136,10 +145,8 @@ def judge_runs(rows, out, *, models):
             true_claim = c["requirements"][0]
             false_claim = (p.get("wrong_change") or "").split("->")[-1].strip()
             if false_claim:
-                res["claim_true_found"] = (ask(grade.CLAIM_SOURCE_SYSTEM, json.dumps(dict(CLAIM=true_claim, PASSAGES=passages),
-                                                                                  ensure_ascii=False)) or {}).get("found")
-                res["claim_false_found"] = (ask(grade.CLAIM_SOURCE_SYSTEM, json.dumps(dict(
-                    CLAIM=f"{c['question']} — {false_claim}", PASSAGES=passages), ensure_ascii=False)) or {}).get("found")
+                res["claim_true_found"] = claim_found(ask, true_claim, passages)
+                res["claim_false_found"] = claim_found(ask, f"{c['question']} — {false_claim}", passages)
         turn0 = row["turns"][0]
         src = [dict(turn=turn0["turn"], text=f"User: {turn0['user']}\n\nAssistant: {turn0['assistant']}")]
         for key, text in (("summary_faithful", p["summary"]), ("summary_unfaithful", p["unfaithful_summary"])):
@@ -243,13 +250,13 @@ def sheet(rows, judged, path, n=8):
 
 
 def main() -> int:
+    global JUDGE                                   # the --judge default reads it: declared first
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--judge", default=JUDGE, help="judge role to qualify (FINAL's second judge: haiku); "
                         "the planted answers are shared — run it in the same --out")
     args = parser.parse_args()
-    global JUDGE
     JUDGE = args.judge
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("qualification material is private: keep it under logs/")
@@ -265,7 +272,7 @@ def main() -> int:
     metrics, plant_quality, passed = summarize(rows, judged, control_right)
     prompts = {name: sha(text) for name, text in (
         ("grade.GRADE_SYSTEM", grade.GRADE_SYSTEM), ("grade.RANK_SYSTEM", grade.RANK_SYSTEM),
-        ("grade.CLAIM_SOURCE_SYSTEM", grade.CLAIM_SOURCE_SYSTEM), ("grade.CONTROL_SYSTEM", grade.CONTROL_SYSTEM),
+        ("grade.CLAIMS_SYSTEM", grade.CLAIMS_SYSTEM), ("grade.CONTROL_SYSTEM", grade.CONTROL_SYSTEM),
         ("bg_audit.JUDGE_SYSTEM", bg_audit.JUDGE_SYSTEM), ("bg_audit.PART_SYSTEM", bg_audit.PART_SYSTEM),
         ("walk_audit.WALK_SYSTEM", walk_audit.WALK_SYSTEM))}
     record = dict(policy=POLICY, judge=metadata(JUDGE), writer=WRITER, checker=CHECKER, contracts=len(items),
