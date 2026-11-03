@@ -130,7 +130,7 @@ re-read, never set from B alone.
 | R2 | F2 — how many candidates to rank, and keep the rest | GPU | ✅ 256 chosen (default since 2026-10-30) |
 | R3 | F10 — conversation order for "which came first" | GPU + CLOUD | ☐ |
 | R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ☐ |
-| R5 | F12 — judge the judge: 250 answers under both rubrics, planted panel, invariance | CLOUD (~$0.6) | ☐ |
+| R5 | F12 — judge the judge: 250 answers under both rubrics, planted panel, invariance | CLOUD (~$0.6) | ✅ run 1 2026-11-03: panel 8/8 marks; grade-2 vs per-point 90% B / 92% C; invariance 20/20, 8/8; BEAM 5/5; controls 43/43 intrusion; dated claims B 7/7 + 7/7 + 7/7, C true 13/17 (the 4 misses read: plant labels wrong, judge right), wrong-turn 16/17 — awaiting maintainer approval |
 | R6 | Z2's grade-1 grading finishes on `main` (B's remaining phases, C, S12) | CLOUD (~$11) | ☐ |
 | R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
 | R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ✅ G60 replaced (F20), G75 off, B7 no change |
