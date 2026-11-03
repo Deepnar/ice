@@ -72,7 +72,7 @@ def test_oversized_and_sourceless_items_are_recorded_not_cut_or_dropped(tmp_path
     big = item("session_summary", 1)
     big["sources"][0]["text"] = "x" * (A.SOURCE_CHARS + 1)
     none = dict(item("procedural", 1), sources=[])
-    results, _ = A.judge_all([big, none], "B", [], 10, tmp_path, models=models(Judge([])))
+    results, _ = A.judge_all([big, none], "B", [], 10, tmp_path, models=models(Judge([{"1": "supported"}])))
     assert results["session_summary:1"].get("partwise") is True       # judged in parts, never cut
     assert results["procedural:1"]["status"] == "no_sources"
 
@@ -127,3 +127,43 @@ def test_a_part_without_a_usable_reply_errors_instead_of_judging_no(tmp_path, mo
     results, pending = A.judge_all([item], "C", [], 10, tmp_path, models=models(Judge([])))
     assert "conversation_note:x:1" not in results or results["conversation_note:x:1"]["status"] != "judged"
     assert pending == 1
+
+
+def test_a_part_reply_skipping_statements_is_retried_not_counted_unsupported(tmp_path):
+    """Z2 F27: three C notes failed on every statement because a part reply skipped them."""
+    item = dict(id="conversation_note:x:2", kind="conversation_note", text="The cat is Tofu. The dog is Rex.",
+                sources=[dict(turn=1, text="y" * (A.SOURCE_CHARS + 1))])
+    results, pending = A.judge_all([item], "C", [], 10, tmp_path, models=models(Judge([{"1": "supported"}])))
+    assert pending == 1 and "conversation_note:x:2" not in results
+
+
+def test_inventory_lists_each_turn_once_with_its_recorded_time():
+    """Z2 F27: a note's source_ids and batch_ids name the same turns; listed twice, six single-turn
+    C notes went over the judge's capacity. Sources carry the recorded time ICE's labels show."""
+    from datetime import datetime, timezone
+
+    class Rows:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def __iter__(self):
+            return iter(NS(_mapping=r) for r in self.rows)
+
+    when = datetime(2025, 1, 3, 7, 15, tzinfo=timezone.utc)
+    turn = dict(id="t1", batch_id="b1", idempotency_key="conv-1", raw_text="User: hi", summary_text=None,
+                abstract_text=None, timestamp=when, cluster_id=None, session_id=None)
+    note = dict(conversation_id="c", ordinal=0, text="The user said hi.", mode="supported",
+                source_ids=["t1"], batch_ids=["b1"])
+
+    class Conn:
+        def execute(self, sql, params=None):
+            q = str(sql)
+            return Rows([turn] if "FROM episodic_memory" in q else [note] if "FROM conversation_notes" in q else [])
+
+        def exec_driver_sql(self, sql):
+            return NS(scalar=lambda: 0)
+
+    items, _, _ = A.inventory(Conn())
+    (n,) = [i for i in items if i["kind"] == "conversation_note"]
+    assert n["sources"] == [dict(turn=1, text="User: hi", date="2025-01-03T07:15:00Z")]
+    assert "recorded" in A.JUDGE_SYSTEM and "EVERY statement" in A.PART_SYSTEM

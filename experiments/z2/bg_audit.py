@@ -91,6 +91,8 @@ Judge ONLY the listed CRITERIA, each "yes", "no" or "unclear", with a one-senten
   decisions, constraints) rather than only a vague gist.
 - decision_valid: the decision ITEM records (a merge of two entities, one fact replacing
   another, a fact linked to an entity, turns grouped under a name) is correct per SOURCES.
+Each source carries the time the memory system recorded for that turn; a date or time in ITEM that
+matches its source's is supported by it.
 Return only JSON: {"<criterion>": {"verdict": "yes|no|unclear", "reason": "..."}, ...}"""
 
 MATCH_SYSTEM = """FACT is one statement a memory system stored about a conversation. CANDIDATES are
@@ -129,12 +131,17 @@ def inventory(conn):
     by_batch = {str(t["batch_id"]): i for i, t in turns.items() if t.get("batch_id")}
 
     def source(ids):
-        out = []
+        """Each turn once — a note's source_ids and batch_ids name the same turns, and listing
+        them twice pushed six single-turn C notes over the judge's capacity into part-wise judging
+        (Z2 F27) — with the time the store recorded for it, as ICE's own labels show it."""
+        from src.memory.time_format import format_time
+        out = {}
         for i in ids:
             t = turns.get(str(i)) or turns.get(by_batch.get(str(i), ""))
-            if t:
-                out.append(dict(turn=t["turn"], text=t["raw_text"]))
-        return sorted(out, key=lambda s: s["turn"] or 0)
+            if t and t["turn"] not in out:
+                out[t["turn"]] = dict(turn=t["turn"], text=t["raw_text"],
+                                      **({"date": format_time(t["timestamp"])} if t.get("timestamp") else {}))
+        return [out[k] for k in sorted(out, key=lambda turn: turn or 0)]
 
     items = []
     add = lambda kind, rid, text, sources, **meta: items.append(dict(
@@ -285,7 +292,8 @@ def later_changes(item, ledger, end_turn):
 
 def judge_prompt(item, changes):
     criteria = [c for c in KIND_CRITERIA[item["kind"]] if c != "current" or changes]
-    sources = [dict(turn=s["turn"], text=s["text"]) for s in item["sources"]]
+    sources = [dict(turn=s["turn"], **({"date": s["date"]} if s.get("date") else {}), text=s["text"])
+               for s in item["sources"]]
     body = dict(KIND=item["kind"], ITEM=item["text"], CRITERIA=criteria, SOURCES=sources)
     if changes:
         body["LATER_CHANGES"] = changes
@@ -300,6 +308,8 @@ at once; other parts are judged separately). For EACH statement, say what THIS p
   statement presents it as decided;
 - "contradicted": this part states something incompatible with it;
 - "absent": this part does not bear on it.
+Each passage carries the time the memory system recorded for it; a date or time in a statement that
+matches its passage's is supported by it. Give a verdict for EVERY statement number.
 Return only JSON: {"<statement number>": "supported|misattributed|contradicted|absent", ...}"""
 
 
@@ -413,7 +423,8 @@ def judge_all(items, history, ledger, end_turn, out, *, models, judge="muse", ta
         verdicts = []
         for part in source_parts(item["sources"]):
             body = dict(STATEMENTS={str(i): t for i, t in enumerate(numbered, 1)},
-                        PASSAGES=[dict(turn=s["turn"], text=s["text"]) for s in part])
+                        PASSAGES=[dict(turn=s["turn"], **({"date": s["date"]} if s.get("date") else {}),
+                                       text=s["text"]) for s in part])
             # Part-wise reasoning runs longer (4 of 113 qualification calls ran out at 8,000).
             reply = ask_object(calls, judge, models[judge][1], models[judge][0], PART_SYSTEM,
                                json.dumps(body, ensure_ascii=False), session,
@@ -423,6 +434,12 @@ def judge_all(items, history, ledger, end_turn, out, *, models, judge="muse", ta
             # item errors instead - retried, then recorded unjudged, never "no".
             if not isinstance(reply, dict):
                 raise ValueError(f"part {len(verdicts) + 1} of {item['id']}: no usable judge reply")
+            # A statement the reply skips was not judged — counting it unsupported failed three
+            # C notes on every statement (Z2 F27). The item errors instead, as above.
+            missing = [str(i) for i in range(1, len(numbered) + 1) if str(i) not in reply]
+            if missing:
+                raise ValueError(f"part {len(verdicts) + 1} of {item['id']}: no verdict for {len(missing)} "
+                                 f"of {len(numbered)} statements")
             verdicts.append(reply)
         return len(numbered), verdicts
 
