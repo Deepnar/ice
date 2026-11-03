@@ -151,13 +151,14 @@ Per call: an answer $0.0026 on B (~21k input tokens; ~$0.0045 at 256-candidate p
 1. **Z2's own cloud run** — B's remaining ~4,000 grading calls ($4.0), C's grading ~4,060 ($4.1), S12's 1,982
    answers and ~2,500 grades (~$2.8): **~$10.9**.
 2. **Z3 judging, run 1 — the judge check**: planted panel (932 calls) + B/C judge checks (~320) + the
-   claim-check and controls-judge checks (`r5-aux-B/C`, ~610, F27): **~$2.0**. Command:
-   `uv run --no-sync python experiments/z2/z3_judging.py run --only r5-panel,r5-judge-B,r5-judge-C,r5-aux-B,r5-aux-C`.
-   The maintainer reads every report and blind sheet (`judge-check-*`, `aux-check-*`); `touch logs/z3-judging/judge-approved` to continue.
+   claim-check and controls-judge checks (`r5-aux-B/C`, ~610, F27) + BEAM's own judge on planted answers
+   (`r5-beam`, ≤ ~1,240 short calls, F27): **~$2.3**. Command:
+   `uv run --no-sync python experiments/z2/z3_judging.py run --only r5-panel,r5-judge-B,r5-judge-C,r5-aux-B,r5-aux-C,r5-beam`.
+   The maintainer reads every report and blind sheet (`judge-check-*`, `aux-check-*`, `beam-check`); `touch logs/z3-judging/judge-approved` to continue.
 3. **Z3 judging, run 2 — answers + grade-2**: six 256-candidate settings × (174 B + 75 C) = 1,494 answers
    (~$4.7 B + ~$0.9 C) and 1,494 grades plus ~1,090 claim checks (~$3.0; F27: SCA needs the claim check): **~$8.6**.
 4. **Cloud prep** (synthetic conversations, A's and ICE2's chains): **~$10**.
-Total **~$31** of the ~$30 Go allows until Nov 27; a $5 top-up (Extra Usage) covers any overrun. **Go Plus is
+Total **~$31.5** of the ~$30 Go allows until Nov 27; a $5 top-up (Extra Usage) covers any overrun. **Go Plus is
 bought only when FINAL starts** — its month then covers FINAL's cloud phase, run beside FINAL's local phase:
 each history's answers start as soon as its reads finish (a cloud lane that waits for reads).
 

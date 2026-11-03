@@ -552,7 +552,7 @@ and B's reads:
 - Already known: batch summaries (G79, fixed), candidate limits full on B (F22, wider legs not worth
   it), long passages (reranker windows, audit A4), recency bonus (0 for other chats; harmless).
 
-## F27 ⚑ JUDGES FIXED on fix-pass (2026-11-03; claim check dated, controls judge told memory exists; checked in Z3 judging run 1, `r5-aux-*`) — two more judges that could not see what they judged
+## F27 ⚑ JUDGES FIXED on fix-pass (2026-11-03; claim check dated, controls judge told memory exists, BEAM's own judge, SPF by tokens, audit instrument; checked in Z3 judging run 1, `r5-aux-*`, `r5-beam`) — two more judges that could not see what they judged
 
 S11-B's finished report (grade-1, v3 as Z2 ran it) said full ICE invents more than plain search
 (an answer with a confirmed-invented claim: 49.7% vs 34.1%, non-inferiority failed) and that
@@ -591,17 +591,23 @@ true memory appended ≥80%. R3/R4's retest grades now run the claim check (run 
 - LongMemEval-S — its own judge (Muse as judge): 8 sampled "wrong" answers holding the gold
   words were all really wrong; no defect seen.
 - LoCoMo J — Mem0's prompt verbatim, the field's protocol; known lenient, stated, unchanged.
-- **BEAM — not its own judge.** `experiments/beam/adapter.py` paraphrases BEAM's protocol; BEAM's
-  repository (MIT, `src/prompts.py` `unified_llm_judge_base_prompt`, `src/evaluation/compute_metrics.py`)
-  judges one nugget per call with paraphrase/number/style-neutrality rules, and scores event
-  order as normalised tau-b × F1 over LLM-aligned events, where the adapter batches nuggets and
-  uses tau-b alone. Open: switch to the verbatim protocol (~1,332 calls per condition vs 500).
-- **Context precision (SPF), a §4 measure for ICE and `bare_vector`** — plain search's pieces cannot
-  be judged (above), and a share of pieces is not length-free. Open: record `source_turns` and
-  text for plain search's pieces, and define it per token or report its ceiling.
-- **Fidelity audit (bg_audit)** — fold notes judged part-wise see only that step's turns, so
-  inherited statements read as unsupported (ROADMAP G73 notes, still open); its SOURCES carry no
-  dates. Open before FINAL's fidelity audit is believed.
+- **BEAM — FIXED: now its own judge.** The adapter had paraphrased BEAM's protocol; it now uses
+  BEAM's repository verbatim (MIT, `src/prompts.py` `unified_llm_judge_base_prompt`, one nugget per
+  call; event order scored as BEAM's report counts it, normalised tau-b over LLM-aligned answer
+  lines — the port matches upstream's scorer on the same inputs). Checked on planted answers in Z3
+  judging run 1 (`r5-beam`: gold, gold + true extra detail, off-topic, ordered/reversed). FINAL cost
+  ~1,332 nugget calls per condition vs 500.
+- **Context precision (SPF) — FIXED.** Plain search's pieces now record source turns and text, so
+  they are judged like ICE's; precision is the share of prompt memory *tokens* in pieces carrying a
+  required item (piece shares kept beside it) — pre-registration revision 7.
+- **Fidelity audit (bg_audit) — FIXED (instrument).** Every note listed each turn twice (its
+  source_ids and batch_ids name the same turns), which pushed six single-turn C notes (~130–145k
+  characters) into part-wise judging, where a part reply skipping statement numbers counted them
+  unsupported: **all six part-wise C notes failed, three on every statement** — 6 of C's 23
+  unfaithful notes. Each turn is now listed once, dated; skipped statements are retried, never
+  "unsupported". v3 notes are written per source group from originals only ("appends create
+  independent notes"), so each is judged against exactly its own turns — nothing is inherited.
+  The remaining C failures read as real (invented columns, hypotheticals stated as experience).
 - The cross-family judge runs grade-2's grading prompt only and is qualified on the planted panel
   before use; ground truth (questions, ledger, synthetic checks) is cross-family verified and
   reviewed by the maintainer.

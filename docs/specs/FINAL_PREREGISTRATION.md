@@ -74,6 +74,17 @@ rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-me
   than recent-only, blind, both orders) is unchanged.
 - Both are checked in Z3 judging run 1 with planted cases before FINAL grades anything (RETESTS R5).
 
+**Revision 7 — APPROVED by the maintainer 2026-11-03, before any FINAL answer** ([Z2 FINDINGS](../../experiments/z2/results/FINDINGS.md) F27):
+- **BEAM is judged by BEAM's own protocol, verbatim** (its repository's prompt, one rubric nugget per
+  call; event ordering by normalised tau-b, as BEAM's report counts it), FINAL's judge labelled
+  non-official — as LoCoMo uses Mem0's prompt. It replaces this pre-registration's paraphrase.
+- **Context precision (§4) is a share of prompt memory tokens**, not of pieces: the share of
+  tokens in pieces carrying a required item (and carrying a wrong or outdated one), for ICE and
+  `bare_vector` alike — "independent of fragment length" as §4 states it; piece shares reported beside.
+- **The fidelity audit sees each source turn once, with its recorded time**; a statement a part
+  reply leaves without a verdict is not judged, never unsupported.
+- BEAM's judge is checked on planted answers in Z3 judging run 1 before FINAL grades anything.
+
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP, ICE2 (held out; ICE2 added in revision 4)

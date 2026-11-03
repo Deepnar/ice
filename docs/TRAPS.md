@@ -3011,3 +3011,18 @@ per session), which is also the product's ordinary case: a new chat asking about
 vs others, turn count, session) and whether the corpus has that shape; if not, the part is
 "unexercised", never "no effect".** (Z2 F25; same family as #152 and F18.)
 
+
+### 156. Fixing one judge leaves the same flaw in every judge beside it — and a missing verdict keeps turning into "no"
+
+Grade-2 (#151) gave the grading judge dates; the claim check, the controls judge and the background
+audit, built alongside it, kept the old blindness. S11-B then reported ICE inventing more than plain
+search (49.7% vs 34.1%) — 60 of the 63 dated "inventions" named the exact minute of a real turn — and
+memory "fabricating" history the controls judge could not see. The sweep also found BEAM's judge
+paraphrased rather than BEAM's own, and plain search unmeasurable in context precision (its pieces
+lacked the fields the judge reads). Separately, the third time in Z2: a judge reply that skips items
+was combined as a negative — claim verdicts, a cut part reply, and part replies skipping statements
+(three C notes failed on every statement). **When one judge's input is fixed, list every judge in
+the run and give each the same check (does it see what it is asked to verify?); a public benchmark's
+judge is copied, not paraphrased. Any combiner treats an item with no verdict as not judged —
+retried or recorded unjudged — never as a "no".** (2026-11-03, Z2 F27; `aux_judge_check.py`,
+`experiments/beam/judge_check.py`.)
