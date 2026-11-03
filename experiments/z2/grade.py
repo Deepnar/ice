@@ -95,6 +95,16 @@ supported when a passage with that date states what the claim says happened then
 matches no such passage is not. Return only JSON: {"claims": [{"id": "C1", "stated_by": ["E3", ...],
 "found": true|false, "passage": <index or null>}, ...]} — one item for every claim."""
 
+# A claim naming a turn's minute (ICE's own timestamp labels) is decided apart (run 1, 2026-11-03:
+# with dated passages the batched check still got ~1 dated claim in 4 wrong, both ways — 17/24 true
+# plants supported, 18/24 date-shifted twins rejected). Code decides whether a turn exists at that
+# minute; the judge sees only that turn and is asked about content alone.
+DATED_CLAIM_SYSTEM = """CLAIM is a statement an AI assistant made about a conversation with a user, naming the
+moment something was said. PASSAGES are the messages recorded at that moment. Does any passage state
+what CLAIM says was said or happened then (meaning, not wording; who said it must match)? Judge the
+content only — the moment is already matched. Return only JSON: {"stated": true|false, "reason": "..."}"""
+MINUTE = re.compile(r"(20\d\d-\d\d-\d\d)[T ](\d\d:\d\d)")
+
 RANK_SYSTEM = """Several ANSWERS respond to the same QUESTION about a user's long conversation with an
 AI assistant. REQUIRED lists what a correct answer must contain; SOURCES are the passages it comes
 from (use them for exact values). Rank the answers from best to worst on correctness and
@@ -289,13 +299,33 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
                 picked += sorted(day_rows.get(day, ()), key=distance)[:2]
         return [i for i in dict.fromkeys(picked) if i in allowed]
 
+    def dated(claim, cp):
+        """A minute-dated claim's verdict: no turn at that minute (by the checkpoint) is invented,
+        decided here; otherwise the judge reads only the messages at that minute."""
+        at = [i for d, h in MINUTE.findall(claim) for i in minute_rows.get(f"{d} {h}", []) if rows[i][0] <= cp]
+        if not at:
+            return "confirmed_invented"
+        reply = ask(DATED_CLAIM_SYSTEM, json.dumps(dict(CLAIM=claim, PASSAGES=[
+            dict(turn=rows[i][0], role=rows[i][1], date=dates[rows[i][0]], text=rows[i][2][:6000])
+            for i in dict.fromkeys(at)]), ensure_ascii=False)) or {}
+        if not isinstance(reply.get("stated"), bool):
+            raise ValueError("no stated verdict for a dated claim")
+        return "ledger_miss" if reply["stated"] else "confirmed_invented"
+
     def one(group):
         """{claim key: verdict} for one answer, or "pending" after a failed or incomplete call."""
-        cp, claims = group
-        key = _sha(cp, *claims)
+        cp, all_claims = group
+        key = _sha(cp, *all_claims)
         if errors.given_up(key):
             return {}
         try:
+            decided = {}
+            claims = [c for c in all_claims if not (dates and MINUTE.search(c))]
+            for c in all_claims:
+                if c not in claims:
+                    decided[_sha(c, cp)] = dated(c, cp)
+            if not claims:
+                return decided
             entries = [e for e in ledger if e["valid_from_turn"] <= cp]
             near = in_turn([sorted(range(len(entries)), key=lambda i: -_overlap(c, entries[i]["value"]))[:SEARCH_K]
                             for c in claims], CLAIM_ENTRIES)
@@ -312,7 +342,6 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
             items = {str(item.get("id")): item for item in reply.get("claims") or [] if isinstance(item, dict)}
             if set(items) < set(ids):                 # every claim must be answered; else retried
                 raise ValueError(f"verdicts for {len(set(items) & set(ids))} of {len(ids)} claims")
-            decided = {}
             for cid, claim in ids.items():
                 hits = [alias[a] for a in items[cid].get("stated_by") or [] if a in alias]
                 decided[_sha(claim, cp)] = ("in_ledger" if any(e.get("usable_for_questions") for e in hits)

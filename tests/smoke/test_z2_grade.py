@@ -291,7 +291,7 @@ def test_aux_check_plants_a_false_twin_at_a_time_no_turn_has():
     plants = A.claim_plants(graded, dates, 1.0)
     assert [(k, c) for k, _, c, _ in plants] == [("true", "On [2025-01-09T05:30:00Z] you said the garden plan was ready"),
                                                  ("false", "On [2025-01-18T05:30:00Z] you said the garden plan was ready")]
-    assert A.PASS == dict(true_supported=0.9, false_invented=0.9, intrusion_clean_wins=0.8)
+    assert A.PASS == dict(true_supported=0.9, false_invented=0.9, wrong_turn_invented=0.9, intrusion_clean_wins=0.8)
 
 
 def test_a_true_plant_needs_its_content_in_the_dated_turn():
@@ -307,3 +307,50 @@ def test_a_true_plant_needs_its_content_in_the_dated_turn():
     plants = A.claim_plants(graded, dates, 1.0, originals=originals)
     trues = [c for k, _, c, _ in plants if k == "true"]
     assert trues == ["On [2025-01-09T05:30:00Z] you said the garden plan was ready for spring"]   # 05:33's turn lacks it
+
+
+def test_a_minute_dated_claim_is_decided_by_the_clock_then_judged_on_that_turn_only(tmp_path):
+    """Run 1 (2026-11-03): with dated passages the batched check still got ~1 dated claim in 4 wrong,
+    both ways. Code decides whether a turn exists at the claim's minute; the judge reads only it."""
+    import experiments.z2.questions as Q
+    rows = [(t, role, f"turn {t} {role}: " + ("the garden plan is ready" if t == 3 else "other talk"))
+            for t in range(1, 6) for role in ("user", "assistant")]
+    dates = {t: f"2025-01-09 05:{t:02d} UTC" for t in range(1, 6)}
+    true_claim = "On [2025-01-09T05:03:00Z] you said the garden plan is ready"
+    moved = "On [2025-01-18T05:03:00Z] you said the garden plan is ready"        # no turn at that minute
+    wrong_turn = "On [2025-01-09T05:04:00Z] you said the garden plan is ready"   # a real minute, other content
+    undated = "the cat speaks french"
+    results = {"full|q0": dict(status="graded", unsupported_claims=[true_claim, moved, wrong_turn, undated])}
+    contexts = [(dict(condition="full", checkpoint=5, ask=dict(id="q0")), None, None)]
+
+    def judge(system, body):
+        if system is G.DATED_CLAIM_SYSTEM:
+            assert len({p["turn"] for p in body["PASSAGES"]}) == 1       # only the turn at that minute
+            return dict(stated=any("garden plan" in p["text"] for p in body["PASSAGES"]), reason="r")
+        assert [c["text"] for c in body["CLAIMS"]] == [undated]           # dated claims never batched
+        return dict(claims=[dict(id="C1", stated_by=[], found=False)])
+    j = Judge(judge)
+    original, Q.embed = Q.embed, lambda texts, device="cpu": np.ones((len(texts), 4))
+    try:
+        G.check_claims(results, contexts, LEDGER, None, (rows, np.ones((len(rows), 4))), j, tmp_path, dates=dates)
+    finally:
+        Q.embed = original
+    got = results["full|q0"]["claims"]
+    assert got[true_claim] == "ledger_miss" and got[moved] == "confirmed_invented"
+    assert got[wrong_turn] == "confirmed_invented" and got[undated] == "confirmed_invented"
+    assert sum(1 for system, _ in j.calls if system is G.DATED_CLAIM_SYSTEM) == 2      # the moved date: no call
+
+
+def test_a_wrong_turn_plant_moves_the_claim_to_an_earlier_turn_without_its_content():
+    """ICE's own error is a real date on the wrong event; the plant reproduces it."""
+    from experiments.z2 import aux_judge_check as A
+    dates = {1: "2025-01-09 05:01 UTC", 2: "2025-01-09 05:02 UTC", 3: "2025-01-09 05:03 UTC"}
+    originals = [dict(turn_number=1, prompt="we talked about the weather", response="sunny"),
+                 dict(turn_number=2, prompt="the garden plan is ready for spring", response="nice"),
+                 dict(turn_number=3, prompt="the garden plan is ready for spring planting", response="great")]
+    claim = "On [2025-01-09T05:03:00Z] you said the garden plan was ready for spring planting"
+    graded = {"full|q1": dict(status="graded", unsupported_claims=["x"], claims={claim: "confirmed_invented"})}
+    plants = {k: c for k, _, c, _ in A.claim_plants(graded, dates, 1.0, originals=originals)}
+    assert plants["true"] == claim
+    assert plants["wrong_turn"] == claim.replace("05:03", "05:01")      # turn 2 holds the content; turn 1 does not
+    assert A.PASS["wrong_turn_invented"] == 0.9
