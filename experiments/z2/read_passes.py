@@ -182,6 +182,10 @@ def build_final_asks(split_dir, occurrences_path):
     return asks
 
 
+# Parts not in FINAL's parts test: clusters (audit A12, below) and what Z3 switched off by default
+# (turn summaries in reads, R4; the fold and batch summaries, procedures, D9).
+PARTS_OUT = ("clusters", "summaries", "notes", "procedural")
+
 # FINAL condition sets (FINAL_experiments.md §2.1; Z3 D4, D5, D10). "z2" = everything Z2 read.
 PRESETS = {
     # the main experiment: ICE frozen, as it runs, against the baselines (maintainer, 2026-10-28) —
@@ -193,11 +197,13 @@ PRESETS = {
     # (`retrieval_auto_cluster_scope=False`; an explicit user scope still applies). The parts test's
     # cluster switch therefore changes no read (Z2 F18: 0 of 208 prompts on B). Reported as
     # "automatic scoping off by default after audit A12 — not tested" (Z3 D14 item 5).
-    "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER if n != "clusters"],
+    # D9 rule 4 (Z3, 2026-11-04): a part the freeze switches off leaves the parts test — off by
+    # default, its leave-one-out and build-up step would read exactly what the step before does.
+    "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER if n not in PARTS_OUT],
     # warm_vector is the build-up's step 0 (ICE's vector leg alone; Z2 F13 measured +10.4 for the
     # first step from it) — the pre-registration's "warm vector appears only inside S9's parts test"
     "final_buildup": ["full", "recent_only", "warm_vector"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))
-                                                if ORDER[k - 1] != "clusters"],
+                                                if ORDER[k - 1] not in PARTS_OUT],
     # Decay (Z2 F18): live (`full_default`) vs neutral (`full`) on the longest histories, split by
     # the evidence's age and by update questions — S9 has both through its parts test; S4 (353 days)
     # adds `full` here.

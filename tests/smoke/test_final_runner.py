@@ -150,6 +150,8 @@ def test_clusters_are_not_in_the_parts_test_and_decay_has_both_arms():
     from experiments.z2 import read_passes as R
     for preset in ("final_ablation", "final_buildup"):
         assert not [c for c in R.select_conditions(preset) if "clusters" in c]
+        # Z3 (2026-11-04, D9 rule 4): parts switched off by default leave the parts test
+        assert not [c for c in R.select_conditions(preset) if c.split("_")[-1] in ("summaries", "notes", "procedural")]
     assert {"full_default", "full"} <= set(R.select_conditions("final_main+final_decay"))
     assert {"full_default", "full"} <= set(R.select_conditions("final_main+final_ablation+final_buildup"))
     assert "warm_vector" in R.select_conditions("final_buildup")                      # step 0 (F13)
