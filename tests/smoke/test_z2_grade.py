@@ -380,3 +380,22 @@ def test_the_claim_check_sees_what_a_long_message_says_further_on(tmp_path):
     finally:
         Q.embed = original
     assert results["full|q0"]["claims"][claim] == "ledger_miss"            # found, not invented
+
+
+def test_the_claim_check_shows_the_passage_sharing_most_words_wherever_it_is(tmp_path):
+    """Z3 2026-11-04: the word search took the first matches in conversation order and sat behind
+    eight meaning matches, so with an answer's ~11 claims under the cap it was never shown."""
+    import experiments.z2.questions as Q
+    rows = [(t, "assistant", f"the gardener plants three rows of beans, note {t}") for t in range(1, 31)]  # 4 shared words
+    rows.append((31, "assistant", "the gardener plants three rows of tomatoes every spring beside the shed"))
+    claims = ["gardener plants three rows of tomatoes every spring"] + [f"unrelated claim number {n}" for n in range(11)]
+    results = {"full|q0": dict(status="graded", unsupported_claims=claims)}
+    contexts = [(dict(condition="full", checkpoint=31, ask=dict(id="q0")), None, None)]
+    judge = Judge(lambda system, body: dict(claims=[dict(id=f"C{n}", stated_by=[], found=False)
+                                                    for n in range(1, len(body["CLAIMS"]) + 1)]))
+    original, Q.embed = Q.embed, lambda texts, device="cpu": np.ones((len(texts), 4))
+    try:
+        G.check_claims(results, contexts, LEDGER, None, (rows, np.ones((len(rows), 4))), judge, tmp_path)
+    finally:
+        Q.embed = original
+    assert 31 in [p["turn"] for p in judge.calls[0][1]["PASSAGES"]]

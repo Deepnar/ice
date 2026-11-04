@@ -53,7 +53,7 @@ SEARCH_K = 8
 CLAIM_WORKERS = 4                  # claim checks side by side, like the answers (were one at a time)
 # per call (one answer's claims, B: median 7, at most 23): each claim's best entries and passages
 # taken in turn up to these, so every claim keeps its strongest evidence and no call balloons
-CLAIM_ENTRIES, CLAIM_PASSAGES = 32, 24
+CLAIM_ENTRIES, CLAIM_PASSAGES = 32, 36       # passages are 1,500 characters (were whole messages cut at 3,000)
 # The claim check searches and shows the conversation as overlapping whole passages
 # (questions.passage_index); a dated claim shows its minute's closest passages.
 DATED_PASSAGES = 4
@@ -274,13 +274,19 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
     vec = dict(zip(texts, claim_vectors(out, texts, embed))) if texts else {}
     lock = threading.Lock()
 
+    row_words = [_words(text) for _, _, text in rows]
+
     def passages_for(claim, cp):
+        """The claim's dated passages, then the best by shared words and the best by meaning in
+        turn — Z3 2026-11-04: the word list took the first matches in conversation order on six
+        words, and came after eight meaning matches, so the cap never reached it."""
         q = np.asarray(vec[claim]) / (np.linalg.norm(vec[claim]) + 1e-12)
         within = [i for i, (turn, _, _) in enumerate(rows) if turn <= cp]
         by_vec = sorted(within, key=lambda i: -float(vectors[i] @ q))[:SEARCH_K]
-        words = [w for w in re.findall(r"[A-Za-z0-9][\w'-]{3,}", claim)][:6]
-        by_word = [i for i in within if words and sum(w.lower() in rows[i][2].lower() for w in words) >= min(3, len(words))][:SEARCH_K]
-        return claim_dated(claim, within, lambda i: -float(vectors[i] @ q)) + by_vec + by_word
+        mine = _words(claim)
+        by_word = sorted((i for i in within if mine & row_words[i]),
+                         key=lambda i: (-len(mine & row_words[i]), i))[:SEARCH_K] if mine else []
+        return claim_dated(claim, within, lambda i: -float(vectors[i] @ q)) + in_turn([by_word, by_vec], 2 * SEARCH_K)
 
     rows_of_turn = {}
     for i, (turn, _, _) in enumerate(rows):
@@ -406,6 +412,17 @@ def claim_vectors(out, texts, embed):
     vectors = embed(texts)
     np.savez(path, digest=digest, vectors=vectors)
     return vectors
+
+
+STOP_WORDS = set("""that this with from have were what when which your about there their they them then than
+been also into just like more some such only very will would could should after before over under because while
+where these those does doing being much many make made really thing things other each both same still even well
+back here time said says user assistant""".split())
+
+
+def _words(text):
+    """A text's content words (four letters or more) and numbers, for the claim check's word search."""
+    return {w for w in re.findall(r"[a-z][a-z'-]{3,}|\d[\d.,:]*", text.lower()) if w not in STOP_WORDS}
 
 
 def _overlap(a, b):
