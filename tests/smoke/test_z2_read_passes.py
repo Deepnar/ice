@@ -147,3 +147,19 @@ def test_r7_sets_existing_switches_only_and_waits_until_chosen(tmp_path):
     assert R.PRESETS["r7"] == ["r7_frozen", "recent_only", "bare_vector"] and "r7_frozen" in R.BUDGET_SOURCES
     from src.api.config import settings
     assert all(hasattr(settings, k) for k in R.R7_SWITCHES)            # every allowed switch is real
+
+
+def test_r7_switches_off_d9_parts_the_way_z2_measured_them(tmp_path):
+    """D9 (2026-11-04): fold notes, the batch-summary leg and procedures go off in R7 by the same
+    switches Z2's ablations used (groups 5 and 6); any other part is refused."""
+    import json
+    import pytest
+    from experiments.z2 import read_passes as R
+    path = tmp_path / "r7.json"
+    path.write_text(json.dumps(dict(settings={"turn_summaries_in_reads": False}, off=["notes", "procedural"])))
+    spec = R.r7_condition(path)
+    assert spec["flags"] == {"batch_summary": False, "procedural": False} and spec["harness"] == ["no_fold"]
+    assert spec["overlay"] == "default" and spec["settings"] == {"turn_summaries_in_reads": False}
+    path.write_text(json.dumps(dict(settings={}, off=["temporal"])))
+    with pytest.raises(ValueError, match="existing switches only"):
+        R.r7_condition(path)

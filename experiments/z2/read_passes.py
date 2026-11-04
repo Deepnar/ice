@@ -283,16 +283,28 @@ R7_SWITCHES = frozenset({
     "retrieval_rerank_query_context", "retrieval_rerank_instruction"})
 
 
+# D9 parts R7 may switch off, by the same switches Z2's ablations measured them off with (group 5:
+# the fold and the batch-summary leg; group 6: procedures) — production gets its own off switch
+# at the freeze, checked equal by query (maintainer, 2026-11-04).
+R7_GROUPS_OFF = frozenset({"notes", "procedural"})
+
+
 def r7_condition(path=R7_SETTINGS):
     """The frozen candidate's read spec, or None before its settings are chosen. A setting outside
-    R7_SWITCHES is refused: R7 chooses among existing switches, it does not try new ones."""
+    R7_SWITCHES, or a part outside R7_GROUPS_OFF, is refused: R7 chooses among existing switches,
+    it does not try new ones."""
     if not Path(path).exists():
         return None
-    chosen = json.loads(Path(path).read_text())["settings"]
-    extra = sorted(set(chosen) - R7_SWITCHES)
+    data = json.loads(Path(path).read_text())
+    chosen, off = data["settings"], set(data.get("off", ()))
+    extra = sorted(set(chosen) - R7_SWITCHES) + sorted(off - R7_GROUPS_OFF)
     if extra:
         raise ValueError(f"R7 sets existing switches only; not one: {extra}")
-    return dict(overlay="default", arm="full", settings=dict(chosen))
+    spec = dict(overlay="default", arm="full", settings=dict(chosen))
+    if off:
+        parts = switched_off(off)
+        spec.update(flags=parts["flags"], harness=parts["harness"], groups_off=parts["groups_off"])
+    return spec
 
 
 def r7_conditions():
