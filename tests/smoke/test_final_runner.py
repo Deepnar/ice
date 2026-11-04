@@ -184,3 +184,45 @@ def test_a_slice_reads_questions_at_its_last_checkpoint(tmp_path):
     asks = json.loads(read.asks_for(ctx).read_text())
     assert len(asks) == read.SLICE_ASKS and {a["checkpoint_turn"] for a in asks} == {30}
     assert all(a["slice_trial"] for a in asks)
+
+
+def test_local_lanes_draw_one_meter_and_keep_the_lanes_output_in_files(tmp_path, monkeypatch, capsys):
+    """2026-11-04: lanes drawing over one another in one terminal filled tmux's history. The
+    launcher draws one meter of every lane (a stage's status from whichever runner has it
+    furthest); each lane's own output goes to <run>/lane-localK.out."""
+    import json
+    from experiments.final import local_lanes as L
+    from experiments.final import run_final as F
+    from experiments.z2 import run_z2 as Z
+
+    class S(Z.Stage):
+        def total(self, ctx):
+            return 1
+
+    fake = tmp_path / "fake_runner.py"
+    fake.write_text(
+        "import json, sys, time, pathlib\n"
+        "a = sys.argv\n"
+        "d = pathlib.Path('logs') / ('final-run-' + a[a.index('--name') + 1])\n"
+        "d.mkdir(parents=True, exist_ok=True)\n"
+        "if '--lane' not in a: sys.exit(0)\n"
+        "lane, keys = a[a.index('--lane') + 1], a[a.index('--only') + 1].split(',')\n"
+        "print('LANE NOISE', lane, flush=True)\n"
+        "w = lambda s: (d / f'state-{lane}.json').write_text(json.dumps(dict(stages={k: dict(status=s) for k in keys})))\n"
+        "w('running'); time.sleep(1.5); w('done')\n")
+    monkeypatch.setattr(L, "ROOT", tmp_path)
+    monkeypatch.setattr(L, "RUNNER", str(fake))
+    monkeypatch.setattr(Z, "TTY_REFRESH", 0.3)
+    monkeypatch.setattr(F, "final_stages", lambda limit: [S(key=k, title=f"stage {k}") for k in
+                                                           ("prep-x", "local-replay-B", "local-replay-S1")])
+    run = tmp_path / "logs" / "final-run-t"
+    run.mkdir(parents=True)
+    (run / "state.json").write_text(json.dumps(dict(started=0, stages={"local-replay-B": dict(status="pending")})))
+    monkeypatch.setattr("sys.argv", ["local_lanes.py", "--lanes", "2", "--name", "t"])
+    assert L.main() == 0
+    out = capsys.readouterr().out
+    assert "LANE NOISE" not in out and "LANE NOISE" in (run / "lane-local0.out").read_text()
+    last = out.rsplit("FINAL", 1)[-1] if "FINAL" in out else out.rsplit("Z2 run", 1)[-1]
+    assert "stage local-replay-B" in last and "stage local-replay-S1" in last and "lanes finished" in last
+    assert last.count("[       done]") == 2                       # both lanes' stages, merged
+    assert json.loads((run / "state.json").read_text())["stages"]["local-replay-B"]["status"] == "pending"  # never written
