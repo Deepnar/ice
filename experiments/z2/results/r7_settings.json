@@ -1,0 +1,9 @@
+{
+ "settings": {
+  "turn_summaries_in_reads": false,
+  "memory_source_rescue_mode": "reranker",
+  "memory_source_rescue_min_score": 0.0
+ },
+ "chosen_from": "Z3 judging run 2 (RETESTS R3/R4 result, R10 graded): turn summaries off in reads B +7.0 [0.0, +13.9], C +2.7 at equal prompt tokens; reranker rescue at bar 0 — 26 -> 113 correct of LongMemEval's 146 refused questions. Not chosen: conversation order (B -1.7, C +6.8 disagree), policy text, originals first, wider legs.",
+ "decided": "2026-11-04 (maintainer)"
+}

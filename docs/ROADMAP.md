@@ -152,9 +152,9 @@ resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
   all passed NLI (weak on who-did-what). **G75** second reading by the background model,
   `summary_claim_check_enabled` default OFF — test: `logs/fix-pass/claim_check_eval.py` on
   393 S8-labeled items (thresholds inside), plus the per-turn cost on a replay slice.
-- ☐ **Maintainer decision:** session summaries (faithful B 8/44, C 3/12; written unverified by
-  reflection) are read only by MCP `ice://session-start`, never by chat prompts — verify
-  them, stop showing them, or leave. Procedures B 26% unfaithful but ~0.7 per prompt — low
+- ✅ **Session summaries stopped** (`2e9f4ed`, 2026-10-27; faithful B 8/44, C 3/12, written unverified
+  by reflection, read only by MCP `ice://session-start`, never by chat prompts): no longer written or
+  shown; the table and its count/delete code remain. Procedures B 26% unfaithful but ~0.7 per prompt — low
   priority.
 - ✅ Codex fact recall vs the ledger B 0.42 / C 0.51 — the sample is 88% assistant-side;
   assistant facts ~40-50%, advice ~37-42%; user facts too few to judge (6 / 3). Missed
