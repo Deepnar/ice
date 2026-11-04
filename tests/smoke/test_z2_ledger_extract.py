@@ -255,3 +255,17 @@ def test_one_pair_too_long_for_one_reply_is_recorded_in_parts(tmp_path, monkeypa
     assert len(spans) >= 2 and spans[0][0] == 0 and all(a[1] == b[0] for a, b in zip(spans, spans[1:]))
     assert all("[turn 1 | user]" in s for s in shown)                  # every part says whose words
     assert len(record["entries"]) == len(spans)                         # every part's quote resolved
+
+
+def test_a_dropped_upstream_connection_reported_as_400_is_transient():
+    """ICE2's question chain (2026-11-05) died on the gateway's 400 for a connection it dropped; a 400
+    naming a cause on our side (the workspace region) still stops the run."""
+    import httpx
+    import openai
+    from experiments.z2 import profiles
+    request = httpx.Request("POST", "https://example.invalid/v1/chat/completions")
+    def bad(message, param=None):
+        body = {"error": {"param": param, "type": "server_error", "message": message}}
+        return openai.BadRequestError(f"Error code: 400 - {body}", response=httpx.Response(400, request=request), body=body)
+    assert profiles.transient(bad("Upstream request failed: [400] Request failed", "Connection prematurely closed BEFORE response"))
+    assert not profiles.transient(bad("Upstream request failed: This Go model requires Global regions. Select Global in your workspace's Privacy settings to use it."))

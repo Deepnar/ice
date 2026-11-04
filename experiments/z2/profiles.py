@@ -107,6 +107,11 @@ def transient(exc) -> bool:
     from experiments.lme.cloud_provider import CloudCompletionError
     if isinstance(exc, (openai.APIConnectionError, openai.APITimeoutError)):
         return True
+    # the gateway's own dropped upstream connection, reported as a 400 (ICE2's question chain,
+    # 2026-11-05: "Connection prematurely closed BEFORE response ... [400] Request failed") — not a
+    # refusal of the request; a 400 that names a cause ("requires Global regions") stays fatal
+    if isinstance(exc, openai.BadRequestError) and re.search(r"prematurely closed|Upstream request failed: \[\d+\] Request failed", str(exc)):
+        return True
     # A generation the provider aborted mid-way (status "abort", 2026-10-19 on B's
     # change detection) is transient; a length cut is not (it would cut again).
     if isinstance(exc, CloudCompletionError) and "abort" in str(exc):
