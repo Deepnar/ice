@@ -129,3 +129,17 @@ def test_pool_keeps_histories_apart_and_tests_the_pooled_questions():
     p2 = pooled["primary_tests"]["M1 all: full_default vs bare_vector"]
     assert p2["pairs"] == 40 and p2["families"] == 40 and p2["verdict"] == "win"
     assert pooled["by_condition"]["full_default"]["m1"] == 1.0 and pooled["by_condition"]["full_default"]["prompt_tokens"] == 1000
+
+
+def test_a_part_off_in_full_ice_is_scored_from_its_add_back_read():
+    """Z3 (2026-11-04): turn summaries are off in full ICE; S9 reads them back on beside it, so the
+    part's effect is the add-back minus full, with the same sign as a leave-one-out."""
+    graded, units, occ = _history()
+    for ask in occ:
+        graded[f"addback_summaries|{ask}"] = verdict("incorrect")             # showing summaries hurts
+        units[f"addback_summaries|{ask}"] = dict(prompt_tokens=1000, source_turns=[2], recent_tokens=0, legs=["facts"])
+    prefix = S.turn_prefix([None] * 60, count=lambda t: 6000)
+    out = S.score("B", graded, units, occ, prefix, prompts={k: k for k in units})
+    summaries = out["fidelity"]["summaries"]
+    assert summaries["state"] == "off in full ICE; added back: hurts" and summaries["prompts_changed_when_off"] == 30
+    assert summaries["m2_full_minus_off"]["diff"] < 0 and summaries["m2_full_minus_off"]["worse"] == 30

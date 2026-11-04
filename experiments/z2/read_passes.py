@@ -102,6 +102,9 @@ def switched_off(names):
 
 ORDER = [name for name, _ in GROUPS]
 CONDITIONS.update({f"loo_{name}": switched_off({name}) for name in ORDER})          # leave one out
+# Z3 (2026-11-04): turn summaries are off in full ICE's reads; S9 reads them back on beside it — not
+# a build-up step, full ICE stays the system without them.
+CONDITIONS["addback_summaries"] = dict(overlay="neutral", arm="full", settings={"turn_summaries_in_reads": True})
 CONDITIONS.update({f"add_{k}_{ORDER[k - 1]}": switched_off(set(ORDER[k:]))          # groups 1..k on
                    for k in range(1, len(ORDER))})
 
@@ -199,7 +202,8 @@ PRESETS = {
     # "automatic scoping off by default after audit A12 — not tested" (Z3 D14 item 5).
     # D9 rule 4 (Z3, 2026-11-04): a part the freeze switches off leaves the parts test — off by
     # default, its leave-one-out and build-up step would read exactly what the step before does.
-    "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER if n not in PARTS_OUT],
+    "final_ablation": ["full", "recent_only"] + [f"loo_{n}" for n in ORDER if n not in PARTS_OUT]
+                      + ["addback_summaries"],
     # warm_vector is the build-up's step 0 (ICE's vector leg alone; Z2 F13 measured +10.4 for the
     # first step from it) — the pre-registration's "warm vector appears only inside S9's parts test"
     "final_buildup": ["full", "recent_only", "warm_vector"] + [f"add_{k}_{ORDER[k - 1]}" for k in range(1, len(ORDER))

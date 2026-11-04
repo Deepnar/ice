@@ -416,6 +416,11 @@ def pool(parts, primary=ICE, bases=("long_context", "bare_vector")):
                 primary_tests=tests, hallucination_noninferiority=noninferior)
 
 
+# A part the freeze switched off is read back ON beside full ICE (S9, Z3 2026-11-04): full ICE
+# is the one without it, so "with it − without it" is that condition minus full.
+ADD_BACK = {"summaries": "addback_summaries"}
+
+
 def fidelity(outcomes, asks, conditions, units, prompts, audit, primary="full", targets=None):
     """Per component: did it run, is its output faithful, does it reach a prompt, does
     switching it off change any prompt, and the M2 change on its questions."""
@@ -423,6 +428,18 @@ def fidelity(outcomes, asks, conditions, units, prompts, audit, primary="full", 
     out = {}
     for name, spec in COMPONENTS.items():
         loo = f"loo_{name}"
+        back = ADD_BACK.get(name)
+        if back in conditions and loo not in conditions:
+            both = [a for a in asks if f"{primary}|{a}" in (prompts or {}) and f"{back}|{a}" in (prompts or {})]
+            planned = [a for a in asks if (targets or {}).get(a) == name] if targets else asks
+            effect = compare(paired(outcomes, back, primary, "m2", planned))
+            ci = (effect or {}).get("ci95")
+            out[name] = dict(items=None, faithful=None, prompt_reach=None, questions="planned for it" if targets else "all",
+                             prompts_changed_when_off=sum(prompts[f"{primary}|{a}"] != prompts[f"{back}|{a}"] for a in both)
+                             if both else None, m2_full_minus_off=effect,
+                             state="off in full ICE; added back: " + ("helps" if ci and ci[0] > 0 else
+                                                                     "hurts" if ci and ci[1] < 0 else "no measurable effect"))
+            continue
         produced = {k: kinds[k].get("items") for k in spec["kinds"] if k in kinds}
         faithful = {k: (kinds[k].get("criteria", {}).get("faithful") or {}).get("yes_rate") for k in spec["kinds"] if k in kinds}
         reach = None
