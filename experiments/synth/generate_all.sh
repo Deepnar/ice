@@ -49,8 +49,18 @@ one_conversation() {
     echo "[$sid] already running elsewhere — left to it"
     return
   fi
-  until "$UV" run --no-sync python experiments/synth/generate.py --plan "$sid" --out "logs/final-synth/$sid" \
-      ${LIMIT:+--limit "$LIMIT"} >> "logs/final-synth/$sid.log" 2>&1 && [ ! -f "logs/final-synth/$sid/stopped.json" ]; do
+  local rc
+  while true; do
+    rc=0
+    "$UV" run --no-sync python experiments/synth/generate.py --plan "$sid" --out "logs/final-synth/$sid" \
+      ${LIMIT:+--limit "$LIMIT"} >> "logs/final-synth/$sid.log" 2>&1 || rc=$?
+    [ "$rc" -eq 0 ] && [ ! -f "logs/final-synth/$sid/stopped.json" ] && break
+    # exit 4 without stopped.json is a rollback (once per stuck turn), not a stop: relaunched
+    # uncounted — S7 (2026-11-04) was left "for repair" after three rollbacks and nothing stuck
+    if [ "$rc" -eq 4 ] && [ ! -f "logs/final-synth/$sid/stopped.json" ]; then
+      echo "[$sid] rolled back a few turns — relaunching"
+      continue
+    fi
     tries=$((tries + 1))
     [ "$tries" -ge 3 ] && { echo "[$sid] stopped 3 times — left for repair (status shows the turn)"; return; }
     echo "[$sid] stopped at a turn — relaunching ($tries/3)"

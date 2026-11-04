@@ -17,7 +17,13 @@ def test_stages_wait_for_inputs_and_answer_only_the_order_and_summary_settings()
     r7 = " ".join(stages["r7-grade-C"].cmd)                             # R7: the frozen candidate is the system tested
     assert "--primary r7_frozen" in r7 and "--no-ranking" in r7 and "--verdicts-only" not in r7
     assert "--reuse logs/z2-run-main/s10-B" in " ".join(stages["r7-answers-B"].cmd)
-    assert stages["r7-answers-B"].inputs == ("r7reads-B",) and stages["r7-answers-B"].missing(None) == ["r7reads-B"]
+    assert stages["r7-answers-B"].inputs == ("r7reads-B",)
+    real = J.r7_reads_done                                     # the run's own logs may hold R7's reads already
+    try:
+        J.r7_reads_done = lambda h: False
+        assert stages["r7-answers-B"].missing(None) == ["r7reads-B"]
+    finally:
+        J.r7_reads_done = real
     for s in stages.values():
         assert "s11-" not in " ".join(s.cmd).split("--out", 1)[-1]       # never Z2's grading folders
 
