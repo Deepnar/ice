@@ -128,8 +128,8 @@ re-read, never set from B alone.
 |---|---|---|---|
 | R1 | F1 fix — database tests of the source check | GPU/DB | ✅ 93 + full rails |
 | R2 | F2 — how many candidates to rank, and keep the rest | GPU | ✅ 256 chosen (default since 2026-10-30) |
-| R3 | F10 — conversation order for "which came first" | GPU + CLOUD | ☐ |
-| R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ☐ |
+| R3 | F10 — conversation order for "which came first" | GPU + CLOUD | ✅ answered 2026-11-04: B −1.7, C +6.8 — B and C disagree |
+| R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ✅ answered 2026-11-04: summaries off B +7.0 [0.0, +13.9], C +2.7 |
 | R5 | F12 — judge the judge: 250 answers under both rubrics, planted panel, invariance | CLOUD (~$0.6) | ✅ run 1 2026-11-03: panel 8/8 marks; grade-2 vs per-point 90% B / 92% C; invariance 20/20, 8/8; BEAM 5/5; controls 43/43 intrusion; dated claims B 7/7 + 7/7 + 7/7, C true 13/17 (the 4 misses read: plant labels wrong, judge right), wrong-turn 16/17 — awaiting maintainer approval |
 | R6 | Z2's grade-1 grading finishes on `main` (B's remaining phases, C, S12) | CLOUD (~$11) | ☐ |
 | R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
@@ -299,6 +299,27 @@ prompt: shipped 50%, margin 1 44%, margin 2 37%, policy text 26%, originals firs
 coverage 79.5–81.1% throughout (summaries change detail, not which turns). Memory tokens rise as
 originals replace summaries (20.7k → 28.6k). Answers and grade-2 decide (Z3 judging).
 
+**R3/R4 RESULT (Z3 judging run 2, 2026-11-04; v3 fix-pass at 256 candidates; Muse 1.2 answers, grade-2
+with the fixed claim check; correct = the judge's "correct" on REQUIRED points).** B 174 questions, C 75:
+
+| setting | B correct | C correct | paired vs shipped, B / C (95% family bootstrap; wins/losses) |
+|---|---|---|---|
+| shipped (`retest_cand256`) | 61.3% | 50.0% | — |
+| conversation order | 59.8% | 55.4% | −1.7 [−5.7, +2.5] +5/−8 · +6.8 [0.0, +13.9] +6/−1 |
+| reranker keeps policy text | 63.6% | 48.0% | +2.3 [−2.9, +8.1] · −1.4 [−7.2, +4.4] |
+| originals first | 65.9% | 48.0% | +4.6 [−1.2, +10.7] · −1.4 [−7.5, +4.3] |
+| wider legs + originals | 64.2% | 52.1% | +2.3 [−4.6, +10.1] · +2.8 [−5.8, +12.1] |
+| **turn summaries off in reads** | **68.2%** | 52.0% | **+7.0 [0.0, +13.9] +19/−7** · +2.7 [−4.4, +10.4] +4/−2 |
+
+Invented claims are ~11% of an answer's unsupported claims on B and ~20% on C under **every** setting
+(none of these moves it); ~11 such claims per answer, so "an answer with no invented claim" (m2) is
+8–29% and says more about answer length than about a setting. Of the minute-dated claims judged
+invented, every timestamp is in ICE's own prompt and a message exists at that minute before the
+checkpoint: the judge read that message and it does not say what the claim says — the date
+misattribution of F27, not a clock fault. Weak types on both: aggregation and cumulative (0–40%);
+B multi-hop 16–47%; C temporal 10–30%. Cost of run 2: ~$8.9 (Go list price). The grader's new claim-call
+count matched its real calls on both (B 3,056 planned / 3,055 made; C 928 / 927).
+
 ## R5 — judge the judge (CLOUD, ~$0.6)
 
 Light, but every part runs: the largest single loss Z2 found was the judge (F12).
@@ -451,3 +472,9 @@ unmeasured, likely small, harm — and unneeded cases scale with ordinary chat. 
 the knee from the "reached" counts alone — 93 vs 94 — which miss 3 of those 4.) The LongMemEval grading
 (always-fetch answers + no-memory answers, every bar replayed offline) confirms or moves it. Not measured:
 whether unneeded related memory makes an answer worse (nothing was answered).
+
+**Graded (Z3 judging run 2, 2026-11-04; LongMemEval's own judge, Muse 1.2 answers; 146 refused questions):**
+correct with no memory 17 · shipped proof rescue 26 · reranker rescue with no bar 130 · bar −4 125 · −2 119 ·
+−1 117 · **0 113** · +1 109 · +2 101 · +3 92. Bar 0 holds: −1 adds 4 correct for 14 more unneeded of 79
+(37% → 54%). Whole-LongMemEval estimate (S12's fetched questions + these): shipped 65.6% → ~88% at bar 0
+(~91% with no bar); plain vector 84.2%, all answer sessions 93.6% — mixed runs, an estimate until FINAL.
