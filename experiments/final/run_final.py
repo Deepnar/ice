@@ -316,7 +316,8 @@ class ControlCalls(Z.Stage):
         return self.planned
 
     def done(self, ctx):
-        return self.planned if self.complete(ctx) else min(len(self._rows()), self.planned - 1)
+        made = len(self._rows())
+        return max(made, self.planned) if self.complete(ctx) else made   # past the plan counts on
 
     def rate(self, ctx):
         secs = [json.loads(r).get("seconds") for r in self._rows()[-30:]]
@@ -472,7 +473,7 @@ class FinalGrade(Z.Stage):
         for name in self.RESULTS:
             path = self.out(ctx) / name
             if path.exists():
-                return min(sum(1 for line in path.open() if line.strip()), self.total(ctx))
+                return sum(1 for line in path.open() if line.strip())   # past the plan counts on
         return 0
 
     def complete(self, ctx):

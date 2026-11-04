@@ -102,14 +102,13 @@ class Counted(Command):
         self.calls, self.planned, self.unit, self.inputs = calls, planned, unit, inputs
 
     def total(self, ctx):
-        """The plan, or — once the work outgrows it — the calls made so far plus one, so the meter
-        keeps moving (run 2, 2026-11-04: grade-2 lists claims on almost every answer, B's grading
-        passed its planned 1,806 and the bar sat at 1,805 for hours)."""
-        made = lines(self.calls)
-        return made if self.complete(ctx) else max(self.planned, made + 1)
+        """The plan until done. Work past it counts on and the meter marks it (run 2, 2026-11-04:
+        grade-2 lists claims on almost every answer, B's grading passed its planned 1,806 and the
+        bar sat at 1,805 for hours)."""
+        return lines(self.calls) if self.complete(ctx) else self.planned
 
     def done(self, ctx):
-        return self.total(ctx) if self.complete(ctx) else lines(self.calls)
+        return lines(self.calls)
 
     def missing(self, ctx):
         def ready(m):

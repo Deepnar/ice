@@ -59,3 +59,21 @@ def test_the_meter_is_drawn_when_a_stage_begins(tmp_path):
     ctx.label = "FINAL"
     Z.drive(ctx, ctx.stages)
     assert "FINAL run 't'" in out.getvalue() and "quick stage" in out.getvalue()
+
+
+def test_on_a_terminal_the_meter_fits_the_screen(tmp_path):
+    """FINAL lists ~60 stages; in tmux every frame that scrolls stays in the history (maintainer,
+    2026-11-04). Fitted: never taller or wider than the terminal, working stages always shown."""
+    ctx = Z.Context("t", directory=tmp_path)
+    ctx.stages = [S(key=f"k{i}", title=f"stage number {i} of a long run") for i in range(60)]
+    for i in range(20):
+        ctx.stage_state(f"k{i}")["status"] = "done"
+    for i in (20, 21):
+        ctx.stage_state(f"k{i}")["status"] = "running"
+    ctx.stage_state("k22")["status"] = "needs_input"
+    lines = Z.meter(ctx, note="runner active", fit=(80, 20)).splitlines()
+    text = "\n".join(lines)
+    assert len(lines) <= 19 and max(map(len, lines)) <= 79
+    assert all(f"number {i} " in text for i in (20, 21, 22))          # the working stages, in full
+    assert "20 of 60 stages" in text and "more pending" in text and "Ctrl-C" in text and "runner active" in text
+    assert len(Z.meter(ctx).splitlines()) > 60                          # the full list still exists

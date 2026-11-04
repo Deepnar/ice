@@ -180,13 +180,19 @@ class Context:
                 child.kill()
 
     # meter ----------------------------------------------------------------
+    full = False                                   # `status --all`: every stage, scrolling allowed
+
+    def fit(self):
+        """(columns, lines) of the runner's terminal, or None for the full list."""
+        return None if self.full else tuple(shutil.get_terminal_size((120, 40)))
+
     def render(self, note=None, force=False):
         tty = self.out.isatty()
         now = time.time()
         if not force and now - self._last_render < (TTY_REFRESH if tty else LOG_REFRESH):
             return
         self._last_render = now
-        text = meter(self, note)
+        text = meter(self, note, fit=self.fit() if tty else None)
         self.out.write(("\x1b[H\x1b[J" if tty else "\n") + text + "\n")
         self.out.flush()
 
@@ -533,7 +539,7 @@ class Grading(Stage):
         if not path.exists():
             return 0
         with path.open() as handle:
-            return min(sum(1 for _ in handle), self.total(ctx))
+            return sum(1 for _ in handle)      # past the plan counts on (the meter marks it)
 
     def rate(self, ctx):
         from experiments.z2 import bg_audit
@@ -789,46 +795,96 @@ def _clock(seconds):
     return (f"{days}d " if days else "") + f"{hours}h{rest // 60:02d}m"
 
 
-def meter(ctx, note=None):
-    rows, left_total, estimated = [], 0.0, False
+ACTIVE = ("running", "stopped", "stuck", "needs_input")   # what the screen always shows in full
+
+
+def meter(ctx, note=None, fit=None):
+    """The run's screen. With *fit* (columns, lines; the runner's own terminal) it never outgrows
+    the terminal — tmux keeps every frame that scrolls, so a long FINAL list buried the live one
+    (maintainer, 2026-11-04): working stages in full, the next waiting ones as room allows, the
+    rest one line each; every line cut to the width. Without it, every stage in full (logs,
+    `status --all`). A stage past its planned work counts on, marked, never frozen at its plan."""
+    left_total, estimated = 0.0, False
     shown = getattr(ctx, "shown", None)        # the runner's own --only stages; None = all
     stages = [s for s in ctx.stages if not shown or s.key in shown]
+    rows = []                                  # (status, text)
     for stage in stages:
         st = ctx.stage_state(stage.key)
         status = st["status"]
         if not stage.built:
-            rows.append(f" [  not built] {stage.title}")
+            rows.append(("not_built", f" [  not built] {stage.title}"))
             continue
         total, done = stage.total(ctx), stage.done(ctx)
         if stage.complete(ctx):
-            status, done = "done", total
+            status, done = "done", max(done, total)
+            total = done
+        over = status != "done" and total and done >= total
         rate = stage.rate(ctx)
         per = rate or stage.estimate
         left = max(0, total - done) * per
         if status != "done":
             left_total += left
-            estimated |= rate is None
-        share = done / total if total else 0
+            estimated |= rate is None or bool(over)
+        share = min(1.0, done / total) if total else 0
         bar = "█" * int(share * 20) + "░" * (20 - int(share * 20))
         speed = (f"{rate:.0f} s/{stage.unit[:-1]}" if rate else f"~{stage.estimate:.0f} s/{stage.unit[:-1]} (estimate)")
         tail = "" if status == "done" else f"  {speed}  left {_clock(left)}"
+        if fit is not None and status != "done":   # time left first: a narrow pane keeps it
+            tail = f"  left {_clock(left)}  " + (f"{rate:.0f} s/{stage.unit[:-1]}" if rate else f"~{stage.estimate:.0f} s/{stage.unit[:-1]} est")
+        count = f"{done:>5}/{total:<5}"
+        if over:                               # more work than planned: still moving, end unknown
+            count, tail = f"{done:>5}/{total:<4}+", f"  past plan, still working  {speed}"
         fails = len(st.get("failures", []))
         if status == "needs_input":
             tail = "  waiting for: " + ", ".join(stage.missing(ctx))
-        rows.append(f" [{status:>11}] {stage.title:<34} {done:>5}/{total:<5} {stage.unit} {bar} {share:4.0%}"
-                    f"{tail}{f'  ({fails} restarts)' if fails else ''}")
+        restarts = f"  ({fails} restarts)" if fails else ""
+        if fit is None:
+            rows.append((status, f" [{status:>11}] {stage.title:<34} {count} {stage.unit} {bar} {share:4.0%}{tail}{restarts}"))
+        else:                                  # a narrow pane cuts the bar, never the count or time left
+            room = max(12, min(34, fit[0] - 62))   # the title gives way first
+            title = stage.title if len(stage.title) <= room else stage.title[:room - 1] + "…"
+            pct = "" if over else f" {share:4.0%}"    # past its plan, a share means nothing
+            rows.append((status, f" [{status:>11}] {title:<{room}} {count} {stage.unit}{pct}{tail}{restarts}  {bar}"))
     elapsed = time.time() - ctx.state.get("started", time.time())
     head = (f"{getattr(ctx, 'label', 'Z2')} run '{ctx.name}'  {_rel(ctx.dir)}   elapsed {_clock(elapsed)}   "
             f"built stages left ~{_clock(left_total)}{' (partly estimated)' if estimated else ''}")
-    lines = [head, *rows]
-    if any(not s.built for s in stages):
-        lines.append(" Stages not built yet are skipped; a stage that needs one waits. Everything done is saved.")
-    if shown:
-        lines.append(f" Showing this runner's {len(stages)} stages (--only); `status --all` shows every stage.")
+    foot = []
     if note:
-        lines.append(f" ⏳ {note}")
-    lines.append(f" Ctrl-C stops cleanly; the same command resumes.  Log: {_rel(ctx.dir / 'runner.log')}")
-    return "\n".join(lines)
+        foot.append(f" ⏳ {note}")
+    foot.append(f" Ctrl-C stops cleanly; the same command resumes.  Log: {_rel(ctx.dir / 'runner.log')}")
+    if fit is None:
+        lines = [head, *(text for _, text in rows)]
+        if any(not s.built for s in stages):
+            lines.append(" Stages not built yet are skipped; a stage that needs one waits. Everything done is saved.")
+        if shown:
+            lines.append(f" Showing this runner's {len(stages)} stages (--only); `status --all` shows every stage.")
+        return "\n".join(lines + foot)
+    width, height = fit
+    room = max(4, height - 1) - 1 - len(foot)  # the last line holds the cursor
+    active = [text for status, text in rows if status in ACTIVE]
+    finished = [text for status, text in rows if status == "done"]
+    waiting = [(status, text) for status, text in rows if status not in ACTIVE and status != "done"]
+    summary = 1 if finished else 0
+    body = active[:max(1, room - summary - (1 if waiting else 0))]
+    if len(body) < len(active):
+        body.append(f" … {len(active) - len(body)} more working stages (`status --all` lists every stage)")
+    if finished:
+        body.append(f" [       done] {len(finished)} of {len(rows)} stages")
+    free = room - len(body)
+    if waiting:
+        listed = waiting[:free if free >= len(waiting) else max(0, free - 1)]
+        body += [text for _, text in listed]
+        rest = waiting[len(listed):]
+        if rest:
+            kinds = {}
+            for status, _ in rest:
+                kinds[status] = kinds.get(status, 0) + 1
+            body.append(f" [    waiting] {len(rest)} more " + ", ".join(f"{n} {k.replace('_', ' ')}" for k, n in kinds.items())
+                        .removeprefix(f"{len(rest)} ") + "  (`status --all` lists them)")
+    # the folder is in the log path below; the time left must survive the cut
+    head = (f"{getattr(ctx, 'label', 'Z2')} '{ctx.name}'  elapsed {_clock(elapsed)}  "
+            f"left ~{_clock(left_total)}{' (partly estimated)' if estimated else ''}")
+    return "\n".join(line[:width - 1] for line in [head, *body, *foot])
 
 
 # Experiment runs keep their local models loaded for the whole run (maintainer, 2026-10-28: the
@@ -884,6 +940,7 @@ def main(stages_fn=None, run_dir=None, prog="run_z2.py", description=None, runs=
         while True:
             ctx.state = json.loads(ctx.state_path.read_text()) if ctx.state_path.exists() else ctx.state
             ctx.shown = None if args.all else started_only(ctx)
+            ctx.full = args.all and not args.watch
             ctx.render(note=alive, force=True)
             if not args.watch:
                 return 0

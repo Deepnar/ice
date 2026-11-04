@@ -49,6 +49,8 @@ def test_the_meter_keeps_moving_when_the_work_outgrows_its_plan(tmp_path):
     calls.write_text("x\n" * 120)
     stage = J.Counted("s", "s", ["true"], calls=calls, planned=100)
     ctx = Z.Context("t", directory=tmp_path, out=io.StringIO())
-    assert (stage.done(ctx), stage.total(ctx)) == (120, 121)
+    assert (stage.done(ctx), stage.total(ctx)) == (120, 100)
+    ctx.stages = [stage]
+    assert "120/100 +" in Z.meter(ctx) and "past plan, still working" in Z.meter(ctx, fit=(80, 20))
     calls.write_text("x\n" * 50)
     assert (stage.done(ctx), stage.total(ctx)) == (50, 100)
