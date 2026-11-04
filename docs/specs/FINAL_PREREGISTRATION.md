@@ -88,6 +88,19 @@ rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-me
   reply leaves without a verdict is not judged, never unsupported.
 - BEAM's judge is checked on planted answers in Z3 judging run 1 before FINAL grades anything.
 
+**Revision 8 — APPROVED by the maintainer 2026-11-04, before any FINAL answer** (RETESTS R3/R4 result):
+- **The claim check, the never-said check and the forward walk read every message whole**, as
+  overlapping 1,500-character passages (`questions.passage_index`). They had searched messages by
+  their opening and shown them cut (3,000 / 1,500 characters): shown the claim's own passage, the
+  judge found 25–36% of the "invented" claims stated. Hallucination numbers before this revision are
+  not comparable with FINAL's.
+- **Recall@k and precision@k are reported as supplementary columns**, computed afterwards from the
+  saved ranked lists (no new run): the share of an answer's cited turns among the first k ranked
+  pieces (k = 5, 10, 20), for ICE and `bare_vector`. Stated beside them, in their own words: ICE fills
+  a token budget with pieces of very different sizes (a one-line fact, a whole message), so "the
+  first k" differs between systems; the primary retrieval measure stays evidence recall at the
+  budget (§4).
+
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP, ICE2 (held out; ICE2 added in revision 4)
