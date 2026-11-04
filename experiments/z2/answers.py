@@ -407,6 +407,8 @@ def main() -> int:
     args = parser.parse_args()
     if not args.out.resolve().is_relative_to(ROOT / "logs"):
         raise ValueError("answers are private: keep them under logs/")
+    from experiments.z2.ledger_merge import one_writer
+    writer = one_writer(args.out)  # noqa: F841 — held until exit
     if args.answerer != "local":
         from experiments.z2.profiles import metadata
         role = args.answerer.split(":", 1)[1] if args.answerer.startswith("cloud:") else args.answerer

@@ -697,7 +697,7 @@ def main() -> int:
     from experiments.z2 import ledger_merge as M
     from experiments.z2.profiles import generator, metadata
     load_selected_env()
-    args.out.mkdir(parents=True, exist_ok=True)
+    writer = M.one_writer(args.out)  # noqa: F841 — held until exit; before Calls reads the saved calls
     if not (args.questions or args.occurrences):
         parser.error("one of --questions / --occurrences is required")
     def refresh():

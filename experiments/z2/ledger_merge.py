@@ -140,6 +140,30 @@ def complete_lines(path):
     return out
 
 
+def one_writer(directory, *, poll=30, say=print):
+    """Hold <directory>/.writer.lock for this process's life, waiting while another process holds
+    it — so a stage started by two runners (the main run and a lane, Z3 2026-11-04) runs once at a
+    time, the second resuming from the first's saved calls. Take it BEFORE any Calls is opened on
+    the directory: Calls reads the saved calls once, when it is made. Returns the held lock file."""
+    import fcntl
+    directory = Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    held = open(directory / ".writer.lock", "a")
+    waited = False
+    while True:
+        try:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            if not waited:
+                say(f"another process is writing {directory}; waiting for it to finish, then resuming", flush=True)
+                waited = True
+            time.sleep(poll)
+    if waited:
+        say(f"{directory} is free; resuming from its saved calls", flush=True)
+    return held
+
+
 class Calls:
     """Durable, resumable model calls keyed by identity. Safe to share between
     threads: appends are serialised."""

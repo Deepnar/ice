@@ -504,7 +504,7 @@ def main() -> int:
         from experiments.z2.grade import judge_caller
         from experiments.z2.profiles import generator, metadata
         load_selected_env()
-        out.mkdir(parents=True, exist_ok=True)
+        writer = M.one_writer(out)  # noqa: F841 — held until exit; before Calls reads the saved calls
         calls = M.Calls(out / "oracle-grade-raw.jsonl")
         ask = judge_caller(calls, generator(args.judge).generate, metadata(args.judge), "lme-oracle", role=args.judge)
         ask_text = text_caller(calls, generator(args.judge).generate, metadata(args.judge), "ice-z2-lme-oracle-upstream")

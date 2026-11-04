@@ -272,3 +272,20 @@ def test_without_a_tie_breaker_a_dispute_is_unconfirmed_and_reviewed(setup):
     assert disputed["status"] == "unconfirmed" and not disputed["usable_for_questions"]
     assert any(q["kind"] == "disputed" and q["entry"]["id"] == ds[1]["id"] for q in queue)
     assert tie.calls == 0
+
+
+def test_one_writer_makes_a_second_writer_wait_then_resume(tmp_path):
+    """A stage started by the main run and a lane at once (Z3 2026-11-04): the second waits for the
+    first to let go, then goes on — never two writers on one folder. (flock blocks between two
+    opens in one process too, so a thread stands in for the second process.)"""
+    import threading
+    held = ledger_merge.one_writer(tmp_path / "out")
+    said = []
+    second = threading.Thread(target=lambda: ledger_merge.one_writer(tmp_path / "out", poll=0.05,
+                                                                     say=lambda m, **_: said.append(m)))
+    second.start()
+    second.join(0.5)
+    assert second.is_alive()                          # waiting while the first holds it
+    held.close()                                      # the first exits
+    second.join(5)
+    assert not second.is_alive() and "waiting" in said[0] and "resuming" in said[-1]
