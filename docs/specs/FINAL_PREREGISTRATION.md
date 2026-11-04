@@ -100,6 +100,10 @@ rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-me
   a token budget with pieces of very different sizes (a one-line fact, a whole message), so "the
   first k" differs between systems; the primary retrieval measure stays evidence recall at the
   budget (§4).
+- **Parts switched off at the freeze leave S9's parts test** (Z3_DECISIONS D9 rule 4): turn summaries
+  in reads (R4), the fold and batch summaries, procedures (D9) — off by default, their leave-one-out
+  and build-up steps would read exactly the step before. Leave-one-out keeps bm25, reranker, codex,
+  gate, temporal, maintenance; the build-up bm25 → reranker → codex → gate → temporal.
 
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).

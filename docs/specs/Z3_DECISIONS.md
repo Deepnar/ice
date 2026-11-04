@@ -215,6 +215,13 @@ measures the simpler system either way (the part is off). The freeze record is F
 to defend, cheaper to run, and Z2 is exactly the evidence to decide with. The two cautions are
 rule 2 (batch summaries) and keeping each removal reversible.
 
+**Decided 2026-11-04 (maintainer), from Z2's ablations and S8 quality:** fold notes OFF (B +1.1 / C −1.3
+judge-correct, ~560 tokens a prompt, ~⅓ stale); batch summaries OFF as a design decision (never written
+in Z2 — rule 2); procedures OFF (0 to ±1.7, 26% unfaithful); session summaries already off (`2e9f4ed`);
+temporal retrieval and maintenance ON (S9 tests them); entity links unchanged (no switch). R7 reads
+them off by Z2's own ablation switches; each gets a production off switch at the freeze, checked by
+query; rule 4 applied (they leave S9's parts test). Record: FEATURE_INVENTORY "Z3 FREEZE".
+
 ## D10 Build-up ablation on S9 — **decided yes (maintainer, 2026-10-26)**
 
 Leave-one-out (decided) switches off one part at a time with all others on. Its blind spot:

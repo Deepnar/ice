@@ -58,11 +58,11 @@ FINAL time (TRAPS: "check where a signal lands").
 
 | Part | Switch | Default now | Candidate | Decided by | Z3 decision |
 |---|---|---|---|---|---|
-| Evidence in conversation order (F10) | `retrieval_evidence_order` | `relevance` | `conversation` | R3 (`retest_c256_order`) | ☐ |
-| Originals before summaries (F14) | `retrieval_rerank_representation`, `representation_summary_first_intents` | `best_score`, `True` | `policy`, `False` | R4 (`retest_c256_originals_first`, `retest_c256_policy`) | ☐ |
-| Wider search legs | `retrieval_rerank_candidates` + `retrieval_bm25/vector_candidate_limit`, `codex_fact_candidate_limit` | 256 + 100/100/64 | 512 + 300/300/192 | R4 (`retest_c256_wide_originals`) | ☐ |
-| Turn summaries in reads (F13) | `turn_summaries_in_reads` | `True` | `False` | R4 (`retest_c256_no_summaries`) | ☐ |
-| Reranker rescue of a "no memory" decision (F4) | `memory_source_rescue_mode`, `memory_source_rescue_min_score` | `proof`, `0.0` | `reranker`, bar `0` | R10 graded (`r10-answers`/`r10-grade`, phase 2) + `nomem_cost` | ☐ |
+| Evidence in conversation order (F10) | `retrieval_evidence_order` | `relevance` | `conversation` | R3 (`retest_c256_order`) | ✅ OFF (code kept) — B −1.7, C +6.8: B and C disagree, default waits |
+| Originals before summaries (F14) | `retrieval_rerank_representation`, `representation_summary_first_intents` | `best_score`, `True` | `policy`, `False` | R4 (`retest_c256_originals_first`, `retest_c256_policy`) | ✅ OFF (code kept) — summaries off is better on both |
+| Wider search legs | `retrieval_rerank_candidates` + `retrieval_bm25/vector_candidate_limit`, `codex_fact_candidate_limit` | 256 + 100/100/64 | 512 + 300/300/192 | R4 (`retest_c256_wide_originals`) | ✅ OFF (code kept) — +2.3 / +2.8, slower |
+| Turn summaries in reads (F13) | `turn_summaries_in_reads` | `True` | `False` | R4 (`retest_c256_no_summaries`) | ✅ CHANGED to `False` — B +7.0 [0.0, +13.9], C +2.7, equal tokens; summaries still written (R7 confirms; production switch at the freeze) |
+| Reranker rescue of a "no memory" decision (F4) | `memory_source_rescue_mode`, `memory_source_rescue_min_score` | `proof`, `0.0` | `reranker`, bar `0` | R10 graded (`r10-answers`/`r10-grade`, phase 2) + `nomem_cost` | ✅ CHANGED to `reranker`, bar 0 — 26 → 113 correct of 146 refused (R7 confirms; production switch at the freeze) |
 
 **Decided at Z3 by D9's simplification pass** (Z2's leave-one-out grades, S8 quality, reach into
 prompts; [Z3_DECISIONS](specs/Z3_DECISIONS.md) D9). A part that goes is switched OFF — a default-only
@@ -70,12 +70,12 @@ setting is added where none exists — never deleted before FINAL:
 
 | Part | What controls it now | Known now | Z3 decision |
 |---|---|---|---|
-| Batch summaries (cross-conversation notes) | job `batch_summarize`; leg `retrieval_conversation_summary_limit` (`2`) | never ran in Z2 (G79), fixed, untested — D9 rule 2 | ☐ |
-| Session summaries (reflection) | job `reflection` | faithful B 8/44, C 3/12; only reader MCP `ice://session-start` | ☐ |
-| Procedural memory | `retrieval_procedural_limit` (`5`), `procedural_min_conf` | B 26% unfaithful; ~0.7 fragments a prompt | ☐ |
-| Conversation fold (notes) | `conversation_note_prompt_tokens` (`650`) | in every prompt; ~⅓ stale; `loo_notes` | ☐ |
-| Entity mention links | — | ~20% wrong; no structural fix | ☐ |
-| Temporal retrieval, maintenance merges | `timescope_enabled` (`True`); maintenance agent | inert on B (F3); S9 tests them in FINAL | ☐ |
+| Batch summaries (cross-conversation notes) | job `batch_summarize`; leg `retrieval_conversation_summary_limit` (`2`) | never ran in Z2 (G79), fixed, untested — D9 rule 2 | ✅ OFF (code kept) — a design decision, not a measurement; leg off in R7 (flag `batch_summary`), job off at the freeze (R7 confirms; production switch at the freeze) |
+| Session summaries (reflection) | job `reflection` | faithful B 8/44, C 3/12; only reader MCP `ice://session-start` | ✅ OFF — no longer written or shown since `2e9f4ed` (2026-10-27) |
+| Procedural memory | `retrieval_procedural_limit` (`5`), `procedural_min_conf` | B 26% unfaithful; ~0.7 fragments a prompt | ✅ OFF (code kept) — Z2 0 to ±1.7 points; off in R7 (flag `procedural`), extractor off at the freeze (R7 confirms; production switch at the freeze) |
+| Conversation fold (notes) | `conversation_note_prompt_tokens` (`650`) | in every prompt; ~⅓ stale; `loo_notes` | ✅ OFF (code kept) — Z2 B +1.1 / C −1.3 judge-correct, ~560 tokens a prompt; off in R7 (harness `no_fold`), the fold job off at the freeze (R7 confirms; production switch at the freeze) |
+| Entity mention links | — | ~20% wrong; no structural fix | ✅ unchanged — no switch; reported |
+| Temporal retrieval, maintenance merges | `timescope_enabled` (`True`); maintenance agent | inert on B (F3); S9 tests them in FINAL | ✅ ON (unchanged) — FINAL's S9 parts test measures them |
 
 ---
 
