@@ -60,12 +60,16 @@ uv run --no-sync python experiments/final/run_final.py status --watch
 4. **~Nov 10:** Z3 freeze — switch defaults, D9 simplification (**switch OFF, code kept; deletion only after FINAL** — maintainer, 2026-11-01; the record is FEATURE_INVENTORY's "Z3 FREEZE" section; each OFF part checked by query on R7's stores and a short live replay — no rows written, no job run, no fragment in a prompt), merge fix-pass into `main`, the freeze commit.
    Stop the memory systems' run first (Ctrl-C) if it is still going; at the merge, move fix-pass's other
    `logs/final-*` folders (questions, ledger, synth) into `main`'s logs as final-run-main and final-locomo were.
-5. **~Nov 10–17:** research briefing (GPU free: the memory systems finish here if still running).
-6. **~Nov 17:** buy Go Plus; **FINAL local starts** (2 lanes, ~9–11 GPU days → ~Nov 28), **beside it**
-   `stream_cloud.py` answering and grading each checkpoint as its reads finish; once ICE's LoCoMo read
-   is done, the memory systems' results are wrapped in its frame and answered in the same stream.
-7. **~Nov 28 → early December:** the cloud tail (Go Plus weekly cap ~$60; ~$92 plus ICE2's share),
-   then the report.
+5. **Revised 2026-11-05 (pre-registration revision 9; R7 and the cloud prep finished early): freeze ~Nov
+   6–7, then the briefing goes out and FINAL's local phase starts the same day** (`local_lanes.py --lanes 2`,
+   ~7 days per lane by the runner's estimate). Nothing FINAL produces is looked at until the feedback window
+   closes (14 days after sending, or once every reply is in) — the meter's counts only.
+6. **When the window closes:** no design change → buy Go Plus and start `stream_cloud.py`, which catches up
+   on every checkpoint already read; once ICE's LoCoMo read is done, the memory systems' results are wrapped
+   in its frame and answered in the same stream. A design change → recorded as a revision; a change to ICE
+   restarts the local phase, other changes re-run only the stages they touch.
+7. **Then:** the cloud tail (Go Plus weekly cap ~$60; ~$92 plus ICE2's share), then the report — about the
+   end of November if feedback asks for no change.
 
 ## What happens, in order (written 2026-10-29)
 
@@ -100,9 +104,9 @@ built.
    dollars beyond Go's month if the budget is spent; else waits for Go Plus.
 5. **Z3 freeze (~Nov 10):** set the switch defaults from R2–R4/R7, D9 simplification, merge fix-pass
    into `main` (only after R6), record the freeze commit.
-5½. **Research briefing (~1 week, maintainer 2026-10-29) — gate before FINAL's local run:** a for external review (ICE v3 architecture, Z2→Z3 findings, the FINAL plan; a 4–6 page PDF, appendices if useful; task in the gitignored docs/PUBLISHING.md [PRIVATE:research-briefing]). Made from the frozen configuration and the retest results, sent for critical feedback while the
+5½. **Research briefing (~1 week, maintainer 2026-10-29) — gate before FINAL's cloud phase (revision 9, 2026-11-05: the local phase runs during it, its outputs unseen until the window closes):** a for external review (ICE v3 architecture, Z2→Z3 findings, the FINAL plan; a 4–6 page PDF, appendices if useful; task in the gitignored docs/PUBLISHING.md [PRIVATE:research-briefing]). Made from the frozen configuration and the retest results, sent for critical feedback while the
    design can still change; feedback goes into the pre-registration as a revision. No code, config or runs change.
-6. **FINAL local (~Nov 17 → ~Nov 28, after the briefing):** 2 lanes, ~9–11 GPU days.
+6. **FINAL local (from the freeze, ~Nov 7, during the briefing window):** 2 lanes, ~7 GPU days per lane.
 7. **FINAL cloud (Go Plus, ~$92):** answering can start per history as its local reads finish
    (~Nov 22 onward); at Go Plus's weekly cap (~$60) it takes two weeks or more → ~early December.
 

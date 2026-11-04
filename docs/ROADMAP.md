@@ -123,7 +123,7 @@ shown about the system and the FINAL preparation (machinery, datasets). A new se
 resumes with `cd ~/Programs/ice-worktrees/fix-pass` and this list.
 
 *Checklist (✅ done on the branch · ⏳ test later on GPU/DB · ☐ open):*
-- ☐ **⚑ GATE before FINAL's local run (maintainer, 2026-10-29): research briefing for external review (ICE v3 architecture, Z2→Z3 findings, the FINAL plan; a 4–6 page PDF, appendices if useful; task in the gitignored docs/PUBLISHING.md [PRIVATE:research-briefing]).** Once Z3 is frozen and only FINAL remains; ~1 week; external feedback goes into the
+- ☐ **⚑ GATE before FINAL's cloud phase (maintainer, 2026-10-29; moved from the local run by pre-registration revision 9, 2026-11-05 — the local phase runs during the window, its outputs unseen until it closes): research briefing for external review (ICE v3 architecture, Z2→Z3 findings, the FINAL plan; a 4–6 page PDF, appendices if useful; task in the gitignored docs/PUBLISHING.md [PRIVATE:research-briefing]).** Once Z3 is frozen and only FINAL remains; ~1 week; external feedback goes into the
   pre-registration before FINAL's first answer. No code, config or experiment changes while it is made.
 - ✅ **Z2 F20 fact replacement**: G60 off; `codex_fact_reconcile_design=context` with `fields` evidence is the
   default (GPU day: 35/46 correct kept, 14/53 wrong kept; pre_g60 33/44). DB tests 38/38 on a disposable database.

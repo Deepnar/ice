@@ -114,6 +114,24 @@ rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-me
   history nothing was tuned on. The fold, batch summaries and procedures are not read back: their
   writers are off in FINAL's replay, so S9's store holds none.
 
+**Revision 9 — APPROVED by the maintainer 2026-11-05, before any FINAL answer:** **FINAL's local phase
+starts right after the freeze, during the research briefing's feedback window; the briefing gates the cloud
+phase instead of the local one.** The GPU would otherwise sit idle that week; feedback can still change
+anything, at the cost of a re-run.
+- **Nothing FINAL produces is looked at until the window closes** — no answers or grades, and no read
+  output either (evidence coverage, prompt sizes, memory-gate decisions): only the runner's counts (turns
+  replayed, contexts read). Any change the feedback brings is then made blind to FINAL's data.
+- **The cloud is held** — no answer, no grade, no Go Plus — until the window closes. Preparation's cloud
+  calls (writing the synthetic no-memory messages) make inputs, not results, and may run.
+- **Feedback that changes the design:** a change to ICE restarts the local phase from scratch; a change to
+  questions, measures, conditions or baselines re-runs only the stages it touches (replays, most of the GPU
+  time, usually survive). Each is recorded as a revision here.
+- **The window** closes 14 days after the briefing is sent, or earlier once every reply is in; FINAL then
+  goes on with what came in.
+- Commands: local `experiments/final/local_lanes.py --lanes 2` (preparation, then replays and reads in two
+  GPU lanes); cloud `experiments/final/stream_cloud.py` once the window closes — it catches up on every
+  checkpoint already read.
+
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP, ICE2 (held out; ICE2 added in revision 4)
