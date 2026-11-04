@@ -54,6 +54,9 @@ CLAIM_WORKERS = 4                  # claim checks side by side, like the answers
 # per call (one answer's claims, B: median 7, at most 23): each claim's best entries and passages
 # taken in turn up to these, so every claim keeps its strongest evidence and no call balloons
 CLAIM_ENTRIES, CLAIM_PASSAGES = 32, 24
+# The claim check searches and shows the conversation as overlapping whole passages
+# (questions.passage_index); a dated claim shows its minute's closest passages.
+DATED_PASSAGES = 4
 
 GRADE_SYSTEM = """You grade an AI assistant's ANSWER to a user's QUESTION about their own long
 conversation with the assistant. REQUIRED lists what a correct answer must contain (meaning, not
@@ -303,7 +306,7 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
         allowed, picked = set(within), []
         for day, hour in re.findall(r"(20\d\d-\d\d-\d\d)(?:[T ](\d\d:\d\d))?", claim):
             if hour:
-                picked += minute_rows.get(f"{day} {hour}", [])
+                picked += sorted(minute_rows.get(f"{day} {hour}", []), key=distance)[:DATED_PASSAGES]
             else:
                 picked += sorted(day_rows.get(day, ()), key=distance)[:2]
         return [i for i in dict.fromkeys(picked) if i in allowed]
@@ -314,9 +317,11 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
         at = at_minute(claim, cp)
         if not at:
             return "confirmed_invented"
+        q = np.asarray(vec[claim]) / (np.linalg.norm(vec[claim]) + 1e-12)
+        at = sorted(at, key=lambda i: -float(vectors[i] @ q))[:DATED_PASSAGES]
         reply = ask(DATED_CLAIM_SYSTEM, json.dumps(dict(CLAIM=claim, PASSAGES=[
-            dict(turn=rows[i][0], role=rows[i][1], date=dates[rows[i][0]], text=rows[i][2][:6000])
-            for i in dict.fromkeys(at)]), ensure_ascii=False)) or {}
+            dict(turn=rows[i][0], role=rows[i][1], date=dates[rows[i][0]], text=rows[i][2])
+            for i in at]), ensure_ascii=False)) or {}
         if not isinstance(reply.get("stated"), bool):
             raise ValueError("no stated verdict for a dated claim")
         return "ledger_miss" if reply["stated"] else "confirmed_invented"
@@ -346,7 +351,7 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
                 ENTRIES=[dict(id=a, text=e["value"]) for a, e in alias.items()],
                 PASSAGES=[dict(index=n, turn=rows[i][0], role=rows[i][1],
                                **({"date": dates[rows[i][0]]} if rows[i][0] in (dates or {}) else {}),
-                               text=rows[i][2][:3000]) for n, i in enumerate(shown)]),
+                               text=rows[i][2]) for n, i in enumerate(shown)]),
                 ensure_ascii=False)) or {}
             items = {str(item.get("id")): item for item in reply.get("claims") or [] if isinstance(item, dict)}
             if set(items) < set(ids):                 # every claim must be answered; else retried
@@ -606,8 +611,8 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     multi-answer ranking); the cross-family judge passes verdicts_only=True (the judge's verdict
     per answer, nothing else)."""
     from experiments.z2 import bg_audit
+    from experiments.z2 import questions as Q
     from experiments.z2.ledger import load_history
-    from experiments.z2.questions import originals_index
     out.mkdir(parents=True, exist_ok=True)
     contexts = load(units, answers, questions, history, occurrences)
     dates = turn_dates(history)
@@ -627,7 +632,7 @@ def run(history, units, answers, questions, ledger_path, out, *, ask, changes=No
     ledger = bg_audit.load_ledger(ledger_path, changes)
     originals = load_history(history)
     verdicts, p2 = check_claims(graded, contexts, ledger, originals,
-                                originals_index(originals, cache=out / "originals-index.npz"), ask, out, dates=dates)
+                                Q.passage_index(originals, cache=out / "claim-passages.npz"), ask, out, dates=dates)
     ranks, p3 = rank(contexts, ask, out, dates=dates) if ranking else ({}, 0)
     ctl, p4 = controls(contexts, ask, out)
     semantic, p5 = semantic_credit(contexts, ask, out)

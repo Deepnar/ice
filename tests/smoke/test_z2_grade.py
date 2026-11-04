@@ -354,3 +354,29 @@ def test_a_wrong_turn_plant_moves_the_claim_to_an_earlier_turn_without_its_conte
     assert plants["true"] == claim
     assert plants["wrong_turn"] == claim.replace("05:03", "05:01")      # turn 2 holds the content; turn 1 does not
     assert A.PASS["wrong_turn_invented"] == 0.9
+
+
+def test_the_claim_check_sees_what_a_long_message_says_further_on(tmp_path):
+    """Z3 2026-11-04: whole messages, embedded on their first 2,000 characters and shown cut at 3,000,
+    hid what a long message says further on — shown the claim's own passage, the judge found 36% of
+    B's and 25% of C's "invented" claims stated. Passages now cover every message whole."""
+    import experiments.z2.questions as Q
+    deep = "the gardener plants three rows of tomatoes every spring"
+    long_reply = ("filler words about other topics " * 330) + deep + (" and more filler text here" * 40)
+    assert long_reply.index(deep) > 9_000
+    originals = [dict(prompt="tell me the plan", response=long_reply), dict(prompt="ok", response="sure")]
+    original, Q.embed = Q.embed, lambda texts, device="cpu": np.ones((len(texts), 4))
+    try:
+        rows, vectors = Q.passage_index(originals, cache=tmp_path / "p.npz")
+        assert all(len(text) <= Q.PASSAGE_CHARS for _, _, text in rows)
+        assert any(deep in text for _, _, text in rows)                     # whole, in one passage
+        assert Q.passage_index(originals, cache=tmp_path / "p.npz")[0] == rows   # cached
+        claim = "Gardener plants three rows of tomatoes every spring"
+        results = {"full|q0": dict(status="graded", unsupported_claims=[claim])}
+        contexts = [(dict(condition="full", checkpoint=2, ask=dict(id="q0")), None, None)]
+        judge = Judge(lambda system, body: dict(claims=[dict(
+            id="C1", stated_by=[], found=any(deep in p["text"] for p in body["PASSAGES"]))]))
+        G.check_claims(results, contexts, LEDGER, None, (rows, vectors), judge, tmp_path)
+    finally:
+        Q.embed = original
+    assert results["full|q0"]["claims"][claim] == "ledger_miss"            # found, not invented

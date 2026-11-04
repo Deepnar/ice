@@ -639,21 +639,32 @@ time it is asked), report whether any passage answers it, fully or in part.
 Return only JSON: {"answered": true|false, "by": ["passage ids"], "reason": "..."}"""
 
 
-def originals_index(originals, device=None, cache=None):
-    """(turn, role, text, vector) for every original message, for the abstention search.
-    *cache*: an .npz path reused while the texts and the encoder are unchanged."""
+PASSAGE_CHARS, PASSAGE_STEP = 1_500, 1_200
+
+
+def passage_index(originals, cache=None, device=None):
+    """(rows, vectors): [(turn, role, passage)] — every message in overlapping PASSAGE_CHARS
+    windows, each embedded and shown whole; *cache*, an .npz kept while texts and encoder hold.
+    For every search that must see a whole long message — the claim check, the never-said check,
+    the forward walk (Z3 2026-11-04: messages embedded on their first 2,000 characters and shown
+    cut hid what a long message says further on; shown the claim's own passage, the judge found
+    36% of B's and 25% of C's "invented" claims stated)."""
     import hashlib
     import numpy as np
-    rows = [(t, role, originals[t - 1][key]) for t in range(1, len(originals) + 1)
-            for role, key in (("user", "prompt"), ("assistant", "response"))
-            if originals[t - 1][key].strip()]
-    texts = [text[:2000] for _, _, text in rows]
-    digest = hashlib.sha256(json.dumps([EMBEDDER, texts]).encode()).hexdigest()
+    rows = []
+    for t, pair in enumerate(originals, 1):
+        for role, key in (("user", "prompt"), ("assistant", "response")):
+            text = pair[key]
+            if not text.strip():
+                continue
+            starts = range(0, max(1, len(text) - PASSAGE_CHARS + PASSAGE_STEP), PASSAGE_STEP)
+            rows += [(t, role, text[s:s + PASSAGE_CHARS]) for s in starts]
+    digest = hashlib.sha256(json.dumps([EMBEDDER, [r[2] for r in rows]]).encode()).hexdigest()
     if cache and Path(cache).exists():
         saved = np.load(cache)
         if str(saved["digest"]) == digest:
             return rows, saved["vectors"]
-    vectors = embed(texts, device=device)
+    vectors = embed([r[2] for r in rows], device=device)
     if cache:
         Path(cache).parent.mkdir(parents=True, exist_ok=True)
         np.savez(cache, digest=np.array(digest), vectors=vectors)
@@ -701,7 +712,7 @@ def negative_families(history, pools, n, entries_by_id, all_entries, originals, 
         orig = [j for j, (t, _, _) in enumerate(rows) if t <= cp]
         orig_top = sorted(orig, key=lambda j: -float(vectors[j] @ qv))[:top_k]
         passages = ([dict(id=f"L{k}", text=led[j]["value"]) for k, j in enumerate(led_top)]
-                    + [dict(id=f"O{k}", text=rows[j][2][:1500]) for k, j in enumerate(orig_top)])
+                    + [dict(id=f"O{k}", text=rows[j][2]) for k, j in enumerate(orig_top)])
         v = ask_object(calls, checker, models[checker][1], models[checker][0], NEG_CHECK_SYSTEM,
                        json.dumps(dict(QUESTION=q, PASSAGES=passages), ensure_ascii=False),
                        session(checker), max_output_tokens=4000) or {}
@@ -1029,7 +1040,7 @@ def main() -> int:
         originals = L.load_history(args.history)
         neg, neg_rejected = negative_families(args.history, pools, need.get("negative", 0),
                                               {e["id"]: e for e in entries}, all_entries, originals,
-                                              originals_index(originals, cache=args.out / args.history / "originals-index.npz"),
+                                              passage_index(originals, cache=args.out / args.history / "passages-index.npz"),
                                               args.out, models=models)
         kept, rejected = kept + messy + neg, rejected + messy_rejected + neg_rejected
         controls, controls_rejected = control_prompts(args.history, originals, args.out, models=models)

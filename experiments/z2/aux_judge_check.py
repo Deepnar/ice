@@ -155,9 +155,9 @@ def intrusion_plants(contexts, scale):
 
 def run(history, grades_path, run_dir, questions, out, ask, *, scale=1.0, dry=False):
     from experiments.z2 import bg_audit
+    from experiments.z2 import questions as Q
     from experiments.z2.histories import HISTORIES
     from experiments.z2.ledger import load_history
-    from experiments.z2.questions import originals_index
     out.mkdir(parents=True, exist_ok=True)
     old = json.loads(Path(grades_path).read_text())
     graded, old_controls = old["graded"], old.get("controls") or {}
@@ -185,7 +185,7 @@ def run(history, grades_path, run_dir, questions, out, ask, *, scale=1.0, dry=Fa
     originals = load_history(history)
     _, p1 = G.check_claims(results, [c for c in contexts if f"{c[0]['condition']}|{c[0]['ask']['id']}" in results]
                            + plant_contexts, ledger, originals,
-                           originals_index(originals, cache=out / "originals-index.npz"), ask, out, dates=dates)
+                           Q.passage_index(originals, cache=out / "claim-passages.npz"), ask, out, dates=dates)
     new_controls, p2 = G.controls(controls + planted, ask, out)
     report = summarise(history, jobs, results, plants, old_controls, new_controls, planted)
     (out / "report.json").write_text(json.dumps(report, indent=1, ensure_ascii=False) + "\n")

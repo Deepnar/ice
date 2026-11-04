@@ -1169,3 +1169,11 @@ ROADMAP G77 "DECIDED (maintainer, 2026-10-17 b)".
 | `warm_vector` in `final_main` | **REMOVED** from the main experiment | ICE's own vector leg alone belongs to S9's parts test |
 | B's `final_ablation` preset | **REMOVED** | the parts test runs on S9 only |
 
+
+## 2026-11-04 — Z3: whole-message passages for the answer-key and claim checks
+
+Recover at **`f7cc2f1`** (last commit before the change).
+
+| what | action | note |
+|---|---|---|
+| `questions.originals_index` | **REPLACED** by `questions.passage_index` | indexed whole messages, embedded their first 2,000 characters; its three users (claim check, never-said check, forward walk) showed them cut at 3,000 / 1,500 or searched them by their opening only — 25–36% of "invented" claims were stated later in a long message |

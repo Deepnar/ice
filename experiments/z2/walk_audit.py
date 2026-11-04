@@ -160,7 +160,7 @@ def main() -> int:
     originals = L.load_history(args.history)
     models = {args.verifier: (generator(args.verifier).generate, metadata(args.verifier))}
     summary, queue = audit(args.history, families, occurrences, {e["id"]: e for e in entries}, originals,
-                           Q.originals_index(originals, cache=directory / "originals-index.npz"), args.out,
+                           Q.passage_index(originals, cache=directory / "passages-index.npz"), args.out,
                            models=models, verifier=args.verifier)
     print(json.dumps(dict(summary, queue=len(queue))))
     return 0
