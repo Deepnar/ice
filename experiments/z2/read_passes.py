@@ -166,9 +166,13 @@ def build_asks(split_dir, occurrences_path, controls_path=None):
 
 def build_final_asks(split_dir, occurrences_path):
     """FINAL's asks of a Z2 history: occurrences of the sealed FINAL families only (opened
-    through split.load_final, which checks the seal) plus the same no-memory controls."""
+    through split.load_final, which checks the seal) plus the same no-memory controls. Families
+    listed in <split_dir>/../answer-key-defects.json are left out (Z3 2026-11-04: never-said
+    questions the conversation does answer, found once the check read whole messages)."""
     from experiments.z2.split import load_final, load_z2
-    keep = {f["id"] for f in load_final(split_dir)["families"]}
+    defects = Path(split_dir).parent / "answer-key-defects.json"
+    dropped = set(json.loads(defects.read_text())["drop"]) if defects.exists() else set()
+    keep = {f["id"] for f in load_final(split_dir)["families"]} - dropped
     asks = [dict(id=f"{o['family']}@{o['checkpoint_turn']}#{o['repeat_index']}", checkpoint_turn=o["checkpoint_turn"],
                  question=o["question"], kind="question", type=o["type"])
             for o in json.loads(Path(occurrences_path).read_text()) if o["family"] in keep]

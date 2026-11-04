@@ -110,6 +110,13 @@ def test_final_presets_and_sealed_asks(tmp_path):
     final = {a["id"].split("@")[0] for a in R.build_final_asks(tmp_path, tmp_path / "occ.json")}
     z2 = {a["id"].split("@")[0] for a in R.build_asks(tmp_path, tmp_path / "occ.json")}
     assert final and z2 and not final & z2 and len(final | z2) == 40
+    # Z3 2026-11-04: a family listed as an answer-key defect beside the split is left out
+    split = tmp_path / "split"
+    split.mkdir()
+    S.write_split(split, "B", families)
+    bad = sorted({a["id"].split("@")[0] for a in R.build_final_asks(split, tmp_path / "occ.json")})[0]
+    (tmp_path / "answer-key-defects.json").write_text(json.dumps(dict(drop=[bad])))
+    assert bad not in {a["id"].split("@")[0] for a in R.build_final_asks(split, tmp_path / "occ.json")}
 
 
 def test_long_context_in_time_order_with_one_shared_start_per_checkpoint():
