@@ -323,8 +323,12 @@ def invented_values(plan, turn, user, history):
     if LEAK.search(user):
         return ["user side echoed its instructions"]
     out += artifacts(user)
-    if any(norm(user)[:120] == norm(p["user"])[:120] for p in history):
-        return ["user side repeated an earlier message"]
+    same = [p for p in history if norm(user)[:120] == norm(p["user"])[:120]]
+    if same:
+        # name the message and its opening: told only "repeated an earlier message", the writer opened
+        # the same way eight times over (S5 turn 461, S7 turn 427, 2026-11-04)
+        return [f"user side repeated its message from turn {same[-1]['turn']}, which began "
+                f"\"{same[-1]['user'][:90].strip()}\" — open differently and move on to something new"]
     return out
 
 
