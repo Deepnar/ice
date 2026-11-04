@@ -92,8 +92,11 @@ rescue answers it), and inside running chats it fetched on 33 of 34 of B's no-me
 - **The claim check, the never-said check and the forward walk read every message whole**, as
   overlapping 1,500-character passages (`questions.passage_index`). They had searched messages by
   their opening and shown them cut (3,000 / 1,500 characters): shown the claim's own passage, the
-  judge found 25–36% of the "invented" claims stated. Hallucination numbers before this revision are
-  not comparable with FINAL's.
+  judge found 25–36% of the "invented" claims stated. The claim search also ranks passages by shared
+  words beside meaning, and **both claim judges require every specific detail to match** (numbers,
+  names, titles, who said or did it): with "meaning, not wording" alone they accepted 15 of 30 true
+  claims with one detail changed; now 25 of 30 rejected, 2 of 60 true claims wrongly rejected (B).
+  Hallucination numbers before this revision are not comparable with FINAL's.
 - **Recall@k and precision@k are reported as supplementary columns**, computed afterwards from the
   saved ranked lists (no new run): the share of an answer's cited turns among the first k ranked
   pieces (k = 5, 10, 20), for ICE and `bare_vector`. Stated beside them, in their own words: ICE fills

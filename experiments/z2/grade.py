@@ -93,7 +93,9 @@ Return only JSON:
 CLAIMS_SYSTEM = """CLAIMS are statements an AI assistant made about a conversation with a user. ENTRIES are
 facts recorded from that conversation; PASSAGES are original messages from it, each with the date
 the assistant's memory showed for it. For EACH claim: which entries state its content (meaning,
-not wording), and does any passage state or directly support it? A date or time in a claim is
+not wording), and does any passage state or directly support it? Every specific detail must match:
+numbers and counts, names and titles, and who said or did it. An entry or passage on the same topic
+with any such detail different does not state the claim. A date or time in a claim is
 supported when a passage with that date states what the claim says happened then; a date that
 matches no such passage is not. Return only JSON: {"claims": [{"id": "C1", "stated_by": ["E3", ...],
 "found": true|false, "passage": <index or null>}, ...]} — one item for every claim."""
@@ -104,7 +106,8 @@ matches no such passage is not. Return only JSON: {"claims": [{"id": "C1", "stat
 # minute; the judge sees only that turn and is asked about content alone.
 DATED_CLAIM_SYSTEM = """CLAIM is a statement an AI assistant made about a conversation with a user, naming the
 moment something was said. PASSAGES are the messages recorded at that moment. Does any passage state
-what CLAIM says was said or happened then (meaning, not wording; who said it must match)? Judge the
+what CLAIM says was said or happened then (meaning, not wording; every specific detail — numbers,
+names, titles, who said or did it — must match)? Judge the
 content only — the moment is already matched. Return only JSON: {"stated": true|false, "reason": "..."}"""
 MINUTE = re.compile(r"(20\d\d-\d\d-\d\d)[T ](\d\d:\d\d)")
 

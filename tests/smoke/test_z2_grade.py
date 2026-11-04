@@ -399,3 +399,10 @@ def test_the_claim_check_shows_the_passage_sharing_most_words_wherever_it_is(tmp
     finally:
         Q.embed = original
     assert 31 in [p["turn"] for p in judge.calls[0][1]["PASSAGES"]]
+
+
+def test_the_claim_judges_require_every_detail_to_match():
+    """Z3 2026-11-04: with 'meaning, not wording' alone the judge accepted 15 of 30 true claims with one
+    detail changed ("11 layers" for 4, "10 potential problems" for 3) through an entry on the same topic."""
+    for system in (G.CLAIMS_SYSTEM, G.DATED_CLAIM_SYSTEM):
+        assert "numbers" in system and "names" in system and "who said or did it" in system
