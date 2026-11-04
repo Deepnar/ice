@@ -49,3 +49,18 @@ def test_halves_split_at_a_paragraph_and_stay_substrings():
     text = "Para one is here.\n\nPara two is longer, much longer.\n\nPara three."
     a, b = halves(text)
     assert a + b == text and a.endswith("\n\n") and text.startswith(a)
+
+
+def test_a_detail_pass_with_failed_turns_is_not_finished(monkeypatch, tmp_path):
+    """Z3 2026-11-04: failed turns were recorded and the pass exited 0, so the chain built questions on
+    an answer key with gaps; now it exits 3 and the chain stops for a rerun."""
+    import sys
+    from experiments.z2 import ledger_detail as D
+    from experiments.z2 import profiles
+    monkeypatch.setattr(D, "run", lambda *a, **k: dict(failed_turns=[dict(turn=5, error="x")]))
+    monkeypatch.setattr(profiles, "generator", lambda r: type("G", (), {"generate": None})())
+    monkeypatch.setattr(profiles, "metadata", lambda r: {})
+    monkeypatch.setattr("experiments.lme.cloud_provider.load_selected_env", lambda: None)
+    out = D.ROOT / "logs" / "scratch-detail-exit-test"
+    monkeypatch.setattr(sys, "argv", ["ledger_detail.py", "--history", "X", "--ledger", str(out), "--out", str(out)])
+    assert D.main() == 3

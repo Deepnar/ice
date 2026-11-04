@@ -177,7 +177,11 @@ def main() -> int:
     from experiments.z2.profiles import generator, metadata
     load_selected_env()
     models = {r: (generator(r).generate, metadata(r)) for r in ("deepseek", "mimo") + ((tie_breaker,) if tie_breaker else ())}
-    run(args.history, args.ledger, args.out, models=models, limit=args.limit, tie_breaker=tie_breaker)
+    stats = run(args.history, args.ledger, args.out, models=models, limit=args.limit, tie_breaker=tie_breaker)
+    if stats["failed_turns"]:
+        # never a finished detail pass with holes: the chain stops here, and a rerun redoes the failed turns
+        print(f"WARNING: {len(stats['failed_turns'])} turns failed — the detail pass is not finished; rerun", flush=True)
+        return 3
     return 0
 
 

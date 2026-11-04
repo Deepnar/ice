@@ -183,13 +183,21 @@ def test_transient_provider_errors_retry_but_quota_does_not():
     with pytest.raises(openai.InternalServerError):
         profiles.retrying(always, "mimo", sleep=lambda s: None)()
 
-    calls = []
+    # a plan's usage limit is waited out, every time — never raised into a step that skips on errors
+    # (Z3 2026-11-04: the detail pass would have recorded every remaining turn as failed and gone on)
+    calls, slept = [], []
     def quota(*a, **k):
         calls.append(1)
-        raise ProviderAccessError("mimo", "quota/rate-limit", 429, "limit reached")
-    with pytest.raises(ProviderAccessError):
-        profiles.retrying(quota, "mimo", sleep=lambda s: None)()
-    assert len(calls) == 1
+        if len(calls) < 4:
+            raise ProviderAccessError("mimo", "quota/rate-limit", 429, "limit reached")
+        return "ok"
+    assert profiles.retrying(quota, "mimo", sleep=slept.append)() == "ok"
+    assert len(calls) == 4 and slept == [profiles.QUOTA_WAIT] * 3
+
+    def bad_key(*a, **k):
+        raise ProviderAccessError("mimo", "authentication", 401, "bad key")
+    with pytest.raises(ProviderAccessError):                       # an operator must act: not waited
+        profiles.retrying(bad_key, "mimo", sleep=lambda s: None)()
 
 
 def test_literal_tabs_inside_quotes_parse():

@@ -119,16 +119,31 @@ def transient(exc) -> bool:
     return isinstance(exc, openai.APIStatusError) and getattr(exc, "status_code", 0) >= 500
 
 
+QUOTA_WAIT = 600
+
+
 def retrying(generate, role, *, waits=RETRY_WAITS, sleep=None):
+    """Transient failures retried a few times; a plan's usage limit waited out, every time it is hit
+    (Z3 2026-11-04: a limit raised through the private chain, and the detail pass recorded every
+    remaining turn as failed and went on — an answer key with gaps). Authentication is not waited."""
     import sys
     import time
+    from experiments.lme.cloud_provider import ProviderAccessError
     sleep = sleep or time.sleep
 
     def call(*args, **kwargs):
-        for attempt, wait in enumerate((*waits, None), 1):
+        attempt = 0
+        while True:
             try:
                 return generate(*args, **kwargs)
             except Exception as exc:                          # noqa: BLE001
+                if isinstance(exc, ProviderAccessError) and exc.kind != "authentication" and not transient(exc):
+                    print(f"WARNING: {role} usage limit ({exc.status_code}); waiting {QUOTA_WAIT} s, then retrying "
+                          f"— nothing is skipped", file=sys.stderr, flush=True)
+                    sleep(QUOTA_WAIT)
+                    continue
+                wait = waits[attempt] if attempt < len(waits) else None
+                attempt += 1
                 if wait is None or not transient(exc):
                     raise
                 print(f"WARNING: {role} call attempt {attempt} failed "
