@@ -282,6 +282,13 @@ def changed_said(text, fact, value):
         return said(text, value["value"])
     before = set().union(*(words(v["value"]) for v in fact["values"] if v["turn"] < value["turn"]))
     new = words(value["value"]) - before
+    if new and all(w[0].isdigit() for w in new):
+        # a number alone is said only as a whole number, beside its topic (S9 turn 470: the "26" of
+        # a 26:30 running goal read as the mug's later price, 26 GBP, eight times over)
+        topic = [w for w in re.findall(r"[a-z]{3,}", fact.get("about", "").lower()) if w not in COMMON]
+        topic = [w for w in topic if w not in GENERIC] or topic
+        return all(re.search(rf"(?<![\w.:,/]){re.escape(w)}(?!\w|[.:,/]\d)", text.lower()) for w in new) \
+            and (not topic or any(re.search(rf"(?<!\w){w}", norm(text)) for w in topic))
     return bool(new) and all(re.search(rf"(?<!\w){re.escape(norm(w))}(?!\w)", norm(text)) for w in new)
 
 

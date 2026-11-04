@@ -473,3 +473,16 @@ def test_a_stuck_turn_steps_back_once_then_stops(tmp_path, monkeypatch):
     assert json.loads((out / "rollbacks.jsonl").read_text())["stuck_turn"] == 3
     second = G.run(p, out, user_llm=user_llm, assistant_llm=assistant_llm, say=lambda *_: None, rollback=2)
     assert second["stopped_at"] == 3 and not second["finished"]                               # once per turn, then stop
+
+
+def test_a_later_number_is_said_early_only_whole_and_beside_its_topic():
+    """S9 turn 470 (2026-11-04): a 26:30 running goal read as the mug's later price, 26 GBP, and the
+    generator stopped after eight rejected drafts."""
+    from experiments.synth import generate as G
+    fact = {"id": "F1", "about": "mug price", "values": [{"turn": 1, "value": "the mug price is 22 GBP"},
+                                                         {"turn": 9, "value": "the mug price is 26 GBP"}]}
+    later = fact["values"][1]
+    assert not G.changed_said("my 5k goal is 26:30, the target time", fact, later)
+    assert not G.changed_said("i ran 26.5 km this week", fact, later)
+    assert not G.changed_said("26 people came to the party", fact, later)          # not about the mug
+    assert G.changed_said("the mug's 26 now, they put it up", fact, later)
