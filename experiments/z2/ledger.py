@@ -131,6 +131,7 @@ NEW_TEXT_BUDGET = 48_000        # tokens of new turns per call; larger groups sp
 PRIOR_BUDGET = 16_000           # tokens of the current ledger shown per call
 CONTEXT_BUDGET = 12_000         # tokens of context pairs; C has single pairs of ~27K tokens
 OUTPUT_TOKENS = 16_000
+SPAN_MIN_CHARS = 2_000          # a single pair is halved no further than this
 INPUTS = ROOT / "logs/v3-offline-input-plan-2026-10-10-r4"
 
 SYSTEM = """You build a fact ledger from a conversation between a user and an AI assistant.
@@ -256,13 +257,28 @@ def prior_block(current, window_text, budget=PRIOR_BUDGET):
     return "\n".join(lines[i] for i in sorted(chosen)), len(chosen), len(current)
 
 
+def render_span(originals, turn, start, end):
+    """Characters [start, end) of one pair as render() shows it, opened with the header of the
+    message the slice starts in — the writer still knows whose words it reads."""
+    full = render(originals, [turn])
+    head = max(full.rfind(h, 0, start + len(h)) for h in (f"[turn {turn} | {r}]" for r in ("user", "assistant")))
+    lead = "" if head == start else full[head:full.index("\n", head)] + " (continued)\n"
+    return lead + full[start:end]
+
+
 def user_prompt(originals, window, prior_text):
     parts = [f"CURRENT LEDGER (id | subject | value):\n{prior_text or '(empty)'}"]
     if window["context"]:
         parts.append("CONTEXT turns (already processed; do not record from these):\n"
                      + render(originals, window["context"]))
-    parts.append(f"NEW turns {window['new'][0]}-{window['new'][-1]}:\n"
-                 + render(originals, window["new"]))
+    if window.get("span"):
+        (t,), (start, end) = window["new"], window["span"]
+        total = len(render(originals, [t]))
+        parts.append(f"NEW turns {t}-{t} (one long turn, characters {start}-{end} of {total}; "
+                     "record only what this part says):\n" + render_span(originals, t, start, end))
+    else:
+        parts.append(f"NEW turns {window['new'][0]}-{window['new'][-1]}:\n"
+                     + render(originals, window["new"]))
     return "\n\n=====\n\n".join(parts)
 
 
@@ -349,13 +365,25 @@ def call_writer(generate, originals, window, prior_text, session):
                            {"role": "user", "content": user_prompt(originals, window, prior_text)}],
                           temperature=0, max_output_tokens=OUTPUT_TOKENS, session_id=session)
         return [dict(new=window["new"], text=result.text, usage=result.usage,
-                     seconds=round(time.monotonic() - started, 2))]
+                     seconds=round(time.monotonic() - started, 2),
+                     **({"span": list(window["span"])} if window.get("span") else {}))]
     except Exception as exc:                          # noqa: BLE001
         cut = isinstance(exc, CloudCompletionError) and "length" in str(exc)
         too_long = (getattr(exc, "status_code", None) == 400
                     and any(w in str(exc).lower() for w in ("context", "too long", "maximum", "token")))
-        if not (cut or too_long) or len(window["new"]) == 1:
+        if not (cut or too_long):
             raise
+        if len(window["new"]) == 1:
+            # one pair too long to record in one reply (ICE2's pastes, 2026-11-04): its text in halves
+            (t,) = window["new"]
+            start, end = window.get("span") or (0, len(render(originals, [t])))
+            if end - start < 2 * SPAN_MIN_CHARS:
+                raise
+            full = render(originals, [t])
+            cut_at = full.rfind(" ", start + SPAN_MIN_CHARS, (start + end) // 2 + 1)
+            mid = cut_at if cut_at > start else (start + end) // 2
+            return (call_writer(generate, originals, dict(window, span=(start, mid)), prior_text, session)
+                    + call_writer(generate, originals, dict(window, span=(mid, end)), prior_text, session))
         half = len(window["new"]) // 2
         first = dict(window, new=window["new"][:half])
         second = dict(window, new=window["new"][half:],
@@ -391,7 +419,7 @@ def run_writer(history, writer, out, *, limit=None, generate=None, writer_meta=N
         known = {e["id"] for e in entries}
         kept, dropped, failures = [], [], []
         for part_index, part in enumerate(parts):
-            part_window = dict(window, new=part["new"])
+            part_window = dict(window, new=part["new"], **({"span": tuple(part["span"])} if part.get("span") else {}))
             try:
                 raws = parse(part["text"])
             except (ValueError, json.JSONDecodeError) as exc:
@@ -415,7 +443,8 @@ def run_writer(history, writer, out, *, limit=None, generate=None, writer_meta=N
                       index=window["index"], new=window["new"], context=window["context"],
                       identity=identity, prior_shown=shown, prior_total=total,
                       parts=[dict(new=p["new"], text=p["text"], usage=p["usage"], seconds=p["seconds"],
-                                  retried=p.get("retried", False)) for p in parts],
+                                  retried=p.get("retried", False), **({"span": p["span"]} if p.get("span") else {}))
+                             for p in parts],
                       parse_failures=failures, entries=kept, dropped=dropped)
         _append(path, record)
         done.append(record)

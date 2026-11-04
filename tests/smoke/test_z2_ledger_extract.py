@@ -220,3 +220,30 @@ def test_a_provider_at_capacity_is_transient_a_limit_is_not():
                                "Upstream request failed: [ttft_admission_refused] the cell is at capacity; retry shortly")
     limit = ProviderAccessError("opencode-deepseek-v41-flash", "quota/rate-limit", 429, "weekly usage limit reached")
     assert transient(load) and not transient(limit)
+
+
+def test_one_pair_too_long_for_one_reply_is_recorded_in_parts(tmp_path, monkeypatch):
+    """ICE2 (2026-11-04): a single pasted pair needed more than the output cap, and a window
+    split down to one pair failed the history. Its text is now halved; each part opens with the
+    header of the message it starts in, and quotes still resolve against the whole message."""
+    paste = " ".join(f"section {i} says the reactor needs {i} valves" for i in range(600))
+    pairs = [dict(turn_number=1, original_pair_sha256="sha1", prompt=paste, response="noted")]
+    monkeypatch.setattr(ledger, "load_history", lambda h: pairs)
+    shown = []
+
+    def generate(messages, **kw):
+        body = messages[1]["content"].split("=====")[-1]
+        shown.append(body)
+        if len(body) > 12_000:
+            raise CloudCompletionError("cloud answer completion was not successful: length")
+        n = body.count("section")
+        quote = body[body.index("section"):].split(" valves")[0] + " valves"
+        return NS(text=json.dumps({"entries": [entry(f"part with {n}", f"The reactor part says: {quote}.", 1, quote)]}),
+                  usage=None)
+
+    path = ledger.run_writer("X", "deepseek", tmp_path, generate=generate, writer_meta=META)
+    record = json.loads(path.read_text())
+    spans = [p["span"] for p in record["parts"]]
+    assert len(spans) >= 2 and spans[0][0] == 0 and all(a[1] == b[0] for a, b in zip(spans, spans[1:]))
+    assert all("[turn 1 | user]" in s for s in shown)                  # every part says whose words
+    assert len(record["entries"]) == len(spans)                         # every part's quote resolved
