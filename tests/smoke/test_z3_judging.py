@@ -39,3 +39,16 @@ def test_r10_graded_report_answers_below_the_bar_from_no_memory(capsys):
     lines = {l.split("bar ")[-1].split()[0]: int(l.split()[-1]) for l in capsys.readouterr().out.splitlines()
              if "reranker rescue, bar " in l and "off" not in l}
     assert lines["+0"] == 2 and lines["+3"] == 1 and lines["-4"] == 1   # b's no-memory answer was right
+
+
+def test_the_meter_keeps_moving_when_the_work_outgrows_its_plan(tmp_path):
+    """Run 2 (2026-11-04): B's grading passed its planned calls and the bar froze one short."""
+    import io
+    from experiments.z2 import run_z2 as Z
+    calls = tmp_path / "raw.jsonl"
+    calls.write_text("x\n" * 120)
+    stage = J.Counted("s", "s", ["true"], calls=calls, planned=100)
+    ctx = Z.Context("t", directory=tmp_path, out=io.StringIO())
+    assert (stage.done(ctx), stage.total(ctx)) == (120, 121)
+    calls.write_text("x\n" * 50)
+    assert (stage.done(ctx), stage.total(ctx)) == (50, 100)
