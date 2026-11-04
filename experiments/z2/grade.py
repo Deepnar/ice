@@ -267,8 +267,7 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
     # are one group
     groups = sorted({(checkpoint[k], tuple(sorted(set(r["unsupported_claims"]))))
                      for k, r in results.items() if r.get("status") == "graded" and r["unsupported_claims"]})
-    write_meter(out, claims=len(groups), claims_estimated=False)
-    texts = sorted({c for _, claims in groups for c in claims})
+    texts =sorted({c for _, claims in groups for c in claims})
     vec = dict(zip(texts, claim_vectors(out, texts, embed))) if texts else {}
     lock = threading.Lock()
 
@@ -287,6 +286,16 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
     for turn, label in (dates or {}).items():
         minute_rows.setdefault(label[:16], []).extend(rows_of_turn.get(turn, []))
         day_rows.setdefault(label[:10], set()).update(rows_of_turn.get(turn, []))
+    # the real call count for the meter: one batched call per answer with an undated claim, plus
+    # one per minute-dated claim with a message at its minute (one call per answer alone undercounted
+    # B by ~950 — the meter sat at its plan for two hours, Z3 2026-11-04)
+    def at_minute(claim, cp):
+        return tuple(dict.fromkeys(i for d, h in MINUTE.findall(claim) for i in minute_rows.get(f"{d} {h}", [])
+                                   if rows[i][0] <= cp))
+
+    batched = sum(any(not (dates and MINUTE.search(c)) for c in claims) for _, claims in groups)
+    timed = {(c, at_minute(c, cp)) for cp, claims in groups for c in claims if dates and MINUTE.search(c)}
+    write_meter(out, claims=batched + sum(1 for _, at in timed if at), claims_estimated=False)
 
     def claim_dated(claim, within, distance):
         """The passages at a time the claim names: every message at its minute; on a day alone, the
@@ -302,7 +311,7 @@ def check_claims(results, contexts, ledger, originals, index, ask, out, dates=No
     def dated(claim, cp):
         """A minute-dated claim's verdict: no turn at that minute (by the checkpoint) is invented,
         decided here; otherwise the judge reads only the messages at that minute."""
-        at = [i for d, h in MINUTE.findall(claim) for i in minute_rows.get(f"{d} {h}", []) if rows[i][0] <= cp]
+        at = at_minute(claim, cp)
         if not at:
             return "confirmed_invented"
         reply = ask(DATED_CLAIM_SYSTEM, json.dumps(dict(CLAIM=claim, PASSAGES=[
