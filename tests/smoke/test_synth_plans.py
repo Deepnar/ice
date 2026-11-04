@@ -222,7 +222,7 @@ def test_a_long_value_may_be_said_in_other_words_if_its_key_parts_are_there():
 
 def test_a_repeated_user_message_is_regenerated():
     from experiments.synth import generate as G
-    history = [dict(turn=1, user="hey so i got a verbal offer, can u help me plan", assistant="sure")]
+    history = [dict(user="hey so i got a verbal offer, can u help me plan", assistant="sure")]      # as the generator holds it
     problems = G.invented_values(dict(facts=[]), 2, "hey so i got a verbal offer, can u help me plan", history)
     # S5/S7 (2026-11-04): the writer is told which message it repeated and how that one began
     assert len(problems) == 1 and "turn 1" in problems[0] and '"hey so i got a verbal offer' in problems[0]
