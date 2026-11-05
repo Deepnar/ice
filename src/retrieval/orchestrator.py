@@ -616,7 +616,8 @@ class HybridRetrievalOrchestrator:
             "bm25": self._bm25_episodic(classification, scope, conv_id, search_prompt),
             "vector": self._vector_episodic(prompt_embedding, classification, scope, conv_id),
             "codex": codex_fragments,
-            "procedural": [] if incognito else self._procedural_lookup(prompt_embedding, classification, scope),
+            "procedural": [] if incognito or not settings.procedural_memory_enabled
+            else self._procedural_lookup(prompt_embedding, classification, scope),
             # C4: the cross-conversation summary half is a user-global read —
             # gated off under incognito like procedural; the conv-scoped
             # batch half (own context) still runs.
@@ -627,9 +628,10 @@ class HybridRetrievalOrchestrator:
             # recorded scoring runs. The cross half's self-exclusion needs the
             # same id for the same reason: with None it excluded nothing and
             # could re-inject this conversation's own summary.
+            # Z3 freeze (D9): off with batch summaries; its cross half reads the fold, also off
             "batch_summary": self._batch_summary_lookup(
                 prompt_embedding, own_conv_id, include_cross=not incognito,
-                scope=scope, search_conv_id=conv_id),
+                scope=scope, search_conv_id=conv_id) if settings.batch_summaries_enabled else [],
             # Cold originals compete under the same episodic packing lane;
             # a date is a query constraint, not permission to remember.
             "cold": self._cold_lookup(prompt_keywords, conv_id, scope,

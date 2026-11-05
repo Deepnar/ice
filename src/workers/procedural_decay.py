@@ -18,6 +18,10 @@ def decay_procedural_patterns(cycles: int = 1):
     (C7 D5) but is a no-op here: staleness is an absolute-age cutoff, not a
     multiplicative score, so catch-up needs no compression.
     """
+    if not settings.procedural_memory_enabled:
+        # Z3 freeze (D9): procedures are switched off — no pass over their table
+        logger.info("procedural_decay_skipped", reason="procedural_memory_enabled is off")
+        return {"skipped": "procedural_memory_enabled is off"}
     db = SessionLocal()
     try:
         cutoff = datetime.now(timezone.utc) - timedelta(days=settings.procedural_stale_days)

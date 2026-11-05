@@ -168,6 +168,10 @@ def batch_summarize():
     matters. A turn now qualifies on `decay_score < 0.3` **or** simply being
     older than `settings.batch_summary_age_days`, whichever comes first.
     """
+    if not settings.batch_summaries_enabled:
+        # Z3 freeze (D9): switched off — nothing is read or written
+        logger.info("batch_summarize_skipped", reason="batch_summaries_enabled is off")
+        return {"skipped": "batch_summaries_enabled is off"}
     db = SessionLocal()
     try:
         _repair_stale_caches(db)

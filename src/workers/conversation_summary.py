@@ -274,6 +274,10 @@ def run_conversation_summaries(db, llm=None, embedder=None,
     stats = {"scanned": 0, "created": 0, "updated": 0,
              "below_window": 0, "failed": 0,
              "source_fallback_groups": 0, "incomplete_note_groups": 0}
+    if not settings.conversation_notes_enabled:
+        # Z3 freeze (D9): the fold is switched off — nothing is read or written
+        logger.info("conversation_summary_skipped", reason="conversation_notes_enabled is off")
+        return dict(stats, skipped="conversation_notes_enabled is off")
     if llm is None:
         llm = _default_llm
     verifier = verifier or verify_support

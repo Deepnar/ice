@@ -1,5 +1,6 @@
 """v3 clock precision, origin labels, and representation budgeting."""
 
+import pytest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -7,6 +8,13 @@ from src.api.prompt_assembler import assemble_prompt
 from src.memory.time_format import format_time, recorded_stamp
 from src.memory.tokens import count
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
+
+
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """These tests exercise summaries shown in reads (Z3 turned them off); the code is kept, so they run with the setting it needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "turn_summaries_in_reads", True)
 
 
 def test_timezone_conversion_and_unknown_timezone():

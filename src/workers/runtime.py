@@ -158,6 +158,13 @@ def missed_cycles(elapsed_seconds: float, interval_seconds: float,
     return max(1, min(cap, int(elapsed_seconds // interval_seconds)))
 
 
+def job_switched_off(job_name: str) -> bool:
+    """A job whose part the Z3 freeze switched off (D9) is never queued; the job itself also refuses."""
+    return {"batch_summarize": not settings.batch_summaries_enabled,
+            "conversation_summary": not settings.conversation_notes_enabled,
+            "decay_procedural": not settings.procedural_memory_enabled}.get(job_name, False)
+
+
 def tick_delay(base: float = 60.0, jitter: float = 15.0) -> float:
     """Tick sleep: base + uniform jitter (spec §2.1: 60s + 0–15s)."""
     return base + random.uniform(0.0, jitter)
@@ -347,6 +354,9 @@ class MaintenanceRuntime:
             return
         if job_name not in self._jobs:
             logger.error("maintenance_unknown_job", job=job_name)
+            return
+        if job_switched_off(job_name):
+            logger.info("maintenance_job_switched_off", job=job_name)
             return
         key = _job_key(job_name, kwargs)
         with self._lock:

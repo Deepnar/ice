@@ -16,6 +16,13 @@ from src.memory.support import verify_support
 
 
 @pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """These tests exercise summaries shown in reads (Z3 turned them off); the code is kept, so they run with the setting it needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "turn_summaries_in_reads", True)
+
+
+@pytest.fixture(autouse=True)
 def v2_claims(monkeypatch):
     """Pins the legacy v2 contract (all-or-nothing acceptance, {text, sources}
     claims). v2 records stay readable and v2 stays selectable; the v3 contract

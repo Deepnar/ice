@@ -110,7 +110,7 @@ def prepare_memory_context(*, db, classifier, classification, conversation_id,
         choices = conversation_summary_block(
             db, str(conversation_id), turn_count, total_tokens, recent_budget,
             prompt_embedding, include_options=True, include_source_ids=True,
-            artifact_options=artifact_options) or []
+            artifact_options=artifact_options) or [] if settings.conversation_notes_enabled else []
         options = [text for text, _ in choices]
         source_ids = {text: ids for text, ids in choices}
         return assemble_budgeted_prompt(

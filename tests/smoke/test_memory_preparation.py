@@ -11,6 +11,13 @@ from src.api.source_proof import SourceProof
 from src.retrieval.orchestrator import ContextFragment
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """These tests exercise the proof rescue (Z3 made the reranker rescue the default); the code is kept, so they run with the setting it needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "memory_source_rescue_mode", "proof")
+
+
 @pytest.fixture
 def harness(monkeypatch):
     monkeypatch.setattr(settings, "memory_source_gate_enabled", True)

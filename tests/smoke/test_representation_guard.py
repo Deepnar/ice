@@ -10,6 +10,13 @@ from src.retrieval import orchestrator as orch_mod
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """These tests exercise summaries shown in reads (Z3 turned them off); the code is kept, so they run with the setting it needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "turn_summaries_in_reads", True)
+
+
 @pytest.fixture
 def orch(monkeypatch):
     o = HybridRetrievalOrchestrator.__new__(HybridRetrievalOrchestrator)

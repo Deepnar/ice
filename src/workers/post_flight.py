@@ -362,8 +362,10 @@ def evaluate_turn(batch_id: str, prompt: str, response: str,
             failures = []
             # CODEX_V4 D3: the claim pass writes the codex (extract_facts warns
             # and writes nothing if summary_assertion_method is not v4).
-            for stage_name, extractor in (("facts", extract_facts),
-                                          ("procedural", extract_procedural)):
+            # Z3 freeze (D9): procedures are switched off — the extractor is not called
+            stages = (("facts", extract_facts),) + (
+                (("procedural", extract_procedural),) if settings.procedural_memory_enabled else ())
+            for stage_name, extractor in stages:
                 try:
                     extractor(batch_id=batch_id, model_used=model_used)
                 except JobYielded:

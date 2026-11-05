@@ -31,8 +31,9 @@ class Settings(BaseSettings):
     # the question, and full ICE read 130 of 456 LongMemEval questions with no memory. "reranker":
     # retrieve, and admit the retrieval when its best reranker score (log-odds of "relevant"; 0 = the
     # reranker's own even odds) reaches the bar — decided by what memory holds, not by how the question
-    # is worded, with no model call. Z3 decides the default.
-    memory_source_rescue_mode: Literal["proof", "reranker"] = "proof"
+    # is worded, with no model call. Z3 (R10 graded, R7; maintainer 2026-11-04): reranker at bar 0 —
+    # LongMemEval's 146 refused questions 26 → 113 correct; the proof judge kept as the other mode.
+    memory_source_rescue_mode: Literal["proof", "reranker"] = "reranker"
     memory_source_rescue_min_score: float = Field(default=0.0, allow_inf_nan=False)
     memory_source_gate_model: str = "gemma4:e4b"
     memory_source_gate_input_tokens: int = Field(default=8192, gt=0)
@@ -460,6 +461,13 @@ class Settings(BaseSettings):
     retrieval_procedural_limit: int = 5
     retrieval_batch_summary_limit: int = 3
     retrieval_conversation_summary_limit: int = 2
+    # Z3 freeze, D9 (maintainer 2026-11-04): parts switched OFF — code kept, deleted only after FINAL.
+    # Off means off everywhere: nothing written, no job run, nothing in a prompt (FEATURE_INVENTORY
+    # "Z3 FREEZE"). Z2: the fold B +1.1 / C −1.3 judge-correct, ~560 tokens a prompt, ~⅓ stale;
+    # batch summaries never written in Z2 (G79), off by design; procedures 0 to ±1.7, 26% unfaithful.
+    conversation_notes_enabled: bool = False    # the fold: its job and its prompt block
+    batch_summaries_enabled: bool = False       # batch summaries: their job and the batch-summary leg
+    procedural_memory_enabled: bool = False     # procedures: the extractor and the procedural leg
 
     # Session diversification: how many fragments one FOREIGN conversation may
     # contribute (the active conversation is uncapped). None = no limit, the
@@ -546,8 +554,10 @@ class Settings(BaseSettings):
     # (Z2 S0, 2026-10-18). Kept as a read-time switch for Z2's paired comparison.
     representation_guard_terms: Literal["specific", "every_word"] = "specific"
     # Read switch for Z2 ablation group 4 (spec D10): off = every read shows a turn's
-    # raw text only — no summary standing in for it, no summary/abstract fallback.
-    turn_summaries_in_reads: bool = True
+    # raw text only — no summary standing in for it, no summary/abstract fallback. Z3 (R4, R7;
+    # maintainer 2026-11-04): off — B +7.0 [0.0, +13.9], C +2.7 at equal prompt tokens. Summaries
+    # are still written (the keyword leg searches them); only reads show the original words.
+    turn_summaries_in_reads: bool = False
     # Z2 F17: choose_representation shows the summary first for analysis/planning/ideation
     # intents. Off: the original first for every intent, the summary kept as the budget fallback.
     representation_summary_first_intents: bool = True

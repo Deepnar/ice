@@ -10,6 +10,13 @@ from src.retrieval.reranker import candidate_pool, rerank
 
 
 @pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """These tests exercise the procedural leg (Z3 switched procedures off); the code is kept, so they run with the setting it needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "procedural_memory_enabled", True)
+
+
+@pytest.fixture(autouse=True)
 def enabled(monkeypatch):
     monkeypatch.setattr(settings, "retrieval_rerank_enabled", True)
     monkeypatch.setattr(settings, "retrieval_rerank_min_score", 0.0)
