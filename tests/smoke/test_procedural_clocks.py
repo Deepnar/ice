@@ -23,6 +23,14 @@ from src.workers import procedural_decay
 from test_procedural_support import fake_review
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """Written before the Z3 freeze switched procedural_memory_enabled to its frozen value; the code is
+    kept, so these tests run with the setting the mechanism needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "procedural_memory_enabled", True)
+
+
 def _retrieval(monkeypatch, db, conversation, *, actual=False, scope=None):
     query = 'How do I want my patch reviews organized?'
     classification = NS(prompt=query, context_reliance='Long_Term_Memory',

@@ -20,6 +20,16 @@ from experiments.v3_repair.tuning_plan import coordinates
 from src.api.config import settings
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """Written before the Z3 freeze switched procedural_memory_enabled, batch_summaries_enabled, conversation_notes_enabled to its frozen value; the code is
+    kept, so these tests run with the setting the mechanism needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "procedural_memory_enabled", True)
+    monkeypatch.setattr(settings, "batch_summaries_enabled", True)
+    monkeypatch.setattr(settings, "conversation_notes_enabled", True)
+
+
 def save_unit(out, header, probe):
     (out / "units").mkdir(exist_ok=True)
     unit = dict(probe_id=probe["probe_id"], identity_sha256=header["identity_sha256"],

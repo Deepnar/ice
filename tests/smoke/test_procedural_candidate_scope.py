@@ -14,6 +14,14 @@ from src.memory.source import chat_provenance
 from src.retrieval.orchestrator import HybridRetrievalOrchestrator
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """Written before the Z3 freeze switched procedural_memory_enabled to its frozen value; the code is
+    kept, so these tests run with the setting the mechanism needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "procedural_memory_enabled", True)
+
+
 def exercise_procedural_scope(monkeypatch, case, *, expected=True, actual=False):
     if not os.getenv('ICE_TEST_DATABASE'):
         raise RuntimeError('requires disposable PostgreSQL')

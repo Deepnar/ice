@@ -23,6 +23,16 @@ from src.api.config import settings
 START = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """Written before the Z3 freeze switched procedural_memory_enabled, batch_summaries_enabled, conversation_notes_enabled to its frozen value; the code is
+    kept, so these tests run with the setting the mechanism needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "procedural_memory_enabled", True)
+    monkeypatch.setattr(settings, "batch_summaries_enabled", True)
+    monkeypatch.setattr(settings, "conversation_notes_enabled", True)
+
+
 def quiet_inputs():
     rows, probes, _plan = inputs()
     quiet = copy.deepcopy(probes[0][1])

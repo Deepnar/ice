@@ -17,6 +17,14 @@ from src.memory.models import Conversation, EpisodicMemory
 from src.retrieval.orchestrator import ContextFragment
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """Written before the Z3 freeze switched memory_source_rescue_mode to its frozen value; the code is
+    kept, so these tests run with the setting the mechanism needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "memory_source_rescue_mode", "proof")
+
+
 @pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"), reason="disposable DB required")
 @pytest.mark.parametrize("mode", ["rescue", "withhold", "positive"])
 def test_actual_handler_source_decisions(monkeypatch, mode):

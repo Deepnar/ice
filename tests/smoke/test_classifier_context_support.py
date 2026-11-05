@@ -15,6 +15,14 @@ from src.memory.source import single_provenance
 from src.memory.support import verify_support
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """Written before the Z3 freeze switched turn_summaries_in_reads to its frozen value; the code is
+    kept, so these tests run with the setting the mechanism needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "turn_summaries_in_reads", True)
+
+
 @pytest.mark.skipif(not os.getenv("ICE_TEST_DATABASE"), reason="disposable DB required")
 @pytest.mark.parametrize("state", ["supported", "contradicted", "unknown", "stale", "legacy"])
 def test_sql_context_and_real_classify_encoder_path(state, monkeypatch):

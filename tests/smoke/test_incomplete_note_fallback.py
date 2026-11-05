@@ -19,6 +19,14 @@ from src.workers import bg_client_factory, conversation_summary as worker
 from src.workers.completion_text import IncompleteCompletion
 
 
+@pytest.fixture(autouse=True)
+def _mechanism_under_test(monkeypatch):
+    """Written before the Z3 freeze switched conversation_notes_enabled to its frozen value; the code is
+    kept, so these tests run with the setting the mechanism needs."""
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "conversation_notes_enabled", True)
+
+
 class Encoder:
     def encode(self, _text, **_kwargs):
         return np.array([1.] + [0.] * 1023)
