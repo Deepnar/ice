@@ -136,7 +136,7 @@ re-read, never set from B alone.
 | R4 | F6/F13/F14 — turn summaries in reads: off, or a margin of 1–2 | GPU + CLOUD | ✅ answered 2026-11-04: summaries off B +7.0 [0.0, +13.9], C +2.7 |
 | R5 | F12 — judge the judge: 250 answers under both rubrics, planted panel, invariance | CLOUD (~$0.6) | ✅ run 1 2026-11-03: panel 8/8 marks; grade-2 vs per-point 90% B / 92% C; invariance 20/20, 8/8; BEAM 5/5; controls 43/43 intrusion; dated claims B 7/7 + 7/7 + 7/7, C true 13/17 (the 4 misses read: plant labels wrong, judge right), wrong-turn 16/17 — awaiting maintainer approval |
 | R6 | Z2's grade-1 grading finishes on `main` (B's remaining phases, C, S12) | CLOUD (~$11) | ☐ |
-| R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ☐ |
+| R7 | All fixes together on B and C, answered and graded | GPU + CLOUD | ✅ 2026-11-05: frozen ICE beats plain search on B (+9.9 [2.8, 17.2]) and C (+25.6 [14.0, 37.5]) |
 | R8 | fix-pass ⏳ items (G79, G60, G75, B7 classifier variants) | GPU/DB | ✅ G60 replaced (F20), G75 off, B7 no change |
 | R9 | Live trials stopped earlier (LoCoMo slice, LongMemEval-S full context) | GPU | LoCoMo ✅; LME-S ✅ (2026-10-31, `trial.py lme`); BEAM ✅ (2026-11-01, `trial.py beam`) |
 | R10 | F4 — B2 "no memory" on a third of LongMemEval | GPU | ✅ read (2026-11-01): reranker rescue reaches the answer on 94/136 vs 17 shipped; bar and ordinary-chat cost open |
@@ -383,6 +383,30 @@ cd ~/Programs/ice-worktrees/fix-pass
 uv run --no-sync python experiments/z2/gpu_extra.py run --only r7-reads-B,r7-reads-C      # GPU
 uv run --no-sync python experiments/z2/z3_judging.py run --only r7-answers-B,r7-grade-B,r7-answers-C,r7-grade-C   # cloud
 ```
+
+**R7 RESULT (2026-11-05; v3 frozen candidate = fix-pass + r7_settings.json, incl. D9 off-switches; Muse 1.2
+answers, grade-2 with the whole-passage claim check and detail-matching judges; plain search budget-matched,
+median prompt B 35.6k vs 36.6k tokens, C 26.0k vs 26.2k).** Judge-correct (M1):
+
+| | frozen ICE | plain search | no memory | paired ICE − plain (95% family bootstrap) |
+|---|---|---|---|---|
+| B (174) | **69.0%** | 56.9% | 9.8% | **+9.9 [+2.8, +17.2]**, 27 better / 6 worse, Holm p 0.0006 — win |
+| C (75) | **52.0%** | 26.7% | 13.5% | **+25.6 [+14.0, +37.5]**, 21 / 2, Holm p 0.0001 — win |
+
+- B without its 3 never-said answer-key defects (2 in Z2's asks): 69.2% / 57.0% / 9.3% — unchanged.
+- Clean answers (M2: correct, nothing invented or outdated): B 32.8% vs 25.3%, C 16.0% vs 5.3% — ahead, not
+  significant (+8.2 [−0.7, +17.0]; +7.7 [−2.4, +17.9]).
+- **Invention, under the fixed judges: ICE invents less than plain search** — answers with an invented claim
+  B 55.2% vs 62.6% (−11.1 [−21.7, −0.7]), C 68.0% vs 82.7%; non-inferior on both. Z2's "ICE invents ~7 points
+  more" (F27) was largely the claim check's blind spot.
+- Evidence recall (cited turns in the prompt): B 87.4% vs 83.0%; C 69.7% vs 24.2%. Context precision (token
+  share carrying a required item): B 2.9% vs 2.4%; C 6.5% vs 2.5%.
+- No-memory messages (memory reply vs no-memory reply, both orders): B ICE 10 better / 14 worse / 10 tie,
+  plain 5 / 18 / 11; C ICE 2 / 5 / 4, plain 2 / 4 / 5. Memory still hurts more often than it helps there (ICE
+  fetched on 97% of B's and all of C's) — less with ICE than plain search.
+- Weak spots: never-said questions (B 53% vs plain 67% vs no memory 80%; C 33/33/75 — memory makes the
+  answerer less willing to say "never said"); aggregation 0% on both; C cumulative 0% and temporal 30%.
+- In-sample: B and C were Z2's development histories. FINAL measures held-out ones.
 
 ## R8 — fix-pass ⏳ items (GPU/DB)
 
