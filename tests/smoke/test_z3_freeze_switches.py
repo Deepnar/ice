@@ -1,6 +1,6 @@
 """The Z3 freeze (maintainer, 2026-11-04/05): R7's choices are ICE's defaults, and the parts D9 switched
 off are off everywhere — no job queued or run, nothing written, nothing in a prompt. Code kept; deleted
-only after FINAL."""
+only after FINAL. The memory-use sentence is the S9 ablation's switch, off in the frozen system."""
 import pytest
 
 from src.api.config import Settings
@@ -11,7 +11,7 @@ def test_frozen_defaults():
     assert s.turn_summaries_in_reads is False
     assert (s.memory_source_rescue_mode, s.memory_source_rescue_min_score) == ("reranker", 0.0)
     assert not (s.conversation_notes_enabled or s.batch_summaries_enabled or s.procedural_memory_enabled)
-    assert s.retrieval_rerank_candidates == 256
+    assert s.memory_use_instruction == "none" and s.retrieval_rerank_candidates == 256
 
 
 def test_switched_off_jobs_are_never_queued_and_refuse_to_run(monkeypatch):
@@ -38,3 +38,12 @@ def test_the_runtime_drops_a_switched_off_job_before_queueing_it():
     rt.enqueue("conversation_summary")
     assert rt._queued_keys == set()
 
+
+@pytest.mark.parametrize("mode", ["none", "relevance"])
+def test_the_memory_use_sentence_is_only_in_the_ablation(monkeypatch, mode):
+    from src.api import prompt_assembler as P
+    from src.api.config import settings
+    monkeypatch.setattr(settings, "memory_use_instruction", mode)
+    system = P.assemble_prompt([], [], "what did I say about the garden?")[0]["content"]
+    assert (P.MEMORY_USE_RELEVANCE in system) == (mode == "relevance")
+    assert "say plainly that it was not discussed" in P.MEMORY_USE_RELEVANCE

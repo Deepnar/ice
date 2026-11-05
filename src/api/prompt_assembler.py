@@ -58,6 +58,14 @@ from src.retrieval.orchestrator import ContextFragment
 logger = structlog.get_logger('ice.api.prompt_assembler')
 
 
+# The S9 ablation's memory-use sentence (settings.memory_use_instruction; off in the frozen system).
+MEMORY_USE_RELEVANCE = (
+    " Use the remembered context only where it bears on the current message; when the message needs "
+    "none of it, answer without it. If the user asks about something that the conversation history and "
+    "the retrieved context do not contain, say plainly that it was not discussed or that you do not know, "
+    "rather than guessing.")
+
+
 def conversation_summary_block(
     db_session: Session,
     conversation_id: str,
@@ -385,6 +393,7 @@ def assemble_prompt(
             "Be specific — reference chapter numbers, timestamps, or quotes from the context. "
             "Answer accurately, thoroughly and in deep detail, drawing on the given context to make the "
             "response complete and well-grounded."
+            + (MEMORY_USE_RELEVANCE if settings.memory_use_instruction == "relevance" else "")
         ),
     }
 

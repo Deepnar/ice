@@ -616,6 +616,11 @@ class Settings(BaseSettings):
     conversation_summary_max_words: int = 250
     conversation_summary_chunk_words: int = 3500
     conversation_note_prompt_tokens: int = 650
+    # A sentence in the system prompt on how to use memory (S9 ablation, pre-registration revision 10;
+    # maintainer 2026-11-05): "relevance" — use memory only where it bears on the message, and say a
+    # thing was not discussed rather than guess. Off in the frozen system: R7 showed memory answering
+    # never-said questions (B 53% vs 80% with none) and intruding into messages that need none.
+    memory_use_instruction: Literal["none", "relevance"] = "none"
 
     # G11: a turn is batch-summarised once its decay falls below the retrieval
     # floor OR it passes this age, whichever comes first. Handed to G9 by G11.
