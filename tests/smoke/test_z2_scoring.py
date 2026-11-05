@@ -143,3 +143,12 @@ def test_a_part_off_in_full_ice_is_scored_from_its_add_back_read():
     summaries = out["fidelity"]["summaries"]
     assert summaries["state"] == "off in full ICE; added back: hurts" and summaries["prompts_changed_when_off"] == 30
     assert summaries["m2_full_minus_off"]["diff"] < 0 and summaries["m2_full_minus_off"]["worse"] == 30
+
+
+def test_the_memory_use_sentence_is_scored_like_an_add_back():
+    graded, units, occ = _history()
+    for ask in occ:
+        graded[f"instr_relevance|{ask}"] = verdict("correct")
+        units[f"instr_relevance|{ask}"] = dict(prompt_tokens=1000, source_turns=[2], recent_tokens=0, legs=["facts"])
+    out = S.score("B", graded, units, occ, S.turn_prefix([None] * 60, count=lambda t: 6000), prompts={k: k for k in units})
+    assert out["fidelity"]["memory_instruction"]["state"].startswith("off in full ICE; added back")

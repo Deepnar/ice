@@ -61,6 +61,8 @@ COMPONENTS = {
     "clusters": dict(kinds=("cluster",), legs=()),
     "temporal": dict(kinds=(), legs=()),
     "maintenance": dict(kinds=("entity_merge",), legs=()),
+    # not a part but a sentence in the system prompt, off in the frozen system; S9 reads it on (ADD_BACK)
+    "memory_instruction": dict(kinds=(), legs=()),
 }
 
 
@@ -418,7 +420,7 @@ def pool(parts, primary=ICE, bases=("long_context", "bare_vector")):
 
 # A part the freeze switched off is read back ON beside full ICE (S9, Z3 2026-11-04): full ICE
 # is the one without it, so "with it − without it" is that condition minus full.
-ADD_BACK = {"summaries": "addback_summaries"}
+ADD_BACK = {"summaries": "addback_summaries", "memory_instruction": "instr_relevance"}
 
 
 def fidelity(outcomes, asks, conditions, units, prompts, audit, primary="full", targets=None):

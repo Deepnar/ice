@@ -154,6 +154,9 @@ def test_clusters_are_not_in_the_parts_test_and_decay_has_both_arms():
         assert not [c for c in R.select_conditions(preset)
                     if c.startswith(("loo_", "add_")) and c.split("_")[-1] in ("summaries", "notes", "procedural")]
     assert "addback_summaries" in R.select_conditions("final_ablation")              # read back on beside full
+    # revision 10 (2026-11-05): the memory-use sentence, read on beside full ICE, off in the frozen system
+    assert R.CONDITIONS["instr_relevance"]["settings"] == {"memory_use_instruction": "relevance"}
+    assert "instr_relevance" in R.select_conditions("final_ablation")
     assert {"full_default", "full"} <= set(R.select_conditions("final_main+final_decay"))
     assert {"full_default", "full"} <= set(R.select_conditions("final_main+final_ablation+final_buildup"))
     assert "warm_vector" in R.select_conditions("final_buildup")                      # step 0 (F13)
