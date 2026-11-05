@@ -33,8 +33,8 @@ TRANSITIONS = {
     },
     "src/retrieval/orchestrator.py": {
         "before": "5027817122bad3a1eb9952132f056daebd3acaf574778da57826ac0a446d5b61",
-        "after": "5a93333f349fac2faf31f926eed5a2dd6c98e6e7ca8102927937906848bf603a",
-        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged. 2026-10-16 (CODEX_V4): the facts leg replaced the graph, claims, enumeration and timeline legs; procedural scope resolver kept as _scope_batch_ids; inert claim/edge fragment fields removed. A pre-CODEX_V4 bundle's codex cannot be read by this reader. 2026-10-17: the wide-net path applies the D7 strength bonus after reranking, as the main path does. 2026-10-18 (Z2 S0): the summary-for-raw guard checks only the question's names and numbers (representation_guard_terms, default specific; every_word = the old guard); preflight NER is computed once per request for the facts leg and the guard. 2026-10-18 (Z2): a cold resurrection writes is_bookmarked/decay_immune FALSE (a raw INSERT left them NULL and the row never decayed again); ranking unchanged. 2026-10-19 (Z2): retrieve(exclude_rows=...) drops episodic fragments of rows the recent window shows, after fusion on both paths.",
+        "after": "5f02e1f3627ff6bde8ec85ecc7305ecd16e6ad452b91f902bfc47fce264eeff5",
+        "reason": "Authorized tested native artifact IDs, preserved cold claim membership, source-covered graph packing and exact same-source selected excerpt omission; ranking/proofs and frozen writer outcomes remain unchanged. 2026-10-15 (audit A12): automatic top-k cluster scoping gated behind retrieval_auto_cluster_scope (default off); explicit cluster scope unchanged. 2026-10-16 (CODEX_V4): the facts leg replaced the graph, claims, enumeration and timeline legs; procedural scope resolver kept as _scope_batch_ids; inert claim/edge fragment fields removed. A pre-CODEX_V4 bundle's codex cannot be read by this reader. 2026-10-17: the wide-net path applies the D7 strength bonus after reranking, as the main path does. 2026-10-18 (Z2 S0): the summary-for-raw guard checks only the question's names and numbers (representation_guard_terms, default specific; every_word = the old guard); preflight NER is computed once per request for the facts leg and the guard. 2026-10-18 (Z2): a cold resurrection writes is_bookmarked/decay_immune FALSE (a raw INSERT left them NULL and the row never decayed again); ranking unchanged. 2026-10-19 (Z2): retrieve(exclude_rows=...) drops episodic fragments of rows the recent window shows, after fusion on both paths. 2026-11-05 (Z3 freeze, re-registered): d22ed60 (Z2 F22) reranker query context and instruction behind switches (off); 49d78da (R10) last_rerank_top for the rescue; d588629 (Z2 F25) new-chat budget cap and no per-chat limit; 8c7e693 (Z3 freeze) procedural and batch-summary legs read nothing when switched off.",
     },
     "src/retrieval/evolution.py": {
         "before": "a05d0f0923daf0a545d45ffe7a9412854e86504bec43726624b75942a9fd8051",
@@ -48,8 +48,8 @@ TRANSITIONS = {
     },
     "src/api/prompt_assembler.py": {
         "before": "87ad681c5e9cb879334030de0b9de054f4c2ffb2ae404425c0c4231cf019f328",
-        "after": "ad2b28e209adcf203d7d6d9274caa7e7f1d4e4f02c7b03bfc6070988ffded920",
-        "reason": "Approved actual final recent/slot/bookmark/note block receipts; ordinary messages preserved.",
+        "after": "525fb705bf1cbac162ecb8af8a10133583533b2413d1570c530e76c950b5a860",
+        "reason": "Approved actual final recent/slot/bookmark/note block receipts; ordinary messages preserved. 2026-11-05 (Z3 freeze, re-registered): 2a7b3bb (FINAL S9, pre-registration r10) the memory-use sentence behind memory_use_instruction, default none — the default prompt is byte-identical.",
     },
     "src/api/prompt_budget.py": {
         "before": "e745aef5ce138de38e0b7020114ef4092b1b42ec45ff56b1937dd372ca373b32",
@@ -58,18 +58,18 @@ TRANSITIONS = {
     },
     "src/api/memory_preparation.py": {
         "before": "9e398224c93a64de475f8299132ae8e6119eac2b8bec14b1d6c5f86cecb8bbee",
-        "after": "dbbfcf577127cbbdd347e018b3268225595217c6d6469198d981fc607e4df8ac",
-        "reason": "Approved explicit note/bookmark metadata forwarding through shared preparation. 2026-10-19 (Z2): rows the final recent window shows are excluded from retrieval when the evidence-free prompt plus the whole retrieval budget fits (else none, with a warning). 2026-10-29 (Z2 F1, fix-pass 4a7de71): a positive B2 decision is never put to the source judge (the current-message skip is removed; negative rescue unchanged); (Z2 F10, 890a338) retrieval_evidence_order='conversation' reorders the budget-chosen pieces (default relevance, unchanged).",
+        "after": "9c665d6ac6855f0316f581067a781406d2b9fb7a34fe45c06dce049300e67585",
+        "reason": "Approved explicit note/bookmark metadata forwarding through shared preparation. 2026-10-19 (Z2): rows the final recent window shows are excluded from retrieval when the evidence-free prompt plus the whole retrieval budget fits (else none, with a warning). 2026-10-29 (Z2 F1, fix-pass 4a7de71): a positive B2 decision is never put to the source judge (the current-message skip is removed; negative rescue unchanged); (Z2 F10, 890a338) retrieval_evidence_order='conversation' reorders the budget-chosen pieces (default relevance, unchanged). 2026-11-05 (Z3 freeze, re-registered): 49d78da (R10) reranker rescue of a negative decision behind memory_source_rescue_mode; 8c7e693 (Z3 freeze) the fold block only with conversation_notes_enabled (off).",
     },
     "scripts/z1/production_parity.py": {
         "before": "ed058e799864c1128c705b45d6a1098c26ab144ea922b35b941b6a59d1bdc5f5",
-        "after": "8dd9a0e0401046ab4adbdee01fb807544c51bbd4d6954d975fb08d39d8c475ce",
-        "reason": "Optional research bookmark receipts reach the approved shared observer without changed messages or writer outcomes.",
+        "after": "a651b27a3b2a0cc7a7bd0c34fade16c610e26bc762894ee846e7c1d936e9c341",
+        "reason": "Optional research bookmark receipts reach the approved shared observer without changed messages or writer outcomes. 2026-11-05 (Z3 freeze, re-registered): 579d4cc (FINAL r5) every read records the B2 breakdown and the memory read's seconds; 6638903 (R10) the reranker rescue's re-read.",
     },
     "scripts/z1/seed_v3.py": {
         "before": "053e893b754aceccb1989aac0aefe7a5feafc26875094d9239ff101e08fb5e53",
-        "after": "5a6a7bbec2fe286976ccf7a473b88b8645fc80ed7b54a952d9b24ef412ecaca5",
-        "reason": "Exact research serialization of stored IDs, rendered versions and final block receipts; old captured writer/reader outcomes are retained. 2026-10-16 (CODEX_V4): fact tables, facts leg in the arms, fact metrics; legacy codex settings, tables and receipts removed. 2026-10-29 (Z2 F20): the run record lists codex_fact_reconcile_design and codex_fact_reconcile_context.",
+        "after": "79fee28069ed358833b45a0b67c687a999619296a388f26b67f2b74c8403c76f",
+        "reason": "Exact research serialization of stored IDs, rendered versions and final block receipts; old captured writer/reader outcomes are retained. 2026-10-16 (CODEX_V4): fact tables, facts leg in the arms, fact metrics; legacy codex settings, tables and receipts removed. 2026-10-29 (Z2 F20): the run record lists codex_fact_reconcile_design and codex_fact_reconcile_context. 2026-11-05 (Z3 freeze, re-registered): 579d4cc (FINAL r5) B2 breakdown and read seconds recorded; 1075c1b (R10) linked-logs private-output check; 6638903 (R10) rescue re-read.",
     },
     "experiments/v3_repair/tuning_plan.py": {
         "before": "c1480d90cfd749ebff1f690c5ce70bb85b7a5438dccccb1b4726b51602a9a070",
@@ -78,8 +78,8 @@ TRANSITIONS = {
     },
     "scripts/z1/evidence_content.py": {
         "before": "cb9caed2b5540eb4caaa04d507c00d0b2a0c8d93382b6689161ed7b5fbee9af7",
-        "after": "4806b8373ff3a87e06d5ac07dae0849b394e1308bc3eba3f11e6048b36ba1c79",
-        "reason": "Qualified research-only native attributed JSON observation; source-role/hash/offset and semantic gates preserved. Old measurements and frozen writer outputs are not rewritten.",
+        "after": "2beffae2337fd24cf8081aa81161747ba8f510467cd884f71948e001d22c6040",
+        "reason": "Qualified research-only native attributed JSON observation; source-role/hash/offset and semantic gates preserved. Old measurements and frozen writer outputs are not rewritten. 2026-11-05 (Z3 freeze, re-registered): 1075c1b (R10): one private-output check that accepts a linked logs folder; nothing measured changes.",
     },
     "scripts/z1/score_frozen_answers.py": {
         "before": "7d7b7025639f210b7c6f75948511058b8566329d9ed053d7d6fb5c8b2aa298a3",
