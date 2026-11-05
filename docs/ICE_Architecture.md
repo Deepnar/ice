@@ -7,7 +7,17 @@
 > Features that are experimental, gated off, or not yet wired into the live path are
 > flagged inline.
 
-`Last updated: 9 October 2026` · `Scope: v3 main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
+`Last updated: 5 November 2026` · `Scope: v3 main` · [Roadmap](ROADMAP.md) · [Provenance](PROVENANCE.md)
+
+> **⚑ Z3 freeze (2026-11-05) — what FINAL runs.** Measured in Z3's retests (RETESTS R2–R4, R7, R10) and
+> decided by the maintainer: **reads show a turn's original words** (`turn_summaries_in_reads=False`;
+> summaries are still written and searched); **a "no memory" decision is reconsidered by the reranker**
+> (`memory_source_rescue_mode="reranker"`, bar 0); 256 reranker candidates. **Switched off, code kept**
+> (deleted only after FINAL; off means no job queued or run, nothing written, nothing in a prompt): the
+> conversation fold (`conversation_notes_enabled`), batch summaries and their leg (`batch_summaries_enabled`),
+> procedural memory — extractor and leg (`procedural_memory_enabled`); session summaries since 2026-10-27.
+> The sections below describe these parts as built; where one says it runs, read it as "runs when switched
+> on". The record is FEATURE_INVENTORY's "Z3 FREEZE" section. R7 (B 69% vs plain search 57%, C 52% vs 27%).
 
 ---
 
@@ -586,7 +596,7 @@ admission. Direct search callers keep their prior behaviour, and reading never
 adds graph corroboration. The Laya source-need prototypes remain unpromoted;
 the complete G28 sweep and final answer-per-token comparisons remain open.
 
-**Reranker rescue (R10, 2026-11-01; off until Z3).** The rescue above judges the *visible* prompt
+**Reranker rescue (R10, 2026-11-01; the default since the Z3 freeze).** The rescue above judges the *visible* prompt
 first; in a new conversation that is only the question, and on Z2's complete LongMemEval oracle run
 B2 refused 146 of 456 questions, the rescue admitted memory on 16, and **130 were read with no memory**
 although plain search held the evidence on every one checked (FINDINGS F4) — a decision made from the
@@ -1157,7 +1167,7 @@ Temporal empty-window notes now report that no episodic source records were sele
 
 ### **5.4 Retrieval (widened by C9, 2026-07-19)**
 
-The procedural retrieval leg (_procedural_lookup) **always runs** — C9 deleted the old hard intent gate ({Strategic_Planning, Generation, Open_Exploration}), which is why nobody ever *felt* procedural memory. Precision now comes from three surviving signals: the vector cosine top-5 over procedural_memory WHERE embedding IS NOT NULL AND is_active = true **AND confidence_score ≥ settings.procedural_min_conf** (0.3 — the floor that replaced the whitelist; Z1 re-tunes it), the conversation-scope gate (patterns whose source_batch_ids intersect the conversation's batch set; project-scoped patterns are invisible outside their project and batch-exempt inside it — E1), and the trigger-condition gate (§5.2). Returns up to five ContextFragments of type procedural, scored by raw cosine similarity. **Root-cause note (found while widening):** the leg had been *fully dead*, not just gated — its embedding bind lacked the PgVector type, so every execution raised `vector <=> double precision[]`, rolled back, and returned `[]`; the whitelist hid the crash. Fixed with the same `bindparams(type_=PgVector)` idiom the episodic legs use (the identical latent bug in the RAG leg was fixed in passing — that leg has since been deleted, C12). Exp2's "+0.02 contribution" number therefore measured a leg that never returned anything; FINAL re-measures the working leg.
+The procedural retrieval leg (_procedural_lookup) **always runs when procedures are switched on** (off since the Z3 freeze, `procedural_memory_enabled=False`) — C9 deleted the old hard intent gate ({Strategic_Planning, Generation, Open_Exploration}), which is why nobody ever *felt* procedural memory. Precision now comes from three surviving signals: the vector cosine top-5 over procedural_memory WHERE embedding IS NOT NULL AND is_active = true **AND confidence_score ≥ settings.procedural_min_conf** (0.3 — the floor that replaced the whitelist; Z1 re-tunes it), the conversation-scope gate (patterns whose source_batch_ids intersect the conversation's batch set; project-scoped patterns are invisible outside their project and batch-exempt inside it — E1), and the trigger-condition gate (§5.2). Returns up to five ContextFragments of type procedural, scored by raw cosine similarity. **Root-cause note (found while widening):** the leg had been *fully dead*, not just gated — its embedding bind lacked the PgVector type, so every execution raised `vector <=> double precision[]`, rolled back, and returned `[]`; the whitelist hid the crash. Fixed with the same `bindparams(type_=PgVector)` idiom the episodic legs use (the identical latent bug in the RAG leg was fixed in passing — that leg has since been deleted, C12). Exp2's "+0.02 contribution" number therefore measured a leg that never returned anything; FINAL re-measures the working leg.
 
 
 ## **6. Hybrid Retrieval Orchestrator**
@@ -1452,7 +1462,7 @@ The Prompt Assembler (api/prompt_assembler.py) concatenates the retrieved fragme
 
 assemble_prompt returns messages in this exact order:
 
-23. **System message** — a fixed ~180-word instruction block opening with `Current date and time (UTC): <ISO datetime>` (T1 — the anchor that makes fragment date stamps resolvable), then role of history vs the live question, step-by-step reasoning, fact-change tracking, the fragment-dating explanation ([YYYY-MM-DD] prefixes, `(since YYYY-MM)` facts, [Timeline: …] history blocks — live since T4), and specificity — with an inline === PERSISTENT CONTEXT === block rendering the active slots in tier order (C9 D6: global [SLOT_NAME], then the attached project's [PROJECT · NAME], then this conversation's [CONVERSATION · NAME]), then === PROJECT SESSION START === when the turn opens a coding sitting (E4), then === CONVERSATION SUMMARY === when the conversation has outgrown the sliding window (C4 D3a — the evolving summary from §8.13, stamped "(as of N turns ago)" when the burst is behind). (The date prefix changes at most once a day, so the stable-prefix KV-cache property survives.)
+23. **System message** — a fixed ~180-word instruction block opening with `Current date and time (UTC): <ISO datetime>` (T1 — the anchor that makes fragment date stamps resolvable), then role of history vs the live question, step-by-step reasoning, fact-change tracking, the fragment-dating explanation ([YYYY-MM-DD] prefixes, `(since YYYY-MM)` facts, [Timeline: …] history blocks — live since T4), and specificity (plus, only with `memory_use_instruction="relevance"` — S9's ablation arm, off in the frozen system — one sentence: use memory only where it bears on the message, and say a thing was not discussed rather than guess) — with an inline === PERSISTENT CONTEXT === block rendering the active slots in tier order (C9 D6: global [SLOT_NAME], then the attached project's [PROJECT · NAME], then this conversation's [CONVERSATION · NAME]), then === PROJECT SESSION START === when the turn opens a coding sitting (E4), then === CONVERSATION SUMMARY === (only with `conversation_notes_enabled`, off since the Z3 freeze) when the conversation has outgrown the sliding window (C4 D3a — the evolving summary from §8.13, stamped "(as of N turns ago)" when the burst is behind). (The date prefix changes at most once a day, so the stable-prefix KV-cache property survives.)
 
 24. **Recent turns** — alternating user/assistant pairs from get_recent_turns(db, conv_id, max_tokens=max_recent_tokens, max_count=10).
 
@@ -1527,7 +1537,7 @@ budget. This is output integrity, not semantic qualification of rolling summarie
 
 **Runtime lease & standby (E7, 2026-07-16).** A `runtime_lease` pseudo-row in the same ledger (same pattern as the `session_end_burst` stamp) marks which *process* owns maintenance: the owning runtime stamps it on start and every tick, and releases it (`last_started = NULL`) on clean stop. `create_core(start_runtime: bool | None = None)` is lease-checked by default: a fresh foreign lease (< 180 s ≈ 3 ticks) means another process — the app or an `ice-mcp` session — owns maintenance, so this core's runtime starts in **standby**: its event jobs (this process's own post-flight chains, bookmark extractions) still run, but periodic/overdue dispatch, the session-end burst, and lease stamping stay with the owner; when the owner exits and its lease goes stale, the standby **promotes itself** on the next tick (`maintenance_runtime_promoted`). Cross-process event duplication is already safe (idempotency keys + the per-job claim lease above); what the lease serializes is the *dispatcher* — at most one process runs the periodic maintenance schedule. `start_runtime=True` force-owns (recovery), `False` starts no runtime at all (tests, pure-read tools).
 
-Cadences (`settings.maintenance_intervals`, seconds — the old beat schedule carried over, G9-aligned): cluster_assignment 1 800 · cluster_merge 10 800 · chunk_pending_documents 7 200 · decay_episodic/codex/procedural 5 400 · reflection 7 200 · batch_summarize 7 200 · **conversation_summary 7 200 (C4, 2026-07-19 — the evolving whole-conversation summaries, §8.13; also a session-end-burst member; idempotent per covers_through so cadence passes on quiet conversations are no-ops)** · ~~compaction~~ (deleted with CODEX_V4, D11.2) · **maintenance_agent 43 200 (D1, 2026-07-17 — replaced sentinel_monitor's 1 800 entry; gpu lane, also rides the session-end burst)** · **ingest_folder 900 (C12, 2026-07-28 — the watch-folder scan that replaced the never-started drop-zone observer, §8.12)** · **project_poll 600 (E3, 2026-07-18 — the reconcile-on-commit fallback: checks registered projects for hook marker files + HEAD drift; the hook is the design, this is the ≤10-min lag path, §12.3)**. **Fine-tuning has no cadence** — it is consent-gated (D6/H5, §8.8): enough curated labels + a session end → runs only when `settings.auto_finetune` (default False), else one pending review-queue proposal.
+Cadences (`settings.maintenance_intervals`, seconds — the old beat schedule carried over, G9-aligned): cluster_assignment 1 800 · cluster_merge 10 800 · chunk_pending_documents 7 200 · decay_episodic/codex/procedural 5 400 · reflection 7 200 · batch_summarize 7 200 (switched off since the Z3 freeze: `runtime.job_switched_off`) · **conversation_summary 7 200 (switched off since the Z3 freeze) (C4, 2026-07-19 — the evolving whole-conversation summaries, §8.13; also a session-end-burst member; idempotent per covers_through so cadence passes on quiet conversations are no-ops)** · ~~compaction~~ (deleted with CODEX_V4, D11.2) · **maintenance_agent 43 200 (D1, 2026-07-17 — replaced sentinel_monitor's 1 800 entry; gpu lane, also rides the session-end burst)** · **ingest_folder 900 (C12, 2026-07-28 — the watch-folder scan that replaced the never-started drop-zone observer, §8.12)** · **project_poll 600 (E3, 2026-07-18 — the reconcile-on-commit fallback: checks registered projects for hook marker files + HEAD drift; the hook is the design, this is the ≤10-min lag path, §12.3)**. **Fine-tuning has no cadence** — it is consent-gated (D6/H5, §8.8): enough curated labels + a session end → runs only when `settings.auto_finetune` (default False), else one pending review-queue proposal.
 
 **Decay catch-up is closed-form:** the decay callables take `cycles: int = 1`, and the runtime computes `cycles = clamp(floor((now − last_finished)/interval), 1, 96)` from the job's own ledger row at dispatch — one UPDATE applies `rate ** cycles`, so a week of downtime collapses into a single statement and cycles can never double-count runs the tick already performed.
 
@@ -1570,7 +1580,7 @@ After the density stage (C7): it calls extract_codex(...) directly (every non-pr
 `src/memory/representation.py::choose_representation` is shared by retrieval,
 the recent chat window (including budget degradation), and the explicit
 recent-turn service. `turn_summaries_in_reads = False` (Z2 ablation group 4's read
-switch, default True) returns the raw text only — no summary, no abstract. Summary eligibility requires finite coverage between
+switch; the default since the Z3 freeze, R4/R7) returns the raw text only — no summary, no abstract. Summary eligibility requires finite coverage between
 `settings.turn_summary_coverage_threshold` (default 0.7) and 1 inclusive;
 NULL is unknown, not trusted. **Coverage is term retention, not faithfulness**;
 each generated representation also needs its own source-current NLI verdict,

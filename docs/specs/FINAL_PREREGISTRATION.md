@@ -132,6 +132,16 @@ anything, at the cost of a re-run.
   GPU lanes); cloud `experiments/final/stream_cloud.py` once the window closes — it catches up on every
   checkpoint already read.
 
+**Revision 10 — APPROVED by the maintainer 2026-11-05, before any FINAL answer** (RETESTS R7): **S9 reads full
+ICE once more with a memory-use sentence in its system prompt** (`instr_relevance`; `memory_use_instruction=
+"relevance"`, off in the frozen system): use the remembered context only where it bears on the message; when
+the message needs none, answer without it; if asked about something the history and context do not contain,
+say plainly it was not discussed or unknown rather than guess. R7 found memory answering never-said questions
+(B 53% vs 80% with no memory) and intruding into messages that need none, and ICE's prompt asks for answers
+"in deep detail, drawing on the given context" with no such sentence. Scored like the summaries add-back
+(sentence on minus full ICE, positive = helps) on S9's questions, its never-said questions and its no-memory
+messages; an ablation that is reported, not adopted. S9's parts test: 15 reads a question.
+
 ## 1. The system and the data are frozen
 - ICE at the commit recorded at freeze (after Z2's fix pass and the D9 simplification pass).
 - Datasets (how they are reported: §3, revised 2026-10-28): LSREP private — A, SW, LAP, ICE2 (held out; ICE2 added in revision 4)
