@@ -27,7 +27,7 @@ client  ──▶  ICE proxy  ──▶  local model (Ollama, or vLLM)
 
 - [Motivation](#motivation)
 - [How it works](#how-it-works)
-- [Evaluation](#evaluation)
+- [Evaluation](#evaluation): [paper 1, ICE v2](#paper-1-frozen-ice-v2) · [ICE v3, under evaluation](#ice-v3-current-main-frozen-and-under-evaluation)
 - [Repository layout](#repository-layout)
 - [Running ICE](#running-ice)
 - [Status](#status)
@@ -57,12 +57,13 @@ Each turn traverses a synchronous **pre-flight** and an asynchronous **post-flig
 independent rather than a single choice, because a prompt can need stored memory *and* live
 information at once; a fully self-contained prompt is the derived state where all four stay
 low. A calibrated decision then combines the memory signal with a memory-pressure prior to
-decide whether long-term retrieval fires at all. The hybrid orchestrator runs its legs in
-parallel,
-fuses them with weighted Reciprocal Rank Fusion, and post-processes the fused list with
-keyword/recency/length bonuses, session diversification, deduplication, and a per-query token
-budget. A prompt assembler lays the result out under a stable prefix to maximise KV-cache
-reuse, and a mixture-of-experts router picks the best locally-served model.
+decide whether long-term retrieval fires at all; a strong reranker match can still admit
+memory the decision declined. The hybrid orchestrator runs its legs in parallel, fuses them
+with weighted Reciprocal Rank Fusion, adjusts scores with keyword/recency/length bonuses,
+reranks the candidates with `Qwen3-Reranker-0.6B`, then diversifies by session,
+deduplicates, and fits a per-query token budget. A prompt assembler lays the result out
+under a stable prefix to maximise KV-cache reuse, and a mixture-of-experts router picks the
+best locally-served model.
 
 **Post-flight.** Once the response has streamed, v3 evaluates the turn's information
 density and stores a grounded summary alongside its original text when eligible.
@@ -85,11 +86,9 @@ alongside compressed representations and chooses between them at retrieval time.
 | **Documents** | ingested files, chunked and embedded | chunk-level vector search |
 
 These are complemented by persistent **memory slots**, topical **context clusters**, **batch
-summaries** and **cold storage**.
-V3 cold originals also compete in ordinary memory searches under the existing
-candidate and prompt budgets; a recording date is not required for recall.
-Warm archived and restored probation sources also remain eligible; decay still
-affects their ranking and storage lifecycle.
+summaries** and **cold storage**. Archived and cold-stored originals stay
+searchable under the same budgets; decay lowers their ranking rather than
+hiding them.
 
 ### Beyond retrieval
 
@@ -118,6 +117,8 @@ The system has grown several capabilities that sit alongside the core loop:
   inspect, correct, and remove rather than merely accumulate.
 
 ## Evaluation
+
+### Paper 1: frozen ICE v2
 
 The paper evaluates **frozen ICE v2** at `v2-paper-eval`, not current v3 on
 `main`. **LSREP** reconstructs evolving memory during ordered conversational
@@ -153,84 +154,47 @@ recovers it (+0.82 [+0.39,+1.24]) in that buildup, without a general safety clai
 - 🏷 Evaluated snapshot — git tag `v2-paper-eval`
 - 🤗 Frozen **ICE v2** paper models — [classifier](https://huggingface.co/Deepnar/ice-v2-classifier), [MicroNER](https://huggingface.co/Deepnar/ice-v2-microner), and [reproducibility collection](https://huggingface.co/collections/Deepnar/ice-lsrep-reproducibility-6ac6210257541dd6f8594e14). Original `.pt` files, SHA-256 checksums and frozen preprocessing are included; these are separate from current ICE v3 models.
 
-Current **v3** work used the completed diagnostic reseed to repair memory
-mechanisms, then ran bounded read tuning on a development history
-([results](experiments/v3_repair/results/tuning-freeze-2026-10-15.md)): no
-setting beat the defaults beyond answer noise, so the configuration is frozen
-unchanged. On that near-ceiling development set, ICE's extra memory machinery
-showed no answer benefit over its own vector leg; this is development evidence,
-not a result. The next phase, **Z2** ([spec](docs/specs/Z2_EVALUATION.md)), is
-built to be difficult by design: cited evolving ground truth on two long
-histories (0.7-1.2M tokens), read-time ablations, budget curves, a
-background-content quality audit and the LongMemEval oracle, with a
-pre-registered rule for when a component earns its place. Z2 is not the paper's
-final experiment. The [development preparation guide](experiments/v3_repair/README.md)
-covers the tuning instruments.
+### ICE v3: current `main`, frozen and under evaluation
+
+v3 is v2 rebuilt after the paper's audit, and it is what `main` holds. It is now
+**frozen**: nothing that affects an answer changes until its final evaluation
+is complete. The main differences from v2:
+
+- **A codex instead of a triplet graph.** Facts are short verified sentences,
+  each carrying its quote, speaker and source turns, with a validity window so
+  a replaced fact stays retrievable as history.
+- **Grounded writes.** Summaries, facts, behavioural patterns and entity notes
+  are kept only when the cited source supports them. A question or a
+  hypothetical stays evidence; it does not become an established fact.
+- **Originals kept.** Turns keep their original text beside the summary, and
+  retrieval chooses which one the answer prompt gets.
+- **One ranked pool.** Every memory family competes in a single reranked
+  candidate pool (`Qwen3-Reranker-0.6B`) under the same token budget.
+- **Defaults chosen by measurement.** Bounded tuning on a development history
+  found no setting better than the defaults beyond answer noise, so the
+  defaults were frozen unchanged
+  ([results](experiments/v3_repair/results/tuning-freeze-2026-10-15.md)).
+
+The final evaluation is **pre-registered**: its claim, measures, tests and
+handling rules were fixed before any answer was graded
+([pre-registration](docs/specs/FINAL_PREREGISTRATION.md)). It covers:
+
+- **LSREP**, on nine synthetic histories and five long private ones, scored on
+  whether an answer is correct *as of the moment it was asked*, uses no
+  outdated value and invents nothing, and reported by how far back the
+  evidence lies.
+- **Public benchmarks**, each in its own published scoring: BEAM,
+  LongMemEval-S and LoCoMo.
+- **Comparisons** against plain vector search under ICE's own token budget, a
+  256K-token long-context reader, a recent-turns-only floor and, on LoCoMo,
+  three other memory systems (Graphiti, Mem0, A-Mem).
+- **Ablations**, switching each ICE part off in turn on a history built to
+  exercise it.
+
+There are no v3 results yet; they will be published in a follow-up paper.
+Until then, no number in this repository describes v3's quality.
 
 ## Repository layout
-
-Current **ICE v3** has a [manual development campaign and measurement
-guide](docs/reviews/2026-10-01-v3-manual-campaign.md): one resumable entry point
-for chronological replay, frozen cloud answers and both-order judging, with
-an explicit Muse Responses judge profile separate from frozen local seed settings,
-live terminal progress and separate processed/durable checkpoints. Temporary
-model failures get bounded retries; isolated exhausted failures remain visible
-as degraded memory or ungraded cloud errors while later questions continue.
-Repeated transport outages and integrity/configuration errors pause with saved artifacts.
-An explicitly reviewed instrument repair can preserve a paused checkpoint while
-still refusing writer or configuration changes. Each verified repair retains
-its own archived prefix and receipt. Recent-only controls bypass retrieval
-helpers; the warm-vector control excludes temporal notes and wide-net search.
-New bundles checkpoint every completed turn. It requires reviewed ground truth
-and remains diagnostic while judge qualification and output-specific quality
-checks are pending. The first complete v3 development campaign now has
-[diagnostic results and limitations](docs/PROVENANCE.md#2026-10-07--v3-completed-r4-development-campaign):
-useful old-memory evidence, substantial compression limits and an unqualified
-answer judge. The [next repair, tuning and evaluation plan](docs/specs/V3_POST_RESEED_REPAIR.md)
-keeps these findings separate from the frozen-v2 paper results above.
-
-Current **v3** repairs use bounded source-cited assertions for long summaries,
-preserve answer-bearing document chunks, and retain originals after incomplete
-notes. The codex was rebuilt (CODEX_V4): the summary claim pass now writes short
-verified fact sentences instead of a graph of NuExtract3 triplets. Earlier v3 graph
-writes combined NLI with an author-assertion check using the local background model,
-so questions and proposed scenarios can remain source evidence without becoming
-established graph facts. These mechanisms have focused validation; corpus answer
-quality, context savings and independent judge qualification remain pending.
-Verified conversation order now permits source-backed corrections when calendar
-dates are unknown; it does not invent event dates. Maintenance reserves bounded
-opportunity for each detector and records authority failures separately from
-actual model decisions.
-Dated questions now distinguish requested event time from source recording;
-an unresolved date meaning preserves relevant retrospective evidence under the
-same retrieval and prompt limits.
-Each available memory family can compete in the existing bounded rerank pool;
-relevance and final prompt limits still decide what reaches the answering model.
-Procedural descriptions merge only by exact identity or complete entailment in
-both directions; similar opposing instructions remain separate source-linked candidates.
-Procedural retrieval applies source and request eligibility before its candidate
-limit, so an ineligible nearest procedure cannot hide a relevant one.
-Procedural writes also check cited user messages against the proposed behavior;
-only supported messages count. Supplied procedures distinguish explicit user
-instructions from observed behavior and unverified stored candidates.
-Procedural context now separates cited source dates/conversation order from
-ICE observation time. Retirement reports its existing rule's actual outcomes;
-temporal notes fit the remaining retrieval budget.
-Factual memory proofs preserve a question's requested breadth: an unspecified
-workplace can be an employer; an explicit city request still requires a city.
-Cloud completion diagnostics now preserve available incomplete reasons and
-usage without generated text. Native call timings report unexplained provider
-time separately; whole-stack speed and memory costs remain unmeasured.
-An explicit v3 diagnostic scorer now caches independent factual grades and
-collects pairwise preferences separately. It defaults to planning; the rubric
-awaits independent human qualification before scores can be treated as final.
-Entity enrichment now uses complete attributed sources and cited verification;
-incomplete or unsupported candidates preserve the previous note. Readers separate
-current source-supported accounts from legacy unverified notes.
-Cluster overlap now uses real warm/cold source mentions rather than generated
-descriptions. Cold transitions preserve logical membership and centroids;
-complete member label calls retain earlier labels on failure. Cluster coherence
-and naming utility remain unqualified.
 
 ```
 src/api/          FastAPI proxy, prompt assembly, configuration, routers
@@ -243,7 +207,7 @@ src/ingestion/    conversation import (ChatGPT / Claude / DeepSeek exports)
 src/mcp/          ICE as an MCP server, for headless use by agents
 src/services/     HTTP-free service layer shared by the API and MCP surfaces
 docs/             architecture reference, roadmap, provenance, cleanup ledger
-experiments/      the three experiments, their harnesses, results, and the paper
+experiments/      evaluation harnesses, benchmark adapters, results, and the paper
 tests/            standalone integration scripts plus a fast pytest smoke suite
 ```
 
@@ -287,7 +251,7 @@ an async scheduler. There is no broker and no worker fleet; PostgreSQL is the on
 service.
 
 ```bash
-uv run pytest tests/smoke -q                         # fast sanity suite
+uv run pytest tests/smoke -q -m quick                # fast checks, no database needed
 ```
 
 ## Status
@@ -295,17 +259,18 @@ uv run pytest tests/smoke -q                         # fast sanity suite
 An active research project by a single author. It is not a product, and the following limits
 are deliberate and documented rather than incidental:
 
-- **The evaluation is single-user.** Every benchmark conversation was written by the author.
-  The results demonstrate effectiveness across conversation *types*, not across a population
-  of users. The corpora themselves are not released, because they are personal; the protocol,
-  harness, and metrics are.
+- **The private evaluation is single-user.** Every private history was written by the
+  author, so it speaks to conversation *types*, not to a population of users; public benchmarks and synthetic histories cover other writing. The private corpora
+  are not released, because they are personal; the protocol, harness, and metrics are.
 - **The published numbers describe a tag, not `main`.** They were produced at
   `v2-paper-eval`. Since then the Celery worker fleet was replaced by an in-process runtime,
-  embeddings moved to 1024 dimensions, the RAG leg was replaced by a document store, and
-  temporal retrieval, a coding mode, an MCP surface, and conversation import were added.
-- **Several components remain immature.** The codex was rebuilt as verified fact sentences
-  (CODEX_V4) and its effect on answers is not yet measured, and some mechanisms have not yet been measured in a fully working state. The
-  paper and the fidelity audit identify exactly which, and why.
+  embeddings moved to 1024 dimensions, the RAG leg was replaced by a document store, the
+  graph became a fact codex, a reranker was added, and temporal retrieval, a coding mode,
+  an MCP surface, and conversation import were added. v3 is measured by its own
+  pre-registered evaluation, not by the paper.
+- **Whether each v3 component earns its place is still open.** The ablations in v3's
+  evaluation answer that; until they report, no component is claimed to help. The paper
+  and the fidelity audit identify which v2 components were immature, and why.
 - Single-machine, single-user, and not hardened for deployment.
 
 Planned work is tracked in [`docs/ROADMAP.md`](docs/ROADMAP.md).
